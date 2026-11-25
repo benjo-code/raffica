@@ -37,6 +37,7 @@ internal enum ObjectKind
     Nudge,
     DeletePicture,
     PictureProperties,
+    PastePicture,
     Undo,
     Redo,
 }
@@ -89,6 +90,7 @@ internal sealed partial class ObjectSteps
         ObjectKind.Move,
         ObjectKind.Wrap,
         ObjectKind.PictureProperties,
+        ObjectKind.PastePicture,
         ObjectKind.DeletePicture,
         ObjectKind.Undo,
         ObjectKind.Undo,
@@ -180,6 +182,7 @@ internal sealed partial class ObjectSteps
                 ObjectKind.Nudge => await NudgePictureAsync(random, label),
                 ObjectKind.DeletePicture => await DeletePictureAsync(random, label),
                 ObjectKind.PictureProperties => await PicturePropertiesStepAsync(random, label),
+                ObjectKind.PastePicture => await PastePictureStepAsync(random, label),
                 ObjectKind.Undo => Editor.History.CanUndo ? await CheckAsync(Editor.History.Undo(), label, required: true) : Refuse(),
                 _ => Editor.History.CanRedo ? await CheckAsync(Editor.History.Redo(), label, required: true) : Refuse(),
             };

@@ -64,7 +64,8 @@ public sealed partial class TextEditor
     /// content is dropped. A fragment that flattens to nothing (a picture only) changes nothing, also over a selection: no delete, no
     /// history step, no revision.
     /// Without a fragment, or when the fragment cannot be read (a refused fragment is treated as absent, never partly pasted), the plain
-    /// text goes through <see cref="InsertText"/>. A selection that leaves its story or block list or runs over a section break pastes
+    /// text goes through <see cref="InsertText"/>; when there is no text either and the content has an <see cref="ClipboardContent.Image"/> it goes in as a
+    /// picture (<see cref="PastePicture"/>, which replaces a selection in the same one step). A selection that leaves its story or block list or runs over a section break pastes
     /// nothing and records nothing.
     /// </summary>
     public EditResult Paste(TextRange selection, ClipboardContent content, Func<string, bool> styleExists)
@@ -74,6 +75,12 @@ public sealed partial class TextEditor
         var paragraphs = ReadFragment(content);
         if (paragraphs is null || InSingleParagraphControl(selection.Start))
         {
+            if (paragraphs is null && string.IsNullOrEmpty(content.PlainText) && content.Image is { } image)
+            {
+                // Only a picture: it replaces the selection as text would (a refusal changes nothing; the caller asks RefusalForPastePicture for the reason).
+                return PastePicture(selection, image) ?? NoChange(selection.Start);
+            }
+
             // A text, combo box, drop-down list or date control keeps one paragraph: only the text of the clipboard goes in (InsertText applies the break rule).
             return InsertText(selection, content.PlainText ?? string.Empty);
         }

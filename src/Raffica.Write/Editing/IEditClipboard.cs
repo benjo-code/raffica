@@ -30,6 +30,9 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
     /// <summary>The fragment format.</summary>
     internal static readonly DataFormat<byte[]> Fragment = DataFormat.CreateBytesPlatformFormat("application/x-raffica-write-fragment");
 
+    /// <summary>The raw PNG bytes of a picture on the clipboard (what browsers, screenshot tools and Office put there).</summary>
+    internal static readonly DataFormat<byte[]> Png = DataFormat.CreateBytesPlatformFormat("image/png");
+
     /// <summary>The format of the source (editor id and package part) of a fragment.</summary>
     internal static readonly DataFormat<byte[]> Source = DataFormat.CreateBytesPlatformFormat("application/x-raffica-write-source");
 
@@ -46,7 +49,10 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
             {
                 var text = await transfer.TryGetTextAsync();
                 var fragment = await transfer.TryGetValueAsync(Fragment);
-                if (text is null && fragment is null)
+
+                // A picture counts only when there is neither a fragment nor text (own fragment, then text, then picture), so a clipboard with text never pays for the conversion of its bitmap.
+                var image = fragment is null && string.IsNullOrEmpty(text) ? await ReadImageAsync(transfer) : null;
+                if (text is null && fragment is null && image is null)
                 {
                     return null;
                 }
@@ -58,7 +64,7 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
                     (id, part) = ParseSource(source);
                 }
 
-                return new ClipboardContent(text ?? string.Empty, fragment, id, part);
+                return new ClipboardContent(text ?? string.Empty, fragment, id, part, image is null ? (ReadOnlyMemory<byte>?)null : new ReadOnlyMemory<byte>(image));
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -96,6 +102,47 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// The picture on the clipboard as the bytes of an image file, or null for none. The format <c>image/png</c> is read first and its bytes are taken as they are (no re-encoding); the system bitmap is the second choice and is
+    /// converted to PNG on a pool thread (never the UI thread). A bitmap above <see cref="PictureRules.MaxPixels"/> is not converted at all and comes back as an empty array, which a paste refuses as "not a picture" (so does a
+    /// PNG of zero bytes). Bytes above the size limit are returned unchanged: reading them was already done, and the editor refuses them with its own reason. Nothing of the picture is kept or logged; a clipboard that fails reads as no picture.
+    /// </summary>
+    internal static async Task<byte[]?> ReadImageAsync(IAsyncDataTransfer transfer)
+    {
+        ArgumentNullException.ThrowIfNull(transfer);
+        try
+        {
+            if (transfer.Formats.Contains(Png) && await transfer.TryGetValueAsync(Png) is { } png)
+            {
+                return png;
+            }
+
+            if (!transfer.Formats.Contains(DataFormat.Bitmap) || await transfer.TryGetBitmapAsync() is not { } bitmap)
+            {
+                return null;
+            }
+
+            using (bitmap)
+            {
+                if ((long)bitmap.PixelSize.Width * bitmap.PixelSize.Height > PictureRules.MaxPixels)
+                {
+                    return [];
+                }
+
+                return await Task.Run(() =>
+                {
+                    using var stream = new MemoryStream();
+                    bitmap.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                    return stream.ToArray();
+                });
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return null;
         }
     }
 

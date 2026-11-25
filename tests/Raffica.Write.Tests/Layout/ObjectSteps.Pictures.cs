@@ -145,6 +145,31 @@ internal sealed partial class ObjectSteps
         return await CheckPictureAsync(Editor.SetPictureProperties(id, properties), label, 0);
     }
 
+    // A picture pasted over a selection in one paragraph (a third of the time a caret): the selected text goes, one drawing comes.
+    private async Task<bool> PastePictureStepAsync(Random random, string label)
+    {
+        var candidates = Paragraphs().Where(p => Editor.RefusalForPicture(new TextPosition(StoryRef.Body, p, 0)) is null && TextLength(p) > 1).ToList();
+        if (candidates.Count == 0)
+        {
+            return Refuse();
+        }
+
+        var paragraph = candidates[random.Next(candidates.Count)];
+        var length = TextLength(paragraph);
+        var start = random.Next(length);
+        var end = random.Next(3) == 0 ? start : start + random.Next(1, length - start + 1);
+        var range = new TextRange(new TextPosition(StoryRef.Body, paragraph, start), new TextPosition(StoryRef.Body, paragraph, end));
+        if (Editor.RefusalForPastePicture(range, s_picture) is not null)
+        {
+            return Refuse();
+        }
+
+        _picturesBefore = PictureCount();
+        var gone = ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Pieces.Count(p => p.Content is Picture && p.Start >= Math.Min(start, end) && p.Start < Math.Max(start, end));
+        var result = Editor.PastePicture(range, s_picture);
+        return gone == 0 ? await CheckPictureAsync(result, label, 1) : await CheckAsync(result, label, required: false);
+    }
+
     private async Task<bool> DeletePictureAsync(Random random, string label)
     {
         if (PickPicture(random, _ => true) is not var (id, _))

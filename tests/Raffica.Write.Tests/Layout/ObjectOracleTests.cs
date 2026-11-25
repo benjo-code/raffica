@@ -277,7 +277,7 @@ public sealed class ObjectOracleTests
     private static readonly ObjectKind[] s_pictureKinds =
     [
         ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Resize, ObjectKind.Nudge, ObjectKind.Move, ObjectKind.Wrap, ObjectKind.Nudge, ObjectKind.Resize, ObjectKind.DeletePicture,
-        ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Move, ObjectKind.Nudge, ObjectKind.Undo, ObjectKind.Redo, ObjectKind.Wrap, ObjectKind.PictureProperties, ObjectKind.PictureProperties,
+        ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Move, ObjectKind.Nudge, ObjectKind.Undo, ObjectKind.Redo, ObjectKind.Wrap, ObjectKind.PictureProperties, ObjectKind.PictureProperties, ObjectKind.PastePicture, ObjectKind.PastePicture,
     ];
 
     // Cropped, anchored, turned and tabled pictures: picture steps only, each compared with a full layout and with the object map it publishes.

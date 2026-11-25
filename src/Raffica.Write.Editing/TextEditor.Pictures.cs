@@ -127,6 +127,80 @@ public sealed partial class TextEditor
         return result;
     }
 
+    /// <summary>The reason <see cref="PastePicture"/> refuses, or null: the rules of <see cref="RefusalForInsertPicture"/> at the start of the selection, a selection that runs over a section break or leaves its list of blocks. Nothing changes.</summary>
+    public PictureRefusal? RefusalForPastePicture(TextRange selection, ReadOnlyMemory<byte> bytes, bool prefixDocument = false)
+    {
+        if (Resolve(selection) is not { } span || (!span.IsCollapsed && RemovesSectionBreak(span)))
+        {
+            return PictureRefusal.NoPosition;
+        }
+
+        return RefusalForInsertPicture(new TextPosition(span.Story, span.First, span.FirstOffset), bytes, null, prefixDocument);
+    }
+
+    /// <summary>
+    /// Pastes a picture over the selection as ONE history step: the selected text is deleted as a paste would delete it (a footnote or endnote whose reference goes is removed with it) and the picture is inserted where it was, with no
+    /// description and the size rule of <see cref="InsertPicture"/>. The result's caret is right after the picture (as after pasted text). With nothing selected this is <see cref="InsertPicture"/>. Null when refused (see
+    /// <see cref="RefusalForPastePicture"/>); nothing changes then.
+    /// </summary>
+    public EditResult? PastePicture(TextRange selection, ReadOnlyMemory<byte> bytes, bool prefixDocument = false)
+    {
+        if (RefusalForPastePicture(selection, bytes, prefixDocument) is not null)
+        {
+            return null;
+        }
+
+        var span = Resolve(selection)!;
+        if (span.IsCollapsed)
+        {
+            return InsertPicture(new TextPosition(span.Story, span.First, span.FirstOffset), bytes, null, prefixDocument);
+        }
+
+        var info = PictureRules.CheckBytes(bytes.Span).Info!.Value;
+        var revision = History.BeginOperation();
+        MediaRef media;
+        try
+        {
+            media = _document.Media.Add(bytes, info.ContentType);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+
+        var old = CloneBlocks(span);
+        var references = ReferencesIn(span);
+        Paragraph paragraph;
+        int offset;
+        int removed;
+        ObjectChange? gone;
+        try
+        {
+            var deleted = DeleteSpan(span);
+            paragraph = deleted.Survivor;
+            removed = deleted.Removed;
+            var map = Map(span.Story, paragraph);
+            offset = EditRules.Snap(map, deleted.Offset);
+            var (width, height) = InsertSize(info, TextWidthEmu(paragraph));
+            var run = new Run();
+            run.Content.Add(new Picture(DrawingBuilder.Inline(media.RelationshipId, width, height, PictureOperations.NextDocPrId(_document), null)));
+            PlaceRun(paragraph, map, offset, run);
+            gone = RemoveNotesOf(references, span.Container, span.FirstIndex, 1);
+        }
+        catch
+        {
+            _document.Media.Remove(media);
+            throw;
+        }
+
+        _document.Edits.Raise();
+        var objects = new ObjectChange([], gone?.NotesRemoved ?? [], [media], []);
+        var result = new EditResult(new TextPosition(span.Story, paragraph, offset + 1), [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, 1, old)], Objects: objects);
+        result.Attribute(_document);
+        History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null, after: new EditHistory.Point(span.FirstIndex, offset + 1));
+        return result;
+    }
+
     // The pixels at 96 DPI in EMU, kept in proportion within the text width and Word's largest side.
     private static (long Width, long Height) InsertSize(ImageHeaderInfo info, long maxWidth)
     {

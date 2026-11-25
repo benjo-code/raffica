@@ -686,6 +686,7 @@ public sealed class SnapshotCacheOracleTests
         (string Label, Func<EditResult?> Run)[] steps =
         [
             ("insert", () => editor.InsertPicture(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[1], 3), png, "inserted")),
+            ("paste over a selection", () => editor.PastePicture(new TextRange(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[2], 0), new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[2], 2)), png)),
             ("resize", () => editor.ResizePicture(IdAt(8), 2000000, 1000000)),
             ("alt text", () => editor.SetAltText(IdAt(8), "cropped")),
             ("wrap to float", () => editor.SetPictureWrap(IdAt(8), PictureWrap.TopAndBottom)),
@@ -705,7 +706,9 @@ public sealed class SnapshotCacheOracleTests
         }
 
         // The store keeps the bytes of the inserted picture through every undo and redo (the save decides what is written).
-        var entry = Assert.Single(model.Media.Entries);
+        var entries = model.Media.Entries.ToArray();
+        Assert.NotEmpty(entries);
+        var entry = entries[0];
         for (var i = 0; i < steps.Length; i++)
         {
             Assert.NotNull(editor.History.Undo());

@@ -179,9 +179,9 @@ internal sealed partial class PageView
         }
 
         var content = await ReadSafeAsync(ClipboardOfView);
-        if (content is null || (content.PlainText.Length == 0 && !(content.Fragment is { } bytes && EditSession.FragmentReadable(bytes))))
+        if (content is null || (content.PlainText.Length == 0 && !ImageOnly(content) && !(content.Fragment is { } bytes && EditSession.FragmentReadable(bytes))))
         {
-            // Nothing usable: no text and no readable fragment. Pasting "" over a selection would delete it, so nothing happens at all.
+            // Nothing usable: no text, no readable fragment and no picture. Pasting "" over a selection would delete it, so nothing happens at all.
             return true;
         }
 
@@ -207,9 +207,18 @@ internal sealed partial class PageView
 
         ResetAffinity();
         _goalFor = null;
-        ApplyOperation(ed =>
+        // Own fragment, then text, then a picture: a picture is pasted only when it is all the clipboard holds that can be used. It replaces the selection as text does (one step) and is refused with its reason.
+        var picture = ImageOnly(content) ? content.Image : null;
+        PictureRefusal? refusal = null;
+        var prefix = IsPrefixDocument;
+        var result = ApplyOperation(ed =>
         {
             if (session.Selection is not { } selection)
+            {
+                return null;
+            }
+
+            if (picture is { } bytes && (refusal = ed.RefusalForPastePicture(selection, bytes, prefix)) is not null)
             {
                 return null;
             }
@@ -217,7 +226,17 @@ internal sealed partial class PageView
             var styles = _tab.Docx.Model.Styles;
             return ed.Paste(selection, content, id => styles?.Find(id) is not null);
         });
+
+        // A refused picture says why (a save that queued the paste says nothing now: the refusal is not known yet and a queued paste that fails says nothing either).
+        if (result is null && refusal is { } reason && session.BlockedReason is null)
+        {
+            StructureNote?.Invoke(PictureWording.ReasonText(reason));
+        }
     }
+
+    // True when the clipboard holds a picture and nothing else a paste could use: no text and no readable fragment.
+    private static bool ImageOnly(ClipboardContent content) =>
+        content.Image is not null && content.PlainText.Length == 0 && !(content.Fragment is { } fragment && EditSession.FragmentReadable(fragment));
 
     private static async Task<bool> WriteSafeAsync(IEditClipboard clipboard, ClipboardContent content)
     {
