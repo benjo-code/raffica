@@ -44,6 +44,8 @@ public enum PictureRefusal
 
     /// <summary>The move target is in another list of blocks than the picture (another content control, a cell, another story).</summary>
     AnotherPlace,
+    /// <summary>The move target is 20,000 or more blocks away from the picture (the one history step snapshots every block between the two).</summary>
+    TooFar,
 
     /// <summary>The bytes are no PNG, JPEG, GIF, BMP or TIFF, or the header is cut short, unreadable or states no size.</summary>
     NotAnImage,

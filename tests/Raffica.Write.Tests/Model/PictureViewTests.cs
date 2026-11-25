@@ -133,7 +133,7 @@ public sealed class PictureViewTests
                     Assert.True(codec.Value.Width == read.Width && codec.Value.Height == read.Height, $"{entry.Id}/{part.FullName}: the probe reads {read.Width} x {read.Height}, the codec {codec.Value.Width} x {codec.Value.Height}");
                     compared++;
                 }
-                else if (codec is not null && part.FullName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase))
+                else if (codec is not null && (part.FullName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) || part.FullName.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase)))
                 {
                     missed.Add($"{entry.Id}/{part.FullName} ({bytes.Length} bytes, codec {(codec is null ? "none" : codec.Value.Width + "x" + codec.Value.Height)})");
                 }

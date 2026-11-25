@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Raffica.Write.Model;
 
 namespace Raffica.Write.Editing;
@@ -76,7 +77,7 @@ public sealed partial class TextEditor
     /// as Word writes one is put into a run of its own at the caret, with a <c>wp:docPr</c> id above every other drawing's. The size is the picture's pixels at 96 DPI, kept in proportion to fit the text width of the section it
     /// lands in (and Word's largest side). <paramref name="altText"/> becomes the picture's description. The bytes are checked before anything changes (<see cref="PictureRules.CheckBytes"/>) and the place by
     /// <see cref="RefusalForInsertPicture"/>; null means refused and nothing changed. The result's caret is right after the picture and <see cref="EditResult.Objects"/> names the media entry. A selection is not replaced here: the caller deletes
-    /// it first. A stale position throws <see cref="StalePositionException"/> before anything changes. The owner of the layout's picture cache clears it after an insert (the id is new, but a store entry can reuse nothing; see the rule of <c>ImageCache</c>).
+    /// it first. A position that is not in the document is refused (<see cref="PictureRefusal.NoPosition"/>) before anything changes. The owner of the layout's picture cache clears it after an insert (see <see cref="WordDocument.Media"/> and the rule of <c>ImageCache</c>).
     /// </summary>
     public EditResult? InsertPicture(TextPosition at, ReadOnlyMemory<byte> bytes, string? altText, bool prefixDocument = false)
     {
@@ -142,7 +143,7 @@ public sealed partial class TextEditor
         return (Math.Max(1, (long)Math.Round(width * scale)), Math.Max(1, (long)Math.Round(height * scale)));
     }
 
-    // The width of the text area of the section the paragraph is in, in EMU.
+    // The width of the text area of the section the paragraph is in, in EMU; a paragraph in a cell of a table (not a nested one) is limited to the width of the cell's content as well.
     private long TextWidthEmu(Paragraph paragraph)
     {
         var blocks = _document.Body.Blocks;
@@ -156,7 +157,58 @@ public sealed partial class TextEditor
             }
         }
 
-        return TableWidthTwips(blocks, top, paragraph, 1, false) * 635L;
+        var twips = TableWidthTwips(blocks, top, paragraph, 1, false);
+        if (blocks[top] is not Paragraph && CellContentTwips(blocks[top], paragraph) is { } cell)
+        {
+            twips = Math.Min(twips, cell);
+        }
+
+        return twips * 635L;
+    }
+
+    /// <summary>
+    /// The width of the content of the table cell that holds <paramref name="paragraph"/> directly, in twips: the grid columns of the cell's span summed, minus its left and right margins (the cell's own <c>w:tcMar</c>, else
+    /// the table's <c>w:tblCellMar</c>, else 108 twips each as Word's default; the margins of a table style are not read). Only a table of fixed layout (<c>w:tblLayout fixed</c>) with a regular, consistent grid whose widths are all
+    /// positive is read; an autofit or percentage table sizes its columns by content, so the grid is only advice there and null (the section's text width applies) is returned, as it is for a paragraph in no cell or in a nested one.
+    /// At least 20 twips.
+    /// </summary>
+    internal static int? CellContentTwips(Block top, Paragraph paragraph)
+    {
+        if (FindCell(top, paragraph, 0) is not { } found
+            || found.Table.Properties.Get(W + "tblLayout") is not { } layout || (string?)layout.Attribute(W + "type") != "fixed")
+        {
+            return null;
+        }
+
+        var map = TableGridMap.Of(found.Table);
+        if (!map.IsRegular || !map.IsConsistent || map.Cells.FirstOrDefault(c => ReferenceEquals(c.Cell, found.Cell)) is not { } place
+            || place.Column < 0 || place.LastColumn >= found.Table.GridColumns.Count)
+        {
+            return null;
+        }
+
+        long width = 0;
+        for (var c = place.Column; c <= place.LastColumn; c++)
+        {
+            if (found.Table.GridColumns[c] <= 0)
+            {
+                return null;
+            }
+
+            width += found.Table.GridColumns[c];
+        }
+
+        var margins = found.Cell.Properties.Get(W + "tcMar") ?? found.Table.Properties.Get(W + "tblCellMar");
+        var content = width - MarginTwips(margins, "left", "start") - MarginTwips(margins, "right", "end");
+        return (int)Math.Clamp(content, 20, int.MaxValue);
+    }
+
+    private static int MarginTwips(XElement? margins, string name, string alternative)
+    {
+        var side = margins?.Element(W + name) ?? margins?.Element(W + alternative);
+        return side is not null && (string?)side.Attribute(W + "type") is null or "dxa" && int.TryParse((string?)side.Attribute(W + "w"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? Math.Clamp(value, 0, 31680)
+            : 108;
     }
 
     // ---- resolving a picture -----------------------------------------------------------------------------------------------------------
@@ -406,7 +458,7 @@ public sealed partial class TextEditor
             return PictureRefusal.NothingToChange;
         }
 
-        if (target.Info.Wrap == wrap)
+        if (target.Info.Wrap == wrap && !(wrap == PictureWrap.Square && PictureOperations.IsTightOrThrough(target.Picture)))
         {
             return PictureRefusal.NothingToChange;
         }
@@ -420,7 +472,7 @@ public sealed partial class TextEditor
     /// Moves a floating picture to the start of <paramref name="anchorParagraph"/> (a floating picture is anchored to a paragraph, not to a character) and writes the offsets <paramref name="dxEmu"/> and <paramref name="dyEmu"/> as its
     /// position, each measured from what the picture's axis is measured from (an alignment keyword is replaced by the offset); the caller works the offsets out from the drag against the new paragraph. Offsets are clamped to
     /// &#177;<see cref="PictureRules.MaxOffsetEmu"/>. One history step. Refused for an inline picture (<see cref="PictureRefusal.NotFloating"/>), a picture or a target in a table cell, a target that is not in the body's own list of
-    /// blocks as the picture (<see cref="PictureRefusal.AnotherPlace"/>) and a move across more than 20,000 blocks. A stale target throws <see cref="StalePositionException"/> before anything changes.
+    /// blocks as the picture (<see cref="PictureRefusal.AnotherPlace"/>) and a move across 20,000 blocks or more (<see cref="PictureRefusal.TooFar"/>). A stale target throws <see cref="StalePositionException"/> before anything changes.
     /// </summary>
     public EditResult? MovePicture(ObjectId id, TextPosition anchorParagraph, long dxEmu, long dyEmu, bool prefixDocument = false) =>
         Move(id, anchorParagraph, dxEmu, dyEmu, prefixDocument, commit: true).Result;
@@ -458,9 +510,14 @@ public sealed partial class TextEditor
             return new PictureAttempt(null, PictureRefusal.FloatInCell);
         }
 
-        if (!ReferenceEquals(targetContainer, target.Container) || Math.Abs(targetIndex - target.Index) >= MaxMoveSpan)
+        if (!ReferenceEquals(targetContainer, target.Container))
         {
             return new PictureAttempt(null, PictureRefusal.AnotherPlace);
+        }
+
+        if (Math.Abs(targetIndex - target.Index) >= MaxMoveSpan)
+        {
+            return new PictureAttempt(null, PictureRefusal.TooFar);
         }
 
         if (InSingleParagraphControl(_document.Body.Blocks, targetContainer))

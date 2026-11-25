@@ -58,6 +58,7 @@ internal static class TestPictures
         var bytes = new byte[54];
         bytes[0] = (byte)'B';
         bytes[1] = (byte)'M';
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(10), 54);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(14), 40);
         BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(18), width);
         BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(22), height);

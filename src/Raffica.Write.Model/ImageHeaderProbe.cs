@@ -22,7 +22,7 @@ public static class ImageHeaderProbe
     private static ImageHeaderInfo? Png(ReadOnlySpan<byte> b)
     {
         ReadOnlySpan<byte> signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-        if (b.Length < 24 || !b[..8].SequenceEqual(signature) || !b.Slice(12, 4).SequenceEqual("IHDR"u8))
+        if (b.Length < 24 || !b[..8].SequenceEqual(signature) || BinaryPrimitives.ReadUInt32BigEndian(b[8..]) != 13 || !b.Slice(12, 4).SequenceEqual("IHDR"u8))
         {
             return null;
         }
@@ -93,7 +93,15 @@ public static class ImageHeaderProbe
 
     private static ImageHeaderInfo? Gif(ReadOnlySpan<byte> b)
     {
-        if (b.Length < 10 || !(b[..6].SequenceEqual("GIF87a"u8) || b[..6].SequenceEqual("GIF89a"u8)))
+        if (b.Length < 13 || !(b[..6].SequenceEqual("GIF87a"u8) || b[..6].SequenceEqual("GIF89a"u8)))
+        {
+            return null;
+        }
+
+        // What follows the header (and a global colour table) is an extension, an image descriptor or the trailer; text that only starts with the letters is not a picture.
+        var packed = b[10];
+        var next = 13 + ((packed & 0x80) != 0 ? 3 * (1 << ((packed & 7) + 1)) : 0);
+        if (next < b.Length && b[next] is not (0x21 or 0x2C or 0x3B))
         {
             return null;
         }
@@ -103,26 +111,30 @@ public static class ImageHeaderProbe
 
     private static ImageHeaderInfo? Bmp(ReadOnlySpan<byte> b)
     {
-        if (b.Length < 26 || b[0] != (byte)'B' || b[1] != (byte)'M')
+        if (b.Length < 28 || b[0] != (byte)'B' || b[1] != (byte)'M')
         {
             return null;
         }
 
+        // The size of the info header is one of the kinds that exist and the pixel data starts after it: a file of text that starts with "BM" has neither.
         var headerSize = BinaryPrimitives.ReadUInt32LittleEndian(b[14..]);
+        var dataOffset = BinaryPrimitives.ReadUInt32LittleEndian(b[10..]);
+        if (headerSize is not (12 or 40 or 52 or 56 or 64 or 108 or 124) || dataOffset < 14 + headerSize || dataOffset > int.MaxValue)
+        {
+            return null;
+        }
+
         if (headerSize == 12)
         {
-            return new ImageHeaderInfo("image/bmp", BinaryPrimitives.ReadUInt16LittleEndian(b[18..]), BinaryPrimitives.ReadUInt16LittleEndian(b[20..]));
-        }
-
-        if (headerSize < 16 || b.Length < 26)
-        {
-            return null;
+            return BinaryPrimitives.ReadUInt16LittleEndian(b[22..]) == 1
+                ? new ImageHeaderInfo("image/bmp", BinaryPrimitives.ReadUInt16LittleEndian(b[18..]), BinaryPrimitives.ReadUInt16LittleEndian(b[20..]))
+                : null;
         }
 
         var width = BinaryPrimitives.ReadInt32LittleEndian(b[18..]);
         var height = BinaryPrimitives.ReadInt32LittleEndian(b[22..]);
         // A negative height is a top-down bitmap; the size is its magnitude.
-        return width <= 0 || height == int.MinValue ? null : new ImageHeaderInfo("image/bmp", width, Math.Abs(height));
+        return width <= 0 || height == int.MinValue || BinaryPrimitives.ReadUInt16LittleEndian(b[26..]) != 1 ? null : new ImageHeaderInfo("image/bmp", width, Math.Abs(height));
     }
 
     private static ImageHeaderInfo? Tiff(ReadOnlySpan<byte> b)

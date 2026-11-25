@@ -126,6 +126,9 @@ internal static class PictureOperations
                 }
 
                 break;
+            case UnknownRowItem unknown:
+                yield return unknown.Content.Element;
+                break;
             default:
                 break;
         }
@@ -171,25 +174,46 @@ internal static class PictureOperations
         }
     }
 
-    /// <summary>One more than the highest <c>wp:docPr</c> id of any drawing of the document (at least 1): a new drawing's id is unique.</summary>
+    private const long UnsignedIntMaximum = uint.MaxValue;
+
+    /// <summary>
+    /// One more than the highest <c>wp:docPr</c> id of any drawing of the document (at least 1): a new drawing's id is unique. The id is an unsigned 32-bit number in the schema; ids beyond it are not counted, and when
+    /// the highest valid one is already <see cref="uint.MaxValue"/> the lowest id nobody uses is taken.
+    /// </summary>
     public static long NextDocPrId(WordDocument document)
     {
+        var used = new HashSet<long>();
         long highest = 0;
         foreach (var root in DrawingRoots(document))
         {
             foreach (var docPr in root.DescendantsAndSelf(Wp + "docPr"))
             {
-                if (long.TryParse((string?)docPr.Attribute("id"), NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > highest)
+                if (long.TryParse((string?)docPr.Attribute("id"), NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id <= UnsignedIntMaximum)
                 {
-                    highest = id;
+                    used.Add(id);
+                    highest = Math.Max(highest, id);
                 }
             }
         }
 
-        return highest + 1;
+        if (highest < UnsignedIntMaximum)
+        {
+            return highest + 1;
+        }
+
+        var free = 1L;
+        while (used.Contains(free))
+        {
+            free++;
+        }
+
+        return free;
     }
 
-    /// <summary>One more than the highest <c>relativeHeight</c> of any anchored drawing of the document: the new float is above all others.</summary>
+    /// <summary>
+    /// One more than the highest <c>relativeHeight</c> of any anchored drawing of the document: the new float is above all others. The attribute is an unsigned 32-bit number, so a document whose highest is already
+    /// <see cref="uint.MaxValue"/> gets <see cref="uint.MaxValue"/> (level with it; there is nothing above).
+    /// </summary>
     public static long NextRelativeHeight(WordDocument document)
     {
         long highest = 0;
@@ -197,15 +221,16 @@ internal static class PictureOperations
         {
             foreach (var anchor in root.DescendantsAndSelf(Wp + "anchor"))
             {
-                if (long.TryParse((string?)anchor.Attribute("relativeHeight"), NumberStyles.None, CultureInfo.InvariantCulture, out var height) && height > highest)
+                if (long.TryParse((string?)anchor.Attribute("relativeHeight"), NumberStyles.None, CultureInfo.InvariantCulture, out var height) && height <= UnsignedIntMaximum && height > highest)
                 {
                     highest = height;
                 }
             }
         }
 
-        return highest + 1;
+        return Math.Min(highest + 1, UnsignedIntMaximum);
     }
+
 
     // ---- size and alt text ------------------------------------------------------------------------------------------------------------
 
@@ -245,7 +270,7 @@ internal static class PictureOperations
     public static bool SetWrap(Picture picture, PictureWrap target, long relativeHeight)
     {
         var current = PictureView.Of(picture)!.Wrap;
-        if (current == target)
+        if (current == target && !(target == PictureWrap.Square && IsTightOrThrough(picture)))
         {
             return false;
         }
@@ -261,12 +286,25 @@ internal static class PictureOperations
         }
         else
         {
-            foreach (var old in container.Elements().Where(e => e.Name.Namespace == Wp && s_wrapNames.Contains(e.Name.LocalName)).ToList())
+            var replaced = container.Elements().Where(e => e.Name.Namespace == Wp && s_wrapNames.Contains(e.Name.LocalName)).ToList();
+            foreach (var old in replaced)
             {
                 old.Remove();
             }
 
             var wrap = WrapElement(target);
+            if (target == PictureWrap.Square && replaced.FirstOrDefault(e => e.Name.LocalName is "wrapTight" or "wrapThrough") is { } polygon)
+            {
+                // Tight and through become square with the same side and distances (the polygon goes).
+                foreach (var name in new[] { "wrapText", "distT", "distB", "distL", "distR" })
+                {
+                    if (polygon.Attribute(name) is { } kept)
+                    {
+                        wrap.SetAttributeValue(name, kept.Value);
+                    }
+                }
+            }
+
             var before = container.Element(Wp + "docPr");
             if (before is not null)
             {
@@ -282,6 +320,10 @@ internal static class PictureOperations
 
         return true;
     }
+
+    /// <summary>True when the picture's wrap element is `wrapTight` or `wrapThrough`, which read as Square (see <see cref="PictureView"/>) but are a different element.</summary>
+    public static bool IsTightOrThrough(Picture picture) =>
+        PictureView.ContainerOf(picture)?.Elements().Any(e => e.Name.Namespace == Wp && e.Name.LocalName is "wrapTight" or "wrapThrough") == true;
 
     private static XElement WrapElement(PictureWrap wrap) => wrap switch
     {

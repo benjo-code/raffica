@@ -635,42 +635,157 @@ public sealed class PictureEditingTests
     [Fact]
     public void NoMessageHoldsBytesNameOrAltText()
     {
-        var document = Doc(Line("alpha"), Line("beta"));
+        const string Alt = "SECRET-ALT-7f3a";
+        const string Name = "SECRET-NAME-91";
+        var marker = "SECRET-BYTES"u8.ToArray();
+        var table = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+        var document = Doc(Line("alpha"), Para(InlinePicture(7).Replace("Picture 7", Name, StringComparison.Ordinal)), Para(AnchoredPicture(8, 10).Replace("Picture 8", Name, StringComparison.Ordinal)), Line("gamma"), table, Line("after"));
         var editor = Editor(document);
-        var marker = "BYTES-MARKER-0815"u8.ToArray();
-        var withMarker = TestPictures.Png(4, 4).Concat(marker).ToArray();
-        var messages = new List<string>();
+        var seen = new List<string>();
 
-        void Collect(Action action)
+        void Note(object? value)
+        {
+            if (value is not null and not EditResult)
+            {
+                seen.Add(value.ToString()!);
+            }
+        }
+
+        T Observe<T>(Func<T> operation)
         {
             try
             {
-                action();
+                var result = operation();
+                Note(result);
+                return result;
             }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or StalePositionException)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                messages.Add(ex.Message);
+                seen.Add(ex.ToString());
+                seen.Add(ex.Message);
+                return default!;
             }
         }
 
-        Assert.NotNull(editor.InsertPicture(At(document, 0, 0), withMarker, Secret));
-        var id = IdOf(document, 0);
-        Collect(() => editor.SetAltText(id, null!));
-        Collect(() => editor.MovePicture(id, new TextPosition(StoryRef.Body, new Paragraph(), 0), 0, 0));
-        Collect(() => editor.InsertPicture(new TextPosition(StoryRef.Body, new Paragraph(), 0), withMarker, Secret));
-        Collect(() => editor.ResizePicture(null!, 1, 1));
-        Collect(() => document.Media.Add(withMarker, "application/x-bogus"));
-        Collect(() => document.Media.Add(Array.Empty<byte>(), "image/png"));
+        void Throws<TException>(Action operation)
+            where TException : Exception
+        {
+            var ex = Assert.ThrowsAny<TException>(operation);
+            seen.Add(ex.ToString());
+            seen.Add(ex.Message);
+        }
+
+        // Payloads: a picture with the marker in its data, a refused one of every kind that carries it, and the three pieces of text.
+        var withMarker = TestPictures.Png(4, 4).Concat(marker).ToArray();
+        var tooLarge = new byte[(51 * 1024 * 1024) + marker.Length];
+        marker.CopyTo(tooLarge, tooLarge.Length - marker.Length);
+        TestPictures.Png(4, 4).CopyTo(tooLarge, 0);
+        byte[][] payloads =
+        [
+            withMarker,
+            tooLarge,
+            [.. TestPictures.PngHeaderOnly(10000, 10000), .. marker],
+            [.. marker, .. marker],
+            [.. TestPictures.Png(4, 4).AsSpan(0, 20), .. marker],
+            [.. "GIF89a"u8, .. marker],
+        ];
+        var longAlt = Alt + new string('x', 4100);
+        var body = document.Body.Blocks;
+        var paragraph = (Paragraph)body[0];
+        var cellParagraph = ((TableCell)((TableRow)((Table)body[4]).Rows[0]).Items[0]).Blocks.OfType<Paragraph>().Single();
+        var stale = new Paragraph();
+        var inline = IdOf(document, 1);
+        var floating = IdOf(document, 2);
+        var gone = new ObjectId(StoryRef.Body, 99, 0, 0);
+        var header = new ObjectId(new StoryRef(StoryKind.HeaderFooter, "rId1"), 0, 0, 0);
+        TextPosition[] places =
+        [
+            new TextPosition(StoryRef.Body, paragraph, 1),
+            new TextPosition(StoryRef.Body, cellParagraph, 0),
+            new TextPosition(new StoryRef(StoryKind.HeaderFooter, "rId1"), paragraph, 0),
+            new TextPosition(new StoryRef(StoryKind.Note, "1"), paragraph, 0),
+            new TextPosition(new StoryRef(StoryKind.Comment, "1"), paragraph, 0),
+            new TextPosition(StoryRef.Body, null!, 0),
+        ];
+
+        // Every refusal path of the insert and its twin, with the secret alt text and with each payload.
+        foreach (var alt in new string?[] { Alt, longAlt, null })
+        {
+            foreach (var payload in payloads)
+            {
+                foreach (var place in places)
+                {
+                    Observe(() => editor.RefusalForInsertPicture(place, payload, alt));
+                    Observe(() => editor.RefusalForInsertPicture(place, payload, alt, prefixDocument: true));
+                    if (!ReferenceEquals(payload, withMarker) || place.Paragraph is null || place.Story.Kind != StoryKind.Body)
+                    {
+                        Observe(() => editor.InsertPicture(place, payload, alt));
+                    }
+                }
+
+                Observe(() => editor.InsertPicture(new TextPosition(StoryRef.Body, stale, 0), payload, alt));
+                Assert.Equal(PictureRefusal.NoPosition, Observe(() => editor.RefusalForInsertPicture(new TextPosition(StoryRef.Body, stale, 0), payload, alt)));
+            }
+        }
+
+        // A good insert (the marker is in the data) and every other operation, on a picture, a stale id, another story and a prefix document, with the alt text secret as input.
+        Assert.NotNull(editor.InsertPicture(places[0], withMarker, Alt));
+        var inserted = IdOf(document, 0);
+        foreach (var id in new[] { inline, floating, inserted, gone, header })
+        {
+            foreach (var prefix in new[] { false, true })
+            {
+                Observe(() => editor.RefusalForResizePicture(id, 10, 10, prefix));
+                Observe(() => editor.RefusalForResizePicture(id, -1, 10, prefix));
+                Observe(() => editor.RefusalForAltText(id, longAlt, prefix));
+                Observe(() => editor.RefusalForAltText(id, Alt, prefix));
+                Observe(() => editor.RefusalForPictureWrap(id, PictureWrap.Behind, prefix));
+                Observe(() => editor.RefusalForPictureWrap(id, (PictureWrap)99, prefix));
+                Observe(() => editor.RefusalForNudgePicture(id, 1, 1, prefix));
+                Observe(() => editor.RefusalForResetPictureSize(id, prefix));
+                Observe(() => editor.RefusalForDeletePicture(id, prefix));
+                Observe(() => editor.RefusalForMovePicture(id, places[1], prefix));
+                Observe(() => editor.ResizePicture(id, -1, 10, prefix));
+                Observe(() => editor.SetAltText(id, longAlt, prefix));
+                Observe(() => editor.SetPictureWrap(id, (PictureWrap)99, prefix));
+                Observe(() => editor.NudgePicture(id, 0, 0, prefix));
+                Observe(() => editor.MovePicture(id, places[1], 1, 1, prefix));
+                Observe(() => editor.ResetPictureSize(id, prefix));
+            }
+
+            Throws<ArgumentNullException>(() => editor.SetAltText(id, null!));
+            Throws<ArgumentNullException>(() => editor.RefusalForAltText(id, null!));
+        }
+
+        Throws<StalePositionException>(() => editor.MovePicture(floating, new TextPosition(StoryRef.Body, stale, 0), 1, 1));
+        Throws<ArgumentNullException>(() => editor.ResizePicture(null!, 1, 1));
+        Observe(() => editor.SetAltText(inserted, Alt));
+        Observe(() => editor.SetAltText(inserted, Alt));
+        Observe(() => editor.RefusalForAltText(inserted, Alt));
+        Observe(() => editor.DeletePicture(inline));
+        Observe(() => editor.DeletePicture(inline));
+
+        // The store refuses bad input with fixed messages.
+        Throws<ArgumentException>(() => document.Media.Add(withMarker, "application/x-" + Name));
+        Throws<ArgumentOutOfRangeException>(() => document.Media.Add(Array.Empty<byte>(), "image/png"));
+        Throws<ArgumentOutOfRangeException>(() => document.Media.Add(tooLarge, "image/png"));
         foreach (var refusal in Enum.GetValues<PictureRefusal>())
         {
-            messages.Add(refusal.ToString());
+            seen.Add(refusal.ToString());
         }
 
-        Assert.NotEmpty(messages);
-        foreach (var message in messages)
+        Assert.True(seen.Count > 300, $"only {seen.Count} results and messages were collected");
+        string[] secrets =
+        [
+            Alt, Name, "SECRET-BYTES", "SECRET-ALT", "SECRET-NAME",
+            Convert.ToBase64String(marker), Convert.ToHexString(marker), Convert.ToBase64String("SECRET-ALT-7f3a"u8),
+        ];
+        foreach (var message in seen)
         {
-            Assert.DoesNotContain("BYTES-MARKER", message, StringComparison.Ordinal);
-            Assert.DoesNotContain(Secret, message, StringComparison.Ordinal);
+            foreach (var secret in secrets)
+            {
+                Assert.DoesNotContain(secret, message, StringComparison.OrdinalIgnoreCase);
+            }
         }
     }
 
@@ -754,5 +869,162 @@ public sealed class PictureEditingTests
             Assert.NotNull(editor.History.Redo());
             Assert.Equal(snapshots[i], Snapshot(document));
         }
+    }
+
+    // ---- the width of a cell ---------------------------------------------------------------------------------------------------------
+
+    private static string CellTable(string tableProperties, string firstCellProperties = "", string secondCellProperties = "")
+    {
+        var cells = $"<w:tc>{(firstCellProperties.Length == 0 ? string.Empty : "<w:tcPr>" + firstCellProperties + "</w:tcPr>")}<w:p><w:r><w:t>narrow</w:t></w:r></w:p></w:tc>"
+            + $"<w:tc>{(secondCellProperties.Length == 0 ? string.Empty : "<w:tcPr>" + secondCellProperties + "</w:tcPr>")}<w:p><w:r><w:t>wide</w:t></w:r></w:p></w:tc>";
+        return $"<w:tbl><w:tblPr>{tableProperties}</w:tblPr><w:tblGrid><w:gridCol w:w=\"2000\"/><w:gridCol w:w=\"9000\"/></w:tblGrid><w:tr>{cells}</w:tr>"
+            + "<w:tr><w:tc><w:tcPr><w:gridSpan w:val=\"2\"/></w:tcPr><w:p><w:r><w:t>both</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+    }
+
+    private static Paragraph CellParagraph(WordDocument document, int row, int cell) =>
+        ((TableCell)((TableRow)((Table)document.Body.Blocks[1]).Rows[row]).Items[cell]).Blocks.OfType<Paragraph>().Single();
+
+    private static EmuSize InsertedSize(WordDocument document, Paragraph paragraph, byte[] png)
+    {
+        var editor = Editor(document);
+        Assert.NotNull(editor.InsertPicture(new TextPosition(StoryRef.Body, paragraph, 0), png, null));
+        var picture = Assert.Single(PicturesOf(paragraph));
+        return PictureView.Of(picture)!.ExtentEmu;
+    }
+
+    // Twips to EMU: 635.
+    [Fact]
+    public void APictureInANarrowCellOfAFixedTableIsNoWiderThanTheCellContent()
+    {
+        // 2000 twips of grid, 108 each side by default: 1784 twips of content. The picture is 200 x 100 pixels (1,905,000 x 952,500 EMU).
+        var document = Doc(Line("before"), CellTable("<w:tblLayout w:type=\"fixed\"/>"));
+
+        var size = InsertedSize(document, CellParagraph(document, 0, 0), TestPictures.Png(200, 100));
+
+        Assert.Equal(1784 * 635L, size.Width);
+        Assert.Equal(1784 * 635L / 2, size.Height);
+    }
+
+    [Fact]
+    public void ACellsOwnMarginsAndATablesDefaultMarginsAreTakenOffTheGridWidth()
+    {
+        var own = Doc(Line("before"), CellTable("<w:tblLayout w:type=\"fixed\"/>", "<w:tcMar><w:left w:w=\"0\" w:type=\"dxa\"/><w:right w:w=\"500\" w:type=\"dxa\"/></w:tcMar>"));
+        Assert.Equal(1500 * 635L, InsertedSize(own, CellParagraph(own, 0, 0), TestPictures.Png(200, 100)).Width);
+
+        var table = Doc(Line("before"), CellTable("<w:tblLayout w:type=\"fixed\"/><w:tblCellMar><w:left w:w=\"200\" w:type=\"dxa\"/><w:right w:w=\"200\" w:type=\"dxa\"/></w:tblCellMar>"));
+        Assert.Equal(1600 * 635L, InsertedSize(table, CellParagraph(table, 0, 0), TestPictures.Png(200, 100)).Width);
+    }
+
+    [Fact]
+    public void APictureInAWideOrSpanningCellKeepsItsPixelSizeAndOneThatIsTooWideFitsTheSpan()
+    {
+        var wide = Doc(Line("before"), CellTable("<w:tblLayout w:type=\"fixed\"/>"));
+        Assert.Equal(new EmuSize(200 * 9525, 100 * 9525), InsertedSize(wide, CellParagraph(wide, 0, 1), TestPictures.Png(200, 100)));
+
+        // The spanning cell is 11,000 twips of grid, 10,784 of content, and the section's text area is 9360: the section is the limit.
+        var span = Doc(Line("before"), CellTable("<w:tblLayout w:type=\"fixed\"/>"));
+        Assert.Equal(9360 * 635L, InsertedSize(span, CellParagraph(span, 1, 0), TestPictures.Png(1000, 100)).Width);
+    }
+
+    [Fact]
+    public void AnAutofitOrPercentageTableFallsBackToTheSectionTextWidth()
+    {
+        // The grid of such a table is advice (the columns follow the content), so a narrow grid column limits nothing.
+        foreach (var properties in new[] { string.Empty, "<w:tblW w:w=\"5000\" w:type=\"pct\"/>", "<w:tblLayout w:type=\"autofit\"/>" })
+        {
+            var document = Doc(Line("before"), CellTable(properties));
+            Assert.Equal(new EmuSize(200 * 9525, 100 * 9525), InsertedSize(document, CellParagraph(document, 0, 0), TestPictures.Png(200, 100)));
+        }
+
+        var big = Doc(Line("before"), CellTable(string.Empty));
+        Assert.Equal(9360 * 635L, InsertedSize(big, CellParagraph(big, 0, 0), TestPictures.Png(2000, 100)).Width);
+    }
+
+    // ---- tight and through ---------------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ATightOrThroughWrapReadsAsSquareAndSquareCanBeWrittenOverIt()
+    {
+        foreach (var name in new[] { "wrapTight", "wrapThrough" })
+        {
+            var tight = AnchoredPicture(5, 10).Replace("<wp:wrapSquare wrapText=\"bothSides\"/>", $"<wp:{name} wrapText=\"left\" distL=\"100\" distR=\"200\"><wp:wrapPolygon edited=\"0\"><wp:start x=\"0\" y=\"0\"/><wp:lineTo x=\"1\" y=\"1\"/></wp:wrapPolygon></wp:{name}>", StringComparison.Ordinal);
+            var document = Doc(Para(tight));
+            var editor = Editor(document);
+            var id = IdOf(document, 0);
+            Assert.Equal(PictureWrap.Square, Info(document, id).Wrap);
+
+            Assert.Null(editor.RefusalForPictureWrap(id, PictureWrap.Square));
+            Assert.NotNull(editor.SetPictureWrap(id, PictureWrap.Square));
+
+            var anchor = Raw(document, id).Element(Wp + "anchor")!;
+            Assert.Null(anchor.Element(Wp + name));
+            var square = Assert.Single(anchor.Elements(Wp + "wrapSquare"));
+            Assert.Equal(["left", "100", "200"], [(string?)square.Attribute("wrapText"), (string?)square.Attribute("distL"), (string?)square.Attribute("distR")]);
+            Assert.Empty(square.Elements());
+            Assert.Equal(PictureRefusal.NothingToChange, editor.RefusalForPictureWrap(id, PictureWrap.Square));
+            Assert.NotNull(editor.History.Undo());
+            Assert.NotNull(Raw(document, id).Element(Wp + "anchor")!.Element(Wp + name));
+        }
+    }
+
+    // ---- ids that hostile files hold ---------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void AnIdOrHeightAtTheEndOfTheUnsignedRangeStillGivesAFreeIdAndAHeightInRange()
+    {
+        var document = Doc(Line("alpha"), Para(InlinePicture(7).Replace("id=\"7\"", "id=\"4294967295\"", StringComparison.Ordinal)), Para(AnchoredPicture(1, 1).Replace("relativeHeight=\"1\"", "relativeHeight=\"4294967295\"", StringComparison.Ordinal)),
+            Para(AnchoredPicture(2, 5).Replace("id=\"2\"", "id=\"99999999999\"", StringComparison.Ordinal)));
+        var editor = Editor(document);
+
+        Assert.NotNull(editor.InsertPicture(At(document, 0, 0), TestPictures.Png(4, 4), null));
+
+        var id = IdOf(document, 0);
+        var docPr = (long)Raw(document, id).Descendants(Wp + "docPr").Single().Attribute("id")!;
+        Assert.InRange(docPr, 1, uint.MaxValue - 1);
+        var used = Enumerable.Range(1, 3).SelectMany(i => PicturesOf((Paragraph)document.Body.Blocks[i]).Select(p => (long)p.Raw.Descendants(Wp + "docPr").Single().Attribute("id")!)).ToList();
+        Assert.DoesNotContain(docPr, used);
+        Assert.Equal(2, docPr);
+
+        Assert.NotNull(editor.SetPictureWrap(id, PictureWrap.Square));
+        Assert.Equal(uint.MaxValue, (long)Raw(document, id).Element(Wp + "anchor")!.Attribute("relativeHeight")!);
+    }
+
+    [Fact]
+    public void AnIdInAnUnknownRowItemIsCounted()
+    {
+        var wrapped = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid><w:sdt><w:sdtContent><w:tr><w:tc><w:p>" + InlinePicture(41) + "</w:p></w:tc></w:tr></w:sdtContent></w:sdt><w:tr><w:tc><w:p><w:r><w:t>x</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+        var document = Doc(Line("alpha"), wrapped);
+        Assert.Contains(((Table)document.Body.Blocks[1]).Rows, r => r is UnknownRowItem);
+        var editor = Editor(document);
+
+        Assert.NotNull(editor.InsertPicture(At(document, 0, 0), TestPictures.Png(4, 4), null));
+
+        Assert.Equal("42", (string?)Raw(document, IdOf(document, 0)).Descendants(Wp + "docPr").Single().Attribute("id"));
+    }
+
+    // ---- a move across many blocks -----------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void AMoveOfTwentyThousandBlocksOrMoreIsTooFarAndOneLessIsAllowed()
+    {
+        var document = Doc(Line("start"), Para(AnchoredPicture(5, 10)));
+        for (var i = 0; i < 20_005; i++)
+        {
+            document.Body.Blocks.Add(new Paragraph());
+        }
+
+        var editor = Editor(document);
+        var id = IdOf(document, 1);
+        var farthest = (Paragraph)document.Body.Blocks[1 + 20_000];
+        var nearest = (Paragraph)document.Body.Blocks[1 + 19_999];
+
+        Assert.Equal(PictureRefusal.TooFar, editor.RefusalForMovePicture(id, new TextPosition(StoryRef.Body, farthest, 0)));
+        Assert.Null(editor.MovePicture(id, new TextPosition(StoryRef.Body, farthest, 0), 1, 1));
+        Assert.Equal(0, editor.History.UndoCount);
+        Assert.Null(editor.RefusalForMovePicture(id, new TextPosition(StoryRef.Body, nearest, 0)));
+        Assert.NotNull(editor.MovePicture(id, new TextPosition(StoryRef.Body, nearest, 0), 1, 1));
+        Assert.Single(PicturesOf(nearest));
+        Assert.NotNull(editor.History.Undo());
+        Assert.Single(PicturesOf((Paragraph)document.Body.Blocks[1]));
     }
 }
