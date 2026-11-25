@@ -4,7 +4,7 @@ using Raffica.Write.Commands;
 namespace Raffica.Write;
 
 /// <summary>
-/// The ribbon of the Write app: the tabs Home (letter H), Insert (letter I), Layout (letter P) and View (letter V), built from <see cref="WriteCommandCatalog"/>. The field codes follow the scheme of the
+/// The ribbon of the Write app: the tabs Home (letter H), Insert (letter I), Table (letter T), Layout (letter P) and View (letter V), built from <see cref="WriteCommandCatalog"/>. The field codes follow the scheme of the
 /// frame: the digit of the group plus the position in the group, so the codes of a tab never begin one another. A command is enabled when an action is wired and the
 /// rules allow it (<see cref="WriteCommandRules"/>); a disabled command does nothing, is dimmed, tells its reason and is skipped by the field codes.
 /// </summary>
@@ -12,6 +12,7 @@ internal static class WriteRibbon
 {
     public const string HomeLetter = "H";
     public const string InsertLetter = "I";
+    public const string TableLetter = "T";
     public const string LayoutLetter = "P";
     public const string ViewLetter = "V";
 

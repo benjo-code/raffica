@@ -464,6 +464,98 @@ internal static class TableFormatting
         return TableMutation.Done(FirstCaret(map));
     }
 
+    /// <summary>
+    /// The parts of the Table properties card in one go on one copy of the table (so one history step): the widths (the columns, or the table width alone), then the height of the rows and the header row. The
+    /// first part that is refused refuses the whole. The width part goes first because it rewrites the grid; the others touch rows only, so the map stays right for them.
+    /// </summary>
+    public static TableMutation Properties(Table table, TableGridMap map, TableProperties properties, IReadOnlyList<int>? drawnColumnTwips)
+    {
+        if (properties.IsEmpty)
+        {
+            return TableMutation.Refuse(TableRefusal.InvalidValue);
+        }
+
+        var caret = FirstCaret(map);
+        if (properties.ColumnTwips is { } columns)
+        {
+            var written = ColumnWidths(table, map, columns);
+            if (written.Refusal is not null)
+            {
+                return written;
+            }
+        }
+        else if (properties.TableWidthTwips is { } width)
+        {
+            var written = TableWidth(table, map, width, drawnColumnTwips);
+            if (written.Refusal is not null)
+            {
+                return written;
+            }
+        }
+
+        if (properties.RowHeight is { } height)
+        {
+            if (height.FirstRow > height.LastRow)
+            {
+                return TableMutation.Refuse(TableRefusal.OutOfRange);
+            }
+
+            for (var row = height.FirstRow; row <= height.LastRow; row++)
+            {
+                if (map.OrdinalOf(row) < 0)
+                {
+                    continue;
+                }
+
+                var written = RowHeight(table, map, row, height.Twips, height.Exact);
+                if (written.Refusal is not null)
+                {
+                    return written;
+                }
+            }
+        }
+
+        if (properties.HeaderRow is { } header)
+        {
+            var written = HeaderRow(table, map, header);
+            if (written.Refusal is not null)
+            {
+                return written;
+            }
+        }
+
+        return TableMutation.Done(caret);
+    }
+
+    /// <summary>What the Table properties card shows: the grid, the table width, the header row and the height of the row at <paramref name="row"/> (an index of <c>Table.Rows</c>; a row that is none shows no height).</summary>
+    public static TableValues Read(Table table, TableGridMap map, int row)
+    {
+        var grid = table.GridColumns.Take(map.Columns).ToList();
+        while (grid.Count < map.Columns)
+        {
+            grid.Add(0);
+        }
+
+        int? tableWidth = null;
+        if (table.Properties.Get(W + "tblW") is { } preferred && (string?)preferred.Attribute(W + "type") is "dxa" or null
+            && int.TryParse((string?)preferred.Attribute(W + "w"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var twips) && twips > 0)
+        {
+            tableWidth = twips;
+        }
+
+        var header = map.RowCount > 0 && IsOn(((TableRow)table.Rows[map.RowIndexes[0]]).Properties.Get(W + "tblHeader"));
+        var height = 0;
+        var exact = false;
+        if (row >= 0 && row < table.Rows.Count && table.Rows[row] is TableRow tableRow && tableRow.Properties.Get(W + "trHeight") is { } element
+            && int.TryParse((string?)element.Attribute(W + "val"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value > 0)
+        {
+            height = value;
+            exact = (string?)element.Attribute(W + "hRule") == "exact";
+        }
+
+        return new TableValues(grid, tableWidth, header, height, exact);
+    }
+
     private static void Write(Table table, TableGridMap map, int[] widths)
     {
         for (var i = 0; i < widths.Length; i++)

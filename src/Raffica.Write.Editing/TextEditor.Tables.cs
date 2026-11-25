@@ -448,6 +448,73 @@ public sealed partial class TextEditor
     public TableRefusal? RefusalForDistributeColumns(TableRef table, IReadOnlyList<int>? drawnColumnTwips = null, bool prefixDocument = false) =>
         Restructure(table, prefixDocument, (t, m) => TableFormatting.Distribute(t, m, drawnColumnTwips), commit: false).Refusal;
 
+    /// <summary>
+    /// The parts of <paramref name="properties"/> (the Table properties card) as ONE history step: widths, a row height and the header row on one copy of the table. <paramref name="drawnColumnTwips"/> as for
+    /// <see cref="SetTableWidth"/>. Null when refused (<see cref="RefusalForSetTableProperties"/> says why), also when no part is set.
+    /// </summary>
+    public EditResult? SetTableProperties(TableRef table, TableProperties properties, IReadOnlyList<int>? drawnColumnTwips = null, TextPosition? caret = null, bool prefixDocument = false)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        return Restructure(table, prefixDocument, (t, m) => TableFormatting.Properties(t, m, properties, drawnColumnTwips), commit: true, keep: caret).Result;
+    }
+
+    /// <summary>The reason <see cref="SetTableProperties"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForSetTableProperties(TableRef table, TableProperties properties, IReadOnlyList<int>? drawnColumnTwips = null, bool prefixDocument = false)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        return Restructure(table, prefixDocument, (t, m) => TableFormatting.Properties(t, m, properties, drawnColumnTwips), commit: false).Refusal;
+    }
+
+    /// <summary>What the Table properties card shows of the table (see <see cref="TableValues"/>): the model's own numbers, read without a change. Null for a table that is not there or not regular and consistent.</summary>
+    public TableValues? ReadTableValues(TableRef table, int row)
+    {
+        if (FindTable(table, prefixDocument: false).Target is not { } target || TableGridMap.Of(target.Table) is not { IsRegular: true, IsConsistent: true } map)
+        {
+            return null;
+        }
+
+        return TableFormatting.Read(target.Table, map, row);
+    }
+
+    /// <summary>
+    /// What Tab does inside a table cell (<paramref name="delta"/> +1) and Shift+Tab (-1): the caret moves to the start of the next (or previous) cell in reading order, a cell that only continues a vertical merge
+    /// skipped; Tab in the last cell adds a row after the last row (one history step, the caret in the new row). Null when the caret is in no top-level table cell, Shift+Tab is in the first cell (nothing to do) or
+    /// the table cannot be walked (a table the map does not follow). The move changes nothing in the model (<see cref="EditResult.Selected"/> with no change), so it raises no revision.
+    /// </summary>
+    public EditResult? MoveToCell(TextPosition caret, int delta, bool prefixDocument = false)
+    {
+        if (delta == 0 || TableOf(caret) is not { } place || place.Table.Find(_document.Body.Blocks) is not { } table || TableGridMap.Of(table) is not { IsRegular: true } map)
+        {
+            return null;
+        }
+
+        var heads = map.Cells.Where(c => !c.IsContinuation).ToList();
+        var current = heads.FindIndex(c => c.RowIndex == place.Row && c.Column == place.Column);
+        if (current < 0)
+        {
+            return null;
+        }
+
+        var next = current + delta;
+        if (next < 0)
+        {
+            return null;
+        }
+
+        if (next >= heads.Count)
+        {
+            return AddRow(place.Table, map.RowIndexes[^1], after: true, prefixDocument);
+        }
+
+        if (TableOperations.FirstParagraphOf(heads[next].Cell) is not { } paragraph)
+        {
+            return null;
+        }
+
+        var at = new TextPosition(StoryRef.Body, paragraph, 0);
+        return new EditResult(at, [], Selected: new TextRange(at, at));
+    }
+
     // Every paragraph of a table in reading order, nested tables and content controls included: two tables of the same structure give the paragraphs in the same order, which maps a position into a copy.
     private static List<Paragraph> ParagraphsOf(Table table)
     {

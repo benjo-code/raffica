@@ -154,9 +154,11 @@ internal sealed partial class PageView
         return true;
     }
 
-    // Tab and Shift+Tab. Decided when the operation runs (a key typed during a save is queued like typing and reads the document as it is then): at the start of a list paragraph, or over a selection
-    // that touches list paragraphs, the level changes (at the edge nothing does, so the key never falls back to a tab character); anywhere else Tab is a tab character and Shift+Tab is nothing.
-    private static Func<EditSession, Func<TextEditor, EditResult?>> TabOperation(int delta) => session => ed =>
+    // Tab and Shift+Tab. Decided when the operation runs (a key typed during a save is queued like typing and reads the document as it is then), in this order: at the start of a list paragraph, or over a selection
+    // that touches list paragraphs, the level changes (the list rule of milestone 4.4a; at the edge nothing does, so the key never falls back to a tab character); else in a cell of a top-level table Tab moves the
+    // caret to the start of the next cell (Shift+Tab the one before; Tab in the last cell adds a row, Shift+Tab in the first does nothing, and the key is never a tab character there); anywhere else Tab is a tab
+    // character and Shift+Tab is nothing. A caret in a list paragraph that is not at its start therefore belongs to the table rule inside a cell.
+    private Func<EditSession, Func<TextEditor, EditResult?>> TabOperation(int delta) => session => ed =>
     {
         if (session.Selection is not { } selection)
         {
@@ -169,6 +171,11 @@ internal sealed partial class PageView
         if (inList && ed.ChangeListLevel(selection, delta) is { } moved)
         {
             return moved;
+        }
+
+        if (ed.TableOf(selection.End) is not null)
+        {
+            return ed.MoveToCell(selection.End, delta, IsPrefixDocument);
         }
 
         return delta > 0 ? ed.InsertText(selection, "\t") : null;

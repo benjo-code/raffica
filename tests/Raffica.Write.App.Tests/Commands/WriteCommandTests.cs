@@ -31,7 +31,7 @@ public sealed class WriteCommandTests
         var ids = AllIds();
         Assert.Equal(ids.Order(StringComparer.Ordinal), WriteCommandCatalog.Commands.Select(c => c.Id).Order(StringComparer.Ordinal));
         Assert.Equal(ids.Length, ids.Distinct().Count());
-        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.InsertLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.InsertLetter, WriteRibbon.TableLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
     }
 
     [AvaloniaFact]
@@ -374,7 +374,7 @@ public sealed class WriteCommandTests
     {
         using var fixture = new WindowFixture();
         var window = fixture.Show();
-        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.InsertLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], window.Ribbon.Definition!.Tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.InsertLetter, WriteRibbon.TableLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], window.Ribbon.Definition!.Tabs.Select(t => t.Letter).ToArray());
 
         // No document: the start view; the frame holds no ribbon parts.
         Assert.Null(window.Frame.Band);

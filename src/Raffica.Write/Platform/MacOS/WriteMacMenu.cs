@@ -178,6 +178,37 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(insertMenu);
             _headers.Add((insertMenu, () => WriteStrings.MenuInsert));
 
+            // Table: insert (the grid), rows, columns, cells (borders and shading take their values from submenus), the whole table. No keys: Tab and Shift+Tab in a cell are the page view's.
+            var tableMenu = new NativeMenuItem(WriteStrings.MenuTable) { Menu = new NativeMenu() };
+            tableMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            void TableItem(string id, bool check = false) => tableMenu.Menu.Items.Add(CommandItem(id, () => WriteCatalogName(id), null, check: check));
+            TableItem(WriteCommandIds.TableInsert);
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            foreach (var id in new[] { WriteCommandIds.TableRowAbove, WriteCommandIds.TableRowBelow, WriteCommandIds.TableDeleteRows, WriteCommandIds.TableRowUp, WriteCommandIds.TableRowDown, WriteCommandIds.TableSelectRow })
+            {
+                TableItem(id);
+            }
+
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            foreach (var id in new[] { WriteCommandIds.TableColumnLeft, WriteCommandIds.TableColumnRight, WriteCommandIds.TableDeleteColumns, WriteCommandIds.TableDistributeColumns, WriteCommandIds.TableSelectColumn })
+            {
+                TableItem(id);
+            }
+
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            TableItem(WriteCommandIds.TableMerge);
+            TableItem(WriteCommandIds.TableSplit);
+            tableMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.TableBorders, TablePayloads.BorderPresets, payload => () => TablePickers.BorderLabel(payload)));
+            tableMenu.Menu.Items.Add(CommandItem(WriteCommandIds.TableBorders, () => WriteStrings.TableBordersMore, null));
+            tableMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.TableShading, [TablePayloads.NoShading, .. ColorChoices.TextColors.Select(c => c.Id)], payload => () => payload == TablePayloads.NoShading ? WriteStrings.TableShadingNone : WriteStrings.Get(ColorChoices.TextColors.Single(c => c.Id == payload).NameKey)));
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            TableItem(WriteCommandIds.TableProperties);
+            TableItem(WriteCommandIds.TableHeaderRow, check: true);
+            TableItem(WriteCommandIds.TableSelectTable);
+            TableItem(WriteCommandIds.TableDelete);
+            Menu.Items.Add(tableMenu);
+            _headers.Add((tableMenu, () => WriteStrings.MenuTable));
+
             var layoutMenu = new NativeMenuItem(WriteStrings.MenuLayout) { Menu = new NativeMenu() };
             layoutMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageSize, SectionPayloads.Papers, payload => () => payload));

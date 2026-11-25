@@ -1659,4 +1659,373 @@
   <data name="ObjectSelectedName" xml:space="preserve">
     <value>{0}. Ausgewählt: {1}</value>
   </data>
+  <data name="TabTable" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="MenuTable" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="GroupTable" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="GroupTableRows" xml:space="preserve">
+    <value>Zeilen</value>
+  </data>
+  <data name="GroupTableColumns" xml:space="preserve">
+    <value>Spalten</value>
+  </data>
+  <data name="GroupTableCells" xml:space="preserve">
+    <value>Zellen</value>
+  </data>
+  <data name="GroupTableWhole" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="CmdTableInsert" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="DescTableInsert" xml:space="preserve">
+    <value>Fügt an der Einfügemarke eine Tabelle ein: Wählen Sie die Größe im Raster oder Weitere für jede Größe bis zu 63 Spalten und 500 Zeilen. Die Tabelle füllt die Breite des Textes.</value>
+  </data>
+  <data name="CmdTableRowAbove" xml:space="preserve">
+    <value>Zeile oberhalb</value>
+  </data>
+  <data name="DescTableRowAbove" xml:space="preserve">
+    <value>Fügt oberhalb der Zeile der Einfügemarke oder der ersten markierten Zeile eine Zeile ein.</value>
+  </data>
+  <data name="CmdTableRowBelow" xml:space="preserve">
+    <value>Zeile unterhalb</value>
+  </data>
+  <data name="DescTableRowBelow" xml:space="preserve">
+    <value>Fügt unterhalb der Zeile der Einfügemarke oder der letzten markierten Zeile eine Zeile ein.</value>
+  </data>
+  <data name="CmdTableDeleteRows" xml:space="preserve">
+    <value>Zeilen löschen</value>
+  </data>
+  <data name="DescTableDeleteRows" xml:space="preserve">
+    <value>Löscht die Zeile der Einfügemarke oder alle markierten Zeilen.</value>
+  </data>
+  <data name="CmdTableRowUp" xml:space="preserve">
+    <value>Zeile nach oben</value>
+  </data>
+  <data name="DescTableRowUp" xml:space="preserve">
+    <value>Verschiebt die Zeile der Einfügemarke um eine Stelle nach oben. Eine Zeile kann weder über eine verbundene Zelle noch über die Überschriftenzeilen hinweg verschoben werden.</value>
+  </data>
+  <data name="CmdTableRowDown" xml:space="preserve">
+    <value>Zeile nach unten</value>
+  </data>
+  <data name="DescTableRowDown" xml:space="preserve">
+    <value>Verschiebt die Zeile der Einfügemarke um eine Stelle nach unten. Eine Zeile kann weder über eine verbundene Zelle noch über die Überschriftenzeilen hinweg verschoben werden.</value>
+  </data>
+  <data name="CmdTableSelectRow" xml:space="preserve">
+    <value>Zeile markieren</value>
+  </data>
+  <data name="DescTableSelectRow" xml:space="preserve">
+    <value>Markiert alle Zellen der Zeile der Einfügemarke.</value>
+  </data>
+  <data name="CmdTableColumnLeft" xml:space="preserve">
+    <value>Spalte links</value>
+  </data>
+  <data name="DescTableColumnLeft" xml:space="preserve">
+    <value>Fügt links von der Spalte der Einfügemarke oder der ersten markierten Spalte eine Spalte ein.</value>
+  </data>
+  <data name="CmdTableColumnRight" xml:space="preserve">
+    <value>Spalte rechts</value>
+  </data>
+  <data name="DescTableColumnRight" xml:space="preserve">
+    <value>Fügt rechts von der Spalte der Einfügemarke oder der letzten markierten Spalte eine Spalte ein.</value>
+  </data>
+  <data name="CmdTableDeleteColumns" xml:space="preserve">
+    <value>Spalten löschen</value>
+  </data>
+  <data name="DescTableDeleteColumns" xml:space="preserve">
+    <value>Löscht die Spalte der Einfügemarke oder alle markierten Spalten.</value>
+  </data>
+  <data name="CmdTableDistribute" xml:space="preserve">
+    <value>Spalten gleichmäßig verteilen</value>
+  </data>
+  <data name="DescTableDistribute" xml:space="preserve">
+    <value>Macht alle Spalten gleich breit, ohne die Breite der Tabelle zu ändern. Erfordert die Seitenansicht.</value>
+  </data>
+  <data name="CmdTableSelectColumn" xml:space="preserve">
+    <value>Spalte markieren</value>
+  </data>
+  <data name="DescTableSelectColumn" xml:space="preserve">
+    <value>Markiert alle Zellen der Spalte der Einfügemarke.</value>
+  </data>
+  <data name="CmdTableMerge" xml:space="preserve">
+    <value>Zellen verbinden</value>
+  </data>
+  <data name="DescTableMerge" xml:space="preserve">
+    <value>Verbindet die markierten Zellen zu einer Zelle. Der Text der Zellen bleibt erhalten.</value>
+  </data>
+  <data name="CmdTableSplit" xml:space="preserve">
+    <value>Verbundene Zelle teilen</value>
+  </data>
+  <data name="DescTableSplit" xml:space="preserve">
+    <value>Teilt eine verbundene Zelle wieder in die Zellen, aus denen sie entstanden ist.</value>
+  </data>
+  <data name="CmdTableBorders" xml:space="preserve">
+    <value>Rahmenlinien</value>
+  </data>
+  <data name="DescTableBorders" xml:space="preserve">
+    <value>Legt die Rahmenlinien der markierten Zellen oder der Zelle der Einfügemarke fest: alle, außen, Rahmen, keine oder einzelne Seiten, mit Farbe, Breite und Linienart.</value>
+  </data>
+  <data name="CmdTableShading" xml:space="preserve">
+    <value>Schattierung</value>
+  </data>
+  <data name="DescTableShading" xml:space="preserve">
+    <value>Füllt die markierten Zellen oder die Zelle der Einfügemarke mit einer Farbe.</value>
+  </data>
+  <data name="CmdTableProperties" xml:space="preserve">
+    <value>Tabelleneigenschaften</value>
+  </data>
+  <data name="DescTableProperties" xml:space="preserve">
+    <value>Legt die Breite der Tabelle und jeder Spalte, die Höhe der markierten Zeilen und die Überschriftenzeile fest. Erfordert die Seitenansicht.</value>
+  </data>
+  <data name="CmdTableHeaderRow" xml:space="preserve">
+    <value>Überschriftenzeile</value>
+  </data>
+  <data name="DescTableHeaderRow" xml:space="preserve">
+    <value>Wiederholt die erste Zeile am Anfang jeder Seite, über die sich die Tabelle erstreckt.</value>
+  </data>
+  <data name="CmdTableSelectTable" xml:space="preserve">
+    <value>Tabelle markieren</value>
+  </data>
+  <data name="DescTableSelectTable" xml:space="preserve">
+    <value>Markiert alle Zellen der Tabelle.</value>
+  </data>
+  <data name="CmdTableDelete" xml:space="preserve">
+    <value>Tabelle löschen</value>
+  </data>
+  <data name="DescTableDelete" xml:space="preserve">
+    <value>Löscht die gesamte Tabelle samt Inhalt.</value>
+  </data>
+  <data name="ReasonTableNotInTable" xml:space="preserve">
+    <value>Setzen Sie die Einfügemarke zuerst in eine Tabelle.</value>
+  </data>
+  <data name="ReasonTableWritingViewWidths" xml:space="preserve">
+    <value>Die Schreibansicht zeichnet eine Tabelle in einer anderen Breite als die Seite. Wechseln Sie zur Seitenansicht, um Breiten festzulegen.</value>
+  </data>
+  <data name="ReasonTableOneRow" xml:space="preserve">
+    <value>Markieren Sie genau eine Zeile, um sie zu verschieben.</value>
+  </data>
+  <data name="ReasonTableNoPosition" xml:space="preserve">
+    <value>Hier ist kein Platz für eine Tabelle: Die Einfügemarke steht nicht im Text des Dokuments.</value>
+  </data>
+  <data name="ReasonTablePrefixDocument" xml:space="preserve">
+    <value>Von diesem Dokument ist erst der Anfang geöffnet, daher kann die Tabelle noch nicht geändert werden.</value>
+  </data>
+  <data name="ReasonTableHeaderOrFooter" xml:space="preserve">
+    <value>In einer Kopf- oder Fußzeile kann keine Tabelle stehen.</value>
+  </data>
+  <data name="ReasonTableNote" xml:space="preserve">
+    <value>In einer Fuß- oder Endnote kann keine Tabelle stehen.</value>
+  </data>
+  <data name="ReasonTableComment" xml:space="preserve">
+    <value>In einem Kommentar kann keine Tabelle stehen.</value>
+  </data>
+  <data name="ReasonTableRestrictedControl" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und kann daher keine Tabelle aufnehmen.</value>
+  </data>
+  <data name="ReasonTableNestedTable" xml:space="preserve">
+    <value>Die Einfügemarke steht in einer Tabellenzelle: In eine Zelle kann keine Tabelle eingefügt werden, und Befehle wirken nur auf die äußere Tabelle.</value>
+  </data>
+  <data name="ReasonTableNoTable" xml:space="preserve">
+    <value>Die Tabelle wurde nicht gefunden.</value>
+  </data>
+  <data name="ReasonTableInvalidCount" xml:space="preserve">
+    <value>Geben Sie eine Anzahl von Spalten und Zeilen größer als null ein.</value>
+  </data>
+  <data name="ReasonTableTooManyColumns" xml:space="preserve">
+    <value>Eine Tabelle kann höchstens 63 Spalten haben.</value>
+  </data>
+  <data name="ReasonTableTooManyRows" xml:space="preserve">
+    <value>Eine Tabelle kann höchstens 500 Zeilen haben.</value>
+  </data>
+  <data name="ReasonTableOutOfRange" xml:space="preserve">
+    <value>Die Zeile, Spalte oder Zelle gehört nicht zur Tabelle.</value>
+  </data>
+  <data name="ReasonTableUnsupportedStructure" xml:space="preserve">
+    <value>Diese Tabelle hat einen Aufbau, den Write noch nicht ändert (zum Beispiel einen Versatz am Anfang oder Ende einer Zeile oder eine gelöschte Zeile in einer Änderungsverfolgung).</value>
+  </data>
+  <data name="ReasonTableNothingToMerge" xml:space="preserve">
+    <value>Markieren Sie zwei oder mehr Zellen, um sie zu verbinden.</value>
+  </data>
+  <data name="ReasonTableNotMerged" xml:space="preserve">
+    <value>Diese Zelle ist keine verbundene Zelle, daher gibt es nichts zu teilen.</value>
+  </data>
+  <data name="ReasonTableWouldCutAMerge" xml:space="preserve">
+    <value>Die Zeile kann nicht in eine verbundene Zelle hinein oder aus ihr heraus verschoben werden.</value>
+  </data>
+  <data name="ReasonTableHeaderRowBoundary" xml:space="preserve">
+    <value>Eine Zeile kann nicht über die Grenze der Überschriftenzeilen hinweg verschoben werden. Schalten Sie zuerst die Überschriftenzeile ein oder aus.</value>
+  </data>
+  <data name="ReasonTableCannotMove" xml:space="preserve">
+    <value>Die Zeile steht schon am Rand der Tabelle.</value>
+  </data>
+  <data name="ReasonTableWouldBreakTheTable" xml:space="preserve">
+    <value>Danach hätte die Tabelle keine Zeile oder keine Zelle mehr. Löschen Sie stattdessen die Tabelle.</value>
+  </data>
+  <data name="ReasonTableInvalidValue" xml:space="preserve">
+    <value>Ein Wert liegt außerhalb dessen, was eine Tabelle zulässt.</value>
+  </data>
+  <data name="NoteTableNoChange" xml:space="preserve">
+    <value>Die Tabelle wurde nicht geändert.</value>
+  </data>
+  <data name="TableBordersAll" xml:space="preserve">
+    <value>Alle Rahmenlinien</value>
+  </data>
+  <data name="TableBordersOutside" xml:space="preserve">
+    <value>Außenlinien</value>
+  </data>
+  <data name="TableBordersBox" xml:space="preserve">
+    <value>Rahmen</value>
+  </data>
+  <data name="TableBordersNone" xml:space="preserve">
+    <value>Keine Rahmenlinien</value>
+  </data>
+  <data name="TableBordersTop" xml:space="preserve">
+    <value>Linie oben</value>
+  </data>
+  <data name="TableBordersBottom" xml:space="preserve">
+    <value>Linie unten</value>
+  </data>
+  <data name="TableBordersLeft" xml:space="preserve">
+    <value>Linie links</value>
+  </data>
+  <data name="TableBordersRight" xml:space="preserve">
+    <value>Linie rechts</value>
+  </data>
+  <data name="TableBordersInsideHorizontal" xml:space="preserve">
+    <value>Waagerechte Innenlinien</value>
+  </data>
+  <data name="TableBordersInsideVertical" xml:space="preserve">
+    <value>Senkrechte Innenlinien</value>
+  </data>
+  <data name="TableBordersMore" xml:space="preserve">
+    <value>Weitere Rahmenlinien…</value>
+  </data>
+  <data name="TableShadingNone" xml:space="preserve">
+    <value>Keine Schattierung</value>
+  </data>
+  <data name="TableGridName" xml:space="preserve">
+    <value>Tabelle mit {0} Spalten und {1} Zeilen</value>
+  </data>
+  <data name="TableGridMore" xml:space="preserve">
+    <value>Weitere…</value>
+  </data>
+  <data name="TableGridPopupName" xml:space="preserve">
+    <value>Tabelle einfügen</value>
+  </data>
+  <data name="TableGridHint" xml:space="preserve">
+    <value>Pfeiltasten wählen die Größe, die Eingabetaste fügt ein, Esc schließt.</value>
+  </data>
+  <data name="TiTitle" xml:space="preserve">
+    <value>Tabelle einfügen</value>
+  </data>
+  <data name="TiColumns" xml:space="preserve">
+    <value>Spalten (1 bis 63)</value>
+  </data>
+  <data name="TiRows" xml:space="preserve">
+    <value>Zeilen (1 bis 500)</value>
+  </data>
+  <data name="TiOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="TiColumnsInvalid" xml:space="preserve">
+    <value>Geben Sie eine Spaltenzahl von 1 bis 63 ein.</value>
+  </data>
+  <data name="TiRowsInvalid" xml:space="preserve">
+    <value>Geben Sie eine Zeilenzahl von 1 bis 500 ein.</value>
+  </data>
+  <data name="TbTitle" xml:space="preserve">
+    <value>Rahmenlinien</value>
+  </data>
+  <data name="TbPreset" xml:space="preserve">
+    <value>Rahmenlinien</value>
+  </data>
+  <data name="TbPresetSides" xml:space="preserve">
+    <value>Gewählte Seiten</value>
+  </data>
+  <data name="TbSides" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="TbTurnOff" xml:space="preserve">
+    <value>Gewählte Seiten ausschalten</value>
+  </data>
+  <data name="TbStyle" xml:space="preserve">
+    <value>Linienart</value>
+  </data>
+  <data name="TbStyleSolid" xml:space="preserve">
+    <value>Einfache Linie</value>
+  </data>
+  <data name="TbStyleDouble" xml:space="preserve">
+    <value>Doppelte Linie</value>
+  </data>
+  <data name="TbStyleDashed" xml:space="preserve">
+    <value>Gestrichelt</value>
+  </data>
+  <data name="TbStyleDotted" xml:space="preserve">
+    <value>Gepunktet</value>
+  </data>
+  <data name="TbWidth" xml:space="preserve">
+    <value>Breite</value>
+  </data>
+  <data name="TbWidthFormat" xml:space="preserve">
+    <value>{0} pt</value>
+  </data>
+  <data name="TbColor" xml:space="preserve">
+    <value>Farbe</value>
+  </data>
+  <data name="TbColorAuto" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="TbOk" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="TbNoSide" xml:space="preserve">
+    <value>Wählen Sie mindestens eine Seite.</value>
+  </data>
+  <data name="TbNote" xml:space="preserve">
+    <value>Die Rahmenlinien gelten für die markierten Zellen oder die Zelle der Einfügemarke.</value>
+  </data>
+  <data name="TpTitle" xml:space="preserve">
+    <value>Tabelleneigenschaften</value>
+  </data>
+  <data name="TpTableWidthFormat" xml:space="preserve">
+    <value>Tabellenbreite ({0})</value>
+  </data>
+  <data name="TpColumnWidthFormat" xml:space="preserve">
+    <value>Spalte {0} ({1})</value>
+  </data>
+  <data name="TpColumns" xml:space="preserve">
+    <value>Spaltenbreiten</value>
+  </data>
+  <data name="TpRowHeightFormat" xml:space="preserve">
+    <value>Zeilenhöhe ({0})</value>
+  </data>
+  <data name="TpRowRule" xml:space="preserve">
+    <value>Regel für die Zeilenhöhe</value>
+  </data>
+  <data name="TpRuleAuto" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="TpRuleAtLeast" xml:space="preserve">
+    <value>Mindestens</value>
+  </data>
+  <data name="TpRuleExact" xml:space="preserve">
+    <value>Genau</value>
+  </data>
+  <data name="TpHeaderRow" xml:space="preserve">
+    <value>Erste Zeile am Anfang jeder Seite wiederholen</value>
+  </data>
+  <data name="TpRowsNote" xml:space="preserve">
+    <value>Die Zeilenhöhe gilt für die markierten Zeilen oder die Zeile der Einfügemarke.</value>
+  </data>
+  <data name="TpOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="TpNothingChanged" xml:space="preserve">
+    <value>Es wurde nichts geändert.</value>
+  </data>
 </root>

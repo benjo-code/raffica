@@ -27,7 +27,8 @@ namespace Raffica.Write.Commands;
 /// <param name="structureFacts">The facts a structure command (lists, heading numbering, outline) needs for the selection, by command id (only that command's part is filled, so the other reads never happen); asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
 /// <param name="sectionFacts">The facts a section command of the Layout tab needs at the caret, by command id (the caret's section, a prefix document, where the caret is); asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
 /// <param name="objectFacts">The facts a note command of the Insert tab needs at the caret, by command id (the writing view, a prefix document, where the caret is); asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
-internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null, Func<string, StructureFacts>? structureFacts = null, Func<string, SectionCommandFacts>? sectionFacts = null, Func<string, ObjectCommandFacts>? objectFacts = null)
+/// <param name="tableFacts">The facts a table command needs at the caret or on the selected cells, by command id (a prefix document, the writing view for the width commands, the cell the caret is in, the refusal of the editor); asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
+internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null, Func<string, StructureFacts>? structureFacts = null, Func<string, SectionCommandFacts>? sectionFacts = null, Func<string, ObjectCommandFacts>? objectFacts = null, Func<string, TableCommandFacts>? tableFacts = null)
 {
     private const double Tolerance = 1e-9;
 
@@ -63,6 +64,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         _ when WriteCommandIds.IsStructure(id) => hasDocument() && StructureReason(id) is null,
         _ when WriteCommandIds.IsSection(id) => hasDocument() && SectionReason(id) is null,
         _ when WriteCommandIds.IsNote(id) => hasDocument() && NoteReason(id) is null,
+        _ when WriteCommandIds.IsTable(id) => hasDocument() && TableReason(id) is null,
         _ => hasDocument(),
     };
 
@@ -105,6 +107,11 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         if (WriteCommandIds.IsNote(id))
         {
             return NoteReason(id);
+        }
+
+        if (WriteCommandIds.IsTable(id))
+        {
+            return TableReason(id);
         }
 
         return id switch
@@ -220,6 +227,25 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         }
 
         return ObjectWording.ReasonText((objectFacts?.Invoke(id) ?? ObjectCommandFacts.Permissive).Block);
+    }
+
+    // The reason a table command (the grid of the Insert tab and the Table tab) is disabled, or null when it may run. The block comes first, a save included (the commands read the cells from the model as it is
+    // now), then what the place says (a prefix document, the writing view for the width commands, a caret outside a table, the editor's refusal); the facts are read only while editing is not blocked.
+    private string? TableReason(string id)
+    {
+        switch (State.Blocked)
+        {
+            case EditBlockedReason.StillOpening:
+                return WriteStrings.ReasonEditOpening;
+            case EditBlockedReason.Faulted:
+                return WriteStrings.EditUnavailable;
+            case EditBlockedReason.Saving:
+                return WriteStrings.ReasonEditSaving;
+            default:
+                break;
+        }
+
+        return TableWording.ReasonText(tableFacts?.Invoke(id) ?? TableCommandFacts.Permissive);
     }
 
     // The reason an edit command is disabled, or null when it may run. The block comes first (it holds for every command), then what the command itself needs.
