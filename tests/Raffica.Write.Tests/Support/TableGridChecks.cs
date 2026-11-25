@@ -85,15 +85,35 @@ internal static class TableGridChecks
     /// </summary>
     public static void AssertWidthsAgree(Table table, string label)
     {
+        var problem = WidthProblem(table);
+        Assert.True(problem is null, $"{label}: {problem}");
+    }
+
+    /// <summary>What disagrees in the widths of the table (see <see cref="AssertWidthsAgree"/>), or null when the table is fixed and its table width, grid and cells agree.</summary>
+    public static string? WidthProblem(Table table)
+    {
         var fixedLayout = (string?)table.Properties.Get(W + "tblLayout")?.Attribute(W + "type");
-        Assert.True(fixedLayout == "fixed", label + ": the table is not fixed after a width write");
+        if (fixedLayout != "fixed")
+        {
+            return "the table is not fixed";
+        }
+
         var tblW = table.Properties.Get(W + "tblW");
-        Assert.True((string?)tblW?.Attribute(W + "type") == "dxa" && int.Parse((string?)tblW.Attribute(W + "w") ?? "x", NumberStyles.Integer, CultureInfo.InvariantCulture) == table.GridColumns.Sum(), label + ": tblW is not the grid in twips");
+        if ((string?)tblW?.Attribute(W + "type") != "dxa" || !int.TryParse((string?)tblW.Attribute(W + "w"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var total) || total != table.GridColumns.Sum())
+        {
+            return "tblW is not the grid in twips";
+        }
+
         foreach (var cell in TableGridMap.Of(table).Cells)
         {
             var width = cell.Cell.Properties.Get(W + "tcW");
             var expected = Enumerable.Range(cell.Column, cell.ColumnSpan).Sum(c => table.GridColumns[c]);
-            Assert.True((string?)width?.Attribute(W + "type") == "dxa" && int.Parse((string?)width.Attribute(W + "w") ?? "x", NumberStyles.Integer, CultureInfo.InvariantCulture) == expected, $"{label}: tcW of the cell at row {cell.RowOrdinal}, column {cell.Column} is not {expected}");
+            if ((string?)width?.Attribute(W + "type") != "dxa" || !int.TryParse((string?)width.Attribute(W + "w"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) || value != expected)
+            {
+                return $"tcW of the cell at row {cell.RowOrdinal}, column {cell.Column} is not {expected}";
+            }
         }
+
+        return null;
     }
 }

@@ -315,6 +315,19 @@ internal static class TableOperations
             }
 
             cell.Blocks.Add(EmptyLike(reference.Cell));
+            if (cell.Properties.Get(W + "vMerge") is null)
+            {
+                // The border between the new cell and the one it copies is one border.
+                if (after)
+                {
+                    TableFormatting.MirrorSide(cell, "top", reference.Cell, "bottom");
+                }
+                else
+                {
+                    TableFormatting.MirrorSide(cell, "bottom", reference.Cell, "top");
+                }
+            }
+
             row.Items.Add(cell);
         }
 
@@ -435,6 +448,15 @@ internal static class TableOperations
             cell.Blocks.Add(EmptyLike(next.Cell));
             InsertCell(row, after ? next.ItemIndex + 1 : next.ItemIndex, cell);
             caret ??= FirstParagraphOf(cell);
+            if (after)
+            {
+                TableFormatting.MirrorSide(cell, "left", next.Cell, "right");
+            }
+            else
+            {
+                TableFormatting.MirrorSide(cell, "right", next.Cell, "left");
+            }
+
 
             // The column next to the new one gave half its width away: a width in twips follows the grid.
             if (HasDxaWidth(next.Cell))
@@ -613,6 +635,7 @@ internal static class TableOperations
             var inRow = covered.Where(c => c.RowOrdinal == r).ToList();
             if (r == r1)
             {
+                TableFormatting.MirrorSide(inRow[0].Cell, "right", inRow[^1].Cell, "right");
                 removals.AddRange(inRow.Skip(1));
                 continue;
             }
@@ -626,6 +649,7 @@ internal static class TableOperations
                 SetWidth(keeper.Cell, width);
             }
 
+            TableFormatting.MirrorSide(keeper.Cell, "right", inRow[^1].Cell, "right");
             removals.AddRange(inRow.Skip(1));
         }
 
@@ -679,6 +703,7 @@ internal static class TableOperations
                 SetWidth(member.Cell, GridWidth(table, member.Column, 1));
             }
 
+            var added = new List<TableCell>();
             for (var k = member.ColumnSpan - 1; k >= 1; k--)
             {
                 var cell = new TableCell();
@@ -686,6 +711,15 @@ internal static class TableOperations
                 SetWidth(cell, GridWidth(table, member.Column + k, 1));
                 cell.Blocks.Add(EmptyLike(member.Cell));
                 InsertCell(member.Row, member.ItemIndex + 1, cell);
+                added.Insert(0, cell);
+            }
+
+            // The border between two of the new cells is one border: each takes the right border of the cell on its left (the one of the merged cell, which it copied).
+            var previous = member.Cell;
+            foreach (var cell in added)
+            {
+                TableFormatting.MirrorSide(cell, "left", previous, "right");
+                previous = cell;
             }
         }
 

@@ -170,7 +170,7 @@ public sealed class ObjectOracleTests
     private static readonly ObjectKind[] s_formatKinds =
     [
         ObjectKind.SetBorders, ObjectKind.SetShading, ObjectKind.SetHeaderRow, ObjectKind.SetColumnWidths, ObjectKind.SetTableWidth, ObjectKind.SetRowHeight, ObjectKind.DistributeColumns,
-        ObjectKind.AddRow, ObjectKind.AddColumn, ObjectKind.Merge, ObjectKind.Split, ObjectKind.DeleteRows,
+        ObjectKind.AddRow, ObjectKind.AddColumn, ObjectKind.Merge, ObjectKind.Split, ObjectKind.DeleteRows, ObjectKind.MoveRow, ObjectKind.DeleteColumns,
         ObjectKind.SetBorders, ObjectKind.SetShading, ObjectKind.SetColumnWidths, ObjectKind.Undo, ObjectKind.Redo,
     ];
 
@@ -204,6 +204,7 @@ public sealed class ObjectOracleTests
     {
         var ran = new int[ObjectSteps.Kinds];
         var refused = new int[ObjectSteps.Kinds];
+        long widths = 0;
         for (var seed = 1; seed <= 6; seed++)
         {
             using var folder = new TempFolder();
@@ -218,10 +219,12 @@ public sealed class ObjectOracleTests
                 ran[k] += steps.RanPerKind[k];
                 refused[k] += steps.RefusedPerKind[k];
             }
+            widths += steps.WidthsCompared;
         }
 
         var report = string.Join(", ", Enum.GetValues<ObjectKind>().Select(k => $"{k} ran {ran[(int)k]} refused {refused[(int)k]}"));
         TestContext.Current.SendDiagnosticMessage("generated formatting steps: " + report);
+        Assert.True(widths > 100, $"only {widths} changed tables had their widths checked for agreement ({report})");
         foreach (var kind in s_formatKinds.Distinct().Where(k => k is not (ObjectKind.Undo or ObjectKind.Redo)))
         {
             Assert.True(ran[(int)kind] > 0, $"the step kind {kind} never changed anything on the generated tables ({report})");

@@ -374,30 +374,31 @@ public sealed partial class TextEditor
 
     // ---- formatting --------------------------------------------------------------------------------------------------------------------
     // Borders, shading, the header row, widths and row height work on a regular and consistent table (the same rule as the structure operations; any other refuses with UnsupportedStructure). Each is one block
-    // change that replaces the table by a changed copy, so the paragraphs of the table are new objects and the caret of the result is in the first cell the command touched.
+    // change that replaces the table by a changed copy, so the paragraphs of the table are new objects. A formatting operation does not change the structure, so with a caret in the table the result's caret is
+    // the same place in the new table (the same paragraph by order, the same offset); without one it is the first cell the command touched.
 
     /// <summary>
     /// Writes the borders of <paramref name="spec"/> on the cells of the range (widened to whole merged cells) as one history step; see <see cref="TableFormatting.Borders"/> for the sides and for the rule that a border
-    /// shared by two cells is written on both. Null when refused (<see cref="RefusalForSetBorders"/> says why).
+    /// shared by two cells is written on both. <paramref name="caret"/> is the caret before the command (see above). Null when refused (<see cref="RefusalForSetBorders"/> says why).
     /// </summary>
-    public EditResult? SetBorders(CellRange range, BorderSpec spec, bool prefixDocument = false) =>
-        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Borders(t, m, range, spec), commit: true).Result;
+    public EditResult? SetBorders(CellRange range, BorderSpec spec, TextPosition? caret = null, bool prefixDocument = false) =>
+        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Borders(t, m, range, spec), commit: true, keep: caret).Result;
 
     /// <summary>The reason <see cref="SetBorders"/> refuses, or null. Nothing changes.</summary>
     public TableRefusal? RefusalForSetBorders(CellRange range, BorderSpec spec, bool prefixDocument = false) =>
         Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Borders(t, m, range, spec), commit: false).Refusal;
 
     /// <summary>Shades the cells of the range with a solid colour (0xAARRGGBB, alpha ignored; the caller offers the fixed colour list) or, with null, removes the shading, as one history step. Null when refused.</summary>
-    public EditResult? SetShading(CellRange range, uint? color, bool prefixDocument = false) =>
-        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Shading(t, m, range, color), commit: true).Result;
+    public EditResult? SetShading(CellRange range, uint? color, TextPosition? caret = null, bool prefixDocument = false) =>
+        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Shading(t, m, range, color), commit: true, keep: caret).Result;
 
     /// <summary>The reason <see cref="SetShading"/> refuses, or null. Nothing changes.</summary>
     public TableRefusal? RefusalForSetShading(CellRange range, uint? color, bool prefixDocument = false) =>
         Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Shading(t, m, range, color), commit: false).Refusal;
 
     /// <summary>Turns the repeated header row on (the first row) or off (the leading header rows) as one history step. Null when refused.</summary>
-    public EditResult? SetHeaderRow(TableRef table, bool on, bool prefixDocument = false) =>
-        Restructure(table, prefixDocument, (t, m) => TableFormatting.HeaderRow(t, m, on), commit: true).Result;
+    public EditResult? SetHeaderRow(TableRef table, bool on, TextPosition? caret = null, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.HeaderRow(t, m, on), commit: true, keep: caret).Result;
 
     /// <summary>The reason <see cref="SetHeaderRow"/> refuses, or null. Nothing changes.</summary>
     public TableRefusal? RefusalForSetHeaderRow(TableRef table, bool on, bool prefixDocument = false) =>
@@ -405,40 +406,104 @@ public sealed partial class TextEditor
 
     /// <summary>
     /// Sets the width of every column in twips (one per grid column) as one history step. The first width write makes an autofit or percentage table fixed and recomputes the grid, <c>w:tblW</c> and every
-    /// <c>w:tcW</c> from the new widths (see <see cref="TableFormatting.ColumnWidths"/>). Null when refused.
+    /// <c>w:tcW</c> from the new widths (see <see cref="TableFormatting.ColumnWidths"/>); every width is given, so nothing of the drawn widths is needed. Null when refused.
     /// </summary>
-    public EditResult? SetColumnWidths(TableRef table, IReadOnlyList<int> twips, bool prefixDocument = false) =>
-        Restructure(table, prefixDocument, (t, m) => TableFormatting.ColumnWidths(t, m, twips), commit: true).Result;
+    public EditResult? SetColumnWidths(TableRef table, IReadOnlyList<int> twips, TextPosition? caret = null, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.ColumnWidths(t, m, twips), commit: true, keep: caret).Result;
 
     /// <summary>The reason <see cref="SetColumnWidths"/> refuses, or null. Nothing changes.</summary>
     public TableRefusal? RefusalForSetColumnWidths(TableRef table, IReadOnlyList<int> twips, bool prefixDocument = false) =>
         Restructure(table, prefixDocument, (t, m) => TableFormatting.ColumnWidths(t, m, twips), commit: false).Refusal;
 
-    /// <summary>Sets the width of the table in twips, the columns keeping their proportions and the sum being exactly that width, as one history step. Null when refused.</summary>
-    public EditResult? SetTableWidth(TableRef table, int twips, bool prefixDocument = false) =>
-        Restructure(table, prefixDocument, (t, m) => TableFormatting.TableWidth(t, m, twips), commit: true).Result;
+    /// <summary>
+    /// Sets the width of the table in twips, the columns keeping their proportions and the sum being exactly that width, as one history step. <paramref name="drawnColumnTwips"/> are the widths the layout draws
+    /// for the columns now (one per grid column, from the column borders of the object map, in twips): for a table that is not yet fixed and in twips the proportions come from them, so the conversion freezes what
+    /// the reader sees; without them the proportions come from the grid (the fallback). Null when refused.
+    /// </summary>
+    public EditResult? SetTableWidth(TableRef table, int twips, IReadOnlyList<int>? drawnColumnTwips = null, TextPosition? caret = null, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.TableWidth(t, m, twips, drawnColumnTwips), commit: true, keep: caret).Result;
 
     /// <summary>The reason <see cref="SetTableWidth"/> refuses, or null. Nothing changes.</summary>
-    public TableRefusal? RefusalForSetTableWidth(TableRef table, int twips, bool prefixDocument = false) =>
-        Restructure(table, prefixDocument, (t, m) => TableFormatting.TableWidth(t, m, twips), commit: false).Refusal;
+    public TableRefusal? RefusalForSetTableWidth(TableRef table, int twips, IReadOnlyList<int>? drawnColumnTwips = null, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.TableWidth(t, m, twips, drawnColumnTwips), commit: false).Refusal;
 
     /// <summary>
     /// Sets the height of the row at <paramref name="row"/> (an index of <c>Table.Rows</c>) in twips, at least or exact, as one history step; zero removes the height. Null when refused.
     /// </summary>
-    public EditResult? SetRowHeight(TableRef table, int row, int twips, bool exact, bool prefixDocument = false) =>
-        Restructure(table, prefixDocument, (t, m) => TableFormatting.RowHeight(t, m, row, twips, exact), commit: true).Result;
+    public EditResult? SetRowHeight(TableRef table, int row, int twips, bool exact, TextPosition? caret = null, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.RowHeight(t, m, row, twips, exact), commit: true, keep: caret).Result;
 
     /// <summary>The reason <see cref="SetRowHeight"/> refuses, or null. Nothing changes.</summary>
     public TableRefusal? RefusalForSetRowHeight(TableRef table, int row, int twips, bool exact, bool prefixDocument = false) =>
         Restructure(table, prefixDocument, (t, m) => TableFormatting.RowHeight(t, m, row, twips, exact), commit: false).Refusal;
 
-    /// <summary>Makes the columns equal, adding up to the current width of the table (the remainder to the last column), as one history step. Null when refused.</summary>
-    public EditResult? DistributeColumns(TableRef table, bool prefixDocument = false) =>
-        Restructure(table, prefixDocument, TableFormatting.Distribute, commit: true).Result;
+    /// <summary>
+    /// Makes the columns equal, adding up to the current width of the table (the remainder to the last column), as one history step. <paramref name="drawnColumnTwips"/> as for <see cref="SetTableWidth"/>: for a
+    /// table that is not yet fixed and in twips the width is their sum; without them it is <c>w:tblW</c> in twips or the sum of the grid (the fallback). Null when refused.
+    /// </summary>
+    public EditResult? DistributeColumns(TableRef table, IReadOnlyList<int>? drawnColumnTwips = null, TextPosition? caret = null, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.Distribute(t, m, drawnColumnTwips), commit: true, keep: caret).Result;
 
     /// <summary>The reason <see cref="DistributeColumns"/> refuses, or null. Nothing changes.</summary>
-    public TableRefusal? RefusalForDistributeColumns(TableRef table, bool prefixDocument = false) =>
-        Restructure(table, prefixDocument, TableFormatting.Distribute, commit: false).Refusal;
+    public TableRefusal? RefusalForDistributeColumns(TableRef table, IReadOnlyList<int>? drawnColumnTwips = null, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.Distribute(t, m, drawnColumnTwips), commit: false).Refusal;
+
+    // Every paragraph of a table in reading order, nested tables and content controls included: two tables of the same structure give the paragraphs in the same order, which maps a position into a copy.
+    private static List<Paragraph> ParagraphsOf(Table table)
+    {
+        var found = new List<Paragraph>();
+        CollectParagraphs(table.Rows, found, 0);
+        return found;
+    }
+
+    private static void CollectParagraphs(IEnumerable<RowItem> items, List<Paragraph> found, int depth)
+    {
+        if (depth > 40)
+        {
+            return;
+        }
+
+        foreach (var item in items)
+        {
+            switch (item)
+            {
+                case TableRow row:
+                    CollectParagraphs(row.Items, found, depth + 1);
+                    break;
+                case TableCell cell:
+                    CollectParagraphs(cell.Blocks, found, depth + 1);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    private static void CollectParagraphs(IEnumerable<Block> blocks, List<Paragraph> found, int depth)
+    {
+        if (depth > 40)
+        {
+            return;
+        }
+
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case Paragraph paragraph:
+                    found.Add(paragraph);
+                    break;
+                case ContentControlBlock control:
+                    CollectParagraphs(control.Content, found, depth + 1);
+                    break;
+                case Table nested:
+                    CollectParagraphs(nested.Rows, found, depth + 1);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 
     // The table a reference names and where it lives, or the reason it cannot be edited: a prefix document, another story than the body, no table (or two in one control), a content control that holds text only.
     private (TableTarget? Target, TableRefusal? Refusal) FindTable(TableRef reference, bool prefixDocument)
@@ -496,7 +561,7 @@ public sealed partial class TextEditor
     }
 
     // Runs a structure operation on a clone of the table: a refusal changes nothing (and with commit false nothing is ever committed); otherwise the clone replaces the table in the document as one block change.
-    private TableAttempt Restructure(TableRef reference, bool prefixDocument, Func<Table, TableGridMap, TableMutation> operate, bool commit, bool needsGrid = true)
+    private TableAttempt Restructure(TableRef reference, bool prefixDocument, Func<Table, TableGridMap, TableMutation> operate, bool commit, bool needsGrid = true, TextPosition? keep = null)
     {
         var (target, refusal) = FindTable(reference, prefixDocument);
         if (target is null)
@@ -521,10 +586,25 @@ public sealed partial class TextEditor
             return new TableAttempt(null, null);
         }
 
-        return new TableAttempt(mutation.RemoveTable ? RemoveTableBlock(target) : ReplaceTableBlock(target, clone, mutation.Caret), null);
+        var (landing, offset) = KeptCaret(target.Table, clone, keep) ?? (mutation.Caret, 0);
+        return new TableAttempt(mutation.RemoveTable ? RemoveTableBlock(target) : ReplaceTableBlock(target, clone, landing, offset), null);
     }
 
-    private EditResult ReplaceTableBlock(TableTarget target, Table replacement, Paragraph? caret)
+    // The caret of a position in the table before a formatting command, in the changed copy: the paragraph at the same place in reading order and the same offset. Null for no position, a position outside the table
+    // or one that is stale; the command then puts the caret in the first cell it touched.
+    private static (Paragraph? Paragraph, int Offset)? KeptCaret(Table before, Table after, TextPosition? caret)
+    {
+        if (caret is not { } position || position.Paragraph is null || position.Story != StoryRef.Body)
+        {
+            return null;
+        }
+
+        var index = ParagraphsOf(before).FindIndex(p => ReferenceEquals(p, position.Paragraph));
+        var copies = ParagraphsOf(after);
+        return index >= 0 && index < copies.Count ? (copies[index], position.Offset) : null;
+    }
+
+    private EditResult ReplaceTableBlock(TableTarget target, Table replacement, Paragraph? caret, int caretOffset = 0)
     {
         var revision = History.BeginOperation();
         // Everything that can throw is done before the document changes or its revision rises: a failure after a raise would leave a changed document with no result.
@@ -533,7 +613,7 @@ public sealed partial class TextEditor
         target.Container[target.Index] = replacement;
         var gone = RemoveUnreferencedNotes(references, [replacement]);
         _document.Edits.Raise();
-        var result = new EditResult(new TextPosition(StoryRef.Body, paragraph, 0), [new BlockChange(StoryRef.Body, target.Container, target.Index, 1, 1, [target.Table])], Objects: gone);
+        var result = new EditResult(new TextPosition(StoryRef.Body, paragraph, caretOffset), [new BlockChange(StoryRef.Body, target.Container, target.Index, 1, 1, [target.Table])], Objects: gone);
         result.Attribute(_document);
         var point = new EditHistory.Point(target.Index, 0);
         History.Record(result, point, revision, null, after: point);

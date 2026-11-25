@@ -18,6 +18,9 @@ internal sealed partial class ObjectSteps
     /// <summary>How many cell rectangles had their row span compared with the merge of the model (tables that are whole on one page and whose rows all have a height).</summary>
     public long RowSpansCompared { get; private set; }
 
+    /// <summary>How many changed tables had their widths (table width, grid, every cell) checked for agreement.</summary>
+    public long WidthsCompared { get; private set; }
+
     private int _zeroWidthBefore;
 
     // After a table step the table it made or changed has the grid of its cells (the definition of TableGridChecks), whatever the layout says.
@@ -35,9 +38,14 @@ internal sealed partial class ObjectSteps
                 if (change.Container[i] is Table table)
                 {
                     TableGridChecks.AssertGridEqualsCells(table, label, _zeroWidthBefore);
-                    if (_kind is ObjectKind.SetColumnWidths or ObjectKind.SetTableWidth or ObjectKind.DistributeColumns)
+
+                    // A width write leaves the table fixed with every width in agreement; any other step on a table whose widths agreed before (made fixed by a width write, or fixed in the file) leaves them in agreement.
+                    var wrote = _kind is ObjectKind.SetColumnWidths or ObjectKind.SetTableWidth or ObjectKind.DistributeColumns;
+                    var agreedBefore = change.Removed == 1 && change.Added == 1 && change.OldBlocks[0] is Table old && TableGridChecks.WidthProblem(old) is null;
+                    if (wrote || agreedBefore)
                     {
-                        TableGridChecks.AssertWidthsAgree(table, label);
+                        TableGridChecks.AssertWidthsAgree(table, $"{label} ({(wrote ? "after a width write" : "a table that agreed before")})");
+                        WidthsCompared++;
                     }
                 }
             }

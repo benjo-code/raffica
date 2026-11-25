@@ -71,12 +71,12 @@ public sealed record BorderSpec(BorderSides Set, TableBorderStyle Style = TableB
     /// <summary>Every side of every cell: the outer edges and the lines between the cells.</summary>
     public static BorderSpec All(TableBorderStyle style = TableBorderStyle.Solid, int widthEighths = 4, uint? color = null) => new(BorderSides.All, style, widthEighths, color);
 
-    /// <summary>An outline and nothing else: the outer edges get the line and the lines between the cells are turned off.</summary>
-    public static BorderSpec Outside(TableBorderStyle style = TableBorderStyle.Solid, int widthEighths = 4, uint? color = null) =>
-        new(BorderSides.Outer, style, widthEighths, color, BorderSides.Inside);
+    /// <summary>The outline of the range and nothing else touched (Word's "Outside Borders" of the ribbon): the outer edges get the line and the lines between the cells stay as they are.</summary>
+    public static BorderSpec Outside(TableBorderStyle style = TableBorderStyle.Solid, int widthEighths = 4, uint? color = null) => new(BorderSides.Outer, style, widthEighths, color);
 
-    /// <summary>A box around the range: the outer edges get the line, the lines between the cells stay as they are.</summary>
-    public static BorderSpec Box(TableBorderStyle style = TableBorderStyle.Solid, int widthEighths = 4, uint? color = null) => new(BorderSides.Outer, style, widthEighths, color);
+    /// <summary>A box (Word's "Box" of the Borders and Shading dialog): the outer edges get the line and the lines between the cells of the range are turned off, so the range is an outline and nothing else.</summary>
+    public static BorderSpec Box(TableBorderStyle style = TableBorderStyle.Solid, int widthEighths = 4, uint? color = null) =>
+        new(BorderSides.Outer, style, widthEighths, color, BorderSides.Inside);
 
     /// <summary>The named sides get the line; nothing else changes.</summary>
     public static BorderSpec Sides(BorderSides sides, TableBorderStyle style = TableBorderStyle.Solid, int widthEighths = 4, uint? color = null) => new(sides, style, widthEighths, color);

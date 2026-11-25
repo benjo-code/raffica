@@ -188,8 +188,8 @@ internal static class TableFormatting
     private static bool IsSide(XName name, string side) =>
         name.Namespace == W && (name.LocalName == side || (side == "left" && name.LocalName == "start") || (side == "right" && name.LocalName == "end"));
 
-    // Writes one side of w:tcBorders: the element that is there keeps its name and its other attributes, a new one goes where the schema puts it. A null spec turns the side off (w:val nil).
-    private static void WriteSide(TableCell cell, string side, BorderSpec? spec)
+    // The element of one side of w:tcBorders, made where the schema puts it when the cell has none; an element that is there keeps its name (start and end stay).
+    private static XElement SideElement(TableCell cell, string side)
     {
         var borders = cell.Properties.Get(W + "tcBorders");
         if (borders is null)
@@ -213,6 +213,36 @@ internal static class TableFormatting
                 next.AddBeforeSelf(element);
             }
         }
+
+        return element;
+    }
+
+    /// <summary>
+    /// Makes the border of <paramref name="targetSide"/> of a cell the same as the border of <paramref name="sourceSide"/> of another (a copy of the element; no element on the source side removes the target's), so a
+    /// border two cells share stays the same on both after a structure operation made one of the two cells from the other.
+    /// </summary>
+    internal static void MirrorSide(TableCell target, string targetSide, TableCell source, string sourceSide)
+    {
+        var from = source.Properties.Get(W + "tcBorders")?.Elements().FirstOrDefault(e => IsSide(e.Name, sourceSide));
+        if (from is null)
+        {
+            var borders = target.Properties.Get(W + "tcBorders");
+            borders?.Elements().FirstOrDefault(e => IsSide(e.Name, targetSide))?.Remove();
+            if (borders is not null && !borders.HasElements)
+            {
+                target.Properties.Remove(W + "tcBorders");
+            }
+
+            return;
+        }
+
+        SideElement(target, targetSide).ReplaceAttributes(from.Attributes().Select(a => new XAttribute(a)));
+    }
+
+    // Writes one side of w:tcBorders: the element that is there keeps its name and its other attributes, a new one goes where the schema puts it. A null spec turns the side off (w:val nil).
+    private static void WriteSide(TableCell cell, string side, BorderSpec? spec)
+    {
+        var element = SideElement(cell, side);
 
         foreach (var theme in new[] { "themeColor", "themeTint", "themeShade" })
         {
@@ -366,18 +396,32 @@ internal static class TableFormatting
         return TableMutation.Done(FirstCaret(map));
     }
 
+    // True when the table is already fixed and in twips: a width write then changes nothing about how its widths are read, so the widths in the model are the truth and the drawn widths are not asked.
+    private static bool IsFixedDxa(Table table) =>
+        (string?)table.Properties.Get(W + "tblLayout")?.Attribute(W + "type") == "fixed"
+        && table.Properties.Get(W + "tblW") is { } width && (string?)width.Attribute(W + "type") is "dxa" or null
+        && int.TryParse((string?)table.Properties.Get(W + "tblW")?.Attribute(W + "w"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var preferred) && preferred > 0;
+
+    // The drawn widths the caller passed, checked: one per grid column, each above zero, the sum within the table limit.
+    private static bool ValidDrawn(IReadOnlyList<int>? drawn, TableGridMap map) =>
+        drawn is null || (drawn.Count == map.Columns && drawn.All(w => w > 0) && drawn.Sum(w => (long)w) <= TableRules.MaxTwips);
+
     /// <summary>
     /// Sets the width of the table: the columns keep their proportions (largest remainder, so the sum is exactly <paramref name="twips"/>; when a column would get narrower than the minimum, every column takes the
-    /// minimum and the rest is shared in proportion), then the first-width-write rule of <see cref="ColumnWidths"/> applies.
+    /// minimum and the rest is shared in proportion), then the first-width-write rule of <see cref="ColumnWidths"/> applies. The proportions are those of <paramref name="drawnColumnTwips"/> when the caller passes them
+    /// and the table is not yet fixed and in twips (an autofit or percentage table is drawn by the layout from its content or from the room, so the model's grid is not what the reader sees: the conversion freezes the
+    /// drawn widths, as Word does); otherwise they are those of the grid, which is the documented fallback.
     /// </summary>
-    public static TableMutation TableWidth(Table table, TableGridMap map, int twips)
+    public static TableMutation TableWidth(Table table, TableGridMap map, int twips, IReadOnlyList<int>? drawnColumnTwips = null)
     {
-        if (twips < map.Columns * TableRules.MinColumnTwips || twips > TableRules.MaxTwips)
+        if (!ValidDrawn(drawnColumnTwips, map) || twips < map.Columns * TableRules.MinColumnTwips || twips > TableRules.MaxTwips)
         {
             return TableMutation.Refuse(TableRefusal.InvalidValue);
         }
 
-        var weights = table.GridColumns.Take(map.Columns).Select(w => (long)Math.Max(w, 0)).ToArray();
+        var weights = drawnColumnTwips is not null && !IsFixedDxa(table)
+            ? drawnColumnTwips.Select(w => (long)w).ToArray()
+            : table.GridColumns.Take(map.Columns).Select(w => (long)Math.Max(w, 0)).ToArray();
         var widths = Apportion(weights, twips);
         if (widths.Any(w => w < TableRules.MinColumnTwips))
         {
@@ -391,14 +435,22 @@ internal static class TableFormatting
     }
 
     /// <summary>
-    /// Makes the columns equal, adding up to the width the table has now: <c>w:tblW</c> when it is in twips, otherwise the sum of the grid. The remainder of the division goes to the last column, so the sum is exactly
-    /// the table width.
+    /// Makes the columns equal, adding up to the width the table has now. The width is the sum of <paramref name="drawnColumnTwips"/> when the caller passes them and the table is not yet fixed and in twips (the
+    /// conversion freezes what the reader sees); otherwise <c>w:tblW</c> when it is in twips, else the sum of the grid, which is the documented fallback (a percentage width has no twip value without the layout). The
+    /// remainder of the division goes to the last column, so the sum is exactly the table width.
     /// </summary>
-    public static TableMutation Distribute(Table table, TableGridMap map)
+    public static TableMutation Distribute(Table table, TableGridMap map, IReadOnlyList<int>? drawnColumnTwips = null)
     {
-        var total = table.Properties.Get(W + "tblW") is { } width && (string?)width.Attribute(W + "type") is "dxa" or null && int.TryParse((string?)width.Attribute(W + "w"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var preferred) && preferred > 0
-            ? preferred
-            : table.GridColumns.Take(map.Columns).Sum();
+        if (!ValidDrawn(drawnColumnTwips, map))
+        {
+            return TableMutation.Refuse(TableRefusal.InvalidValue);
+        }
+
+        var total = drawnColumnTwips is not null && !IsFixedDxa(table)
+            ? (int)drawnColumnTwips.Sum(w => (long)w)
+            : table.Properties.Get(W + "tblW") is { } width && (string?)width.Attribute(W + "type") is "dxa" or null && int.TryParse((string?)width.Attribute(W + "w"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var preferred) && preferred > 0
+                ? preferred
+                : table.GridColumns.Take(map.Columns).Sum();
         if (total < map.Columns * TableRules.MinColumnTwips || total > TableRules.MaxTwips)
         {
             return TableMutation.Refuse(TableRefusal.InvalidValue);

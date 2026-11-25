@@ -79,26 +79,59 @@ public sealed class TableFormattingTests
 
     // ---- borders ---------------------------------------------------------------------------------------------------------------
 
+    // A 3 by 3 table that already has every line (the cells of the whole table got All), so a preset is judged by what it does to lines that are there.
+    private static (WordDocument Document, TextEditor Editor) Gridded3()
+    {
+        var document = Document(Plain3());
+        var editor = Editor(document);
+        Assert.NotNull(editor.SetBorders(new CellRange(Ref(), 0, 0, 2, 2), BorderSpec.All()));
+        return (document, editor);
+    }
+
     [Fact]
     public void BoxBordersWriteTheFourOuterSides()
     {
-        var document = Document(Plain3());
-        var result = Editor(document).SetBorders(new CellRange(Ref(), 0, 0, 1, 1), BorderSpec.Box());
+        // Box (the dialog's Box of Word): an outline and nothing else, so the lines between the cells of the range are turned off.
+        var (document, editor) = Gridded3();
+        var result = editor.SetBorders(new CellRange(Ref(), 0, 0, 1, 1), BorderSpec.Box(TableBorderStyle.DoubleLine, 8, 0xFF0070C0));
 
         Assert.NotNull(result);
-        AssertLine(CellAt(document, 0, 0), "top");
-        AssertLine(CellAt(document, 0, 0), "left");
-        AssertLine(CellAt(document, 0, 1), "top");
-        AssertLine(CellAt(document, 0, 1), "right");
-        AssertLine(CellAt(document, 1, 0), "left");
-        AssertLine(CellAt(document, 1, 0), "bottom");
-        AssertLine(CellAt(document, 1, 1), "right");
-        AssertLine(CellAt(document, 1, 1), "bottom");
-        // The lines between the four cells are left alone by a box.
-        AssertNoSide(CellAt(document, 0, 0), "right");
-        AssertNoSide(CellAt(document, 0, 0), "bottom");
-        AssertNoSide(CellAt(document, 1, 1), "left");
-        AssertNoSide(CellAt(document, 1, 1), "top");
+        AssertLine(CellAt(document, 0, 0), "top", "double", "8", "0070C0");
+        AssertLine(CellAt(document, 0, 0), "left", "double", "8", "0070C0");
+        AssertLine(CellAt(document, 0, 1), "top", "double", "8", "0070C0");
+        AssertLine(CellAt(document, 0, 1), "right", "double", "8", "0070C0");
+        AssertLine(CellAt(document, 1, 0), "left", "double", "8", "0070C0");
+        AssertLine(CellAt(document, 1, 0), "bottom", "double", "8", "0070C0");
+        AssertLine(CellAt(document, 1, 1), "right", "double", "8", "0070C0");
+        AssertLine(CellAt(document, 1, 1), "bottom", "double", "8", "0070C0");
+        AssertOff(CellAt(document, 0, 0), "right");
+        AssertOff(CellAt(document, 0, 0), "bottom");
+        AssertOff(CellAt(document, 1, 1), "left");
+        AssertOff(CellAt(document, 1, 1), "top");
+        AssertOff(CellAt(document, 0, 1), "left");
+        AssertOff(CellAt(document, 1, 0), "top");
+        // The cells outside the range keep every line they had apart from the side they share with the box.
+        AssertLine(CellAt(document, 2, 2), "top");
+        AssertLine(CellAt(document, 2, 2), "left");
+        AssertLine(CellAt(document, 0, 2), "bottom");
+    }
+
+    [Fact]
+    public void OutsideDrawsTheOutlineAndLeavesTheLinesInsideAlone()
+    {
+        // Outside (the ribbon's Outside Borders of Word): the outline of the range, nothing else touched.
+        var (document, editor) = Gridded3();
+        Assert.NotNull(editor.SetBorders(new CellRange(Ref(), 0, 0, 1, 1), BorderSpec.Outside(TableBorderStyle.Dashed, 12, 0xFFFF0000)));
+
+        AssertLine(CellAt(document, 0, 0), "top", "dashed", "12", "FF0000");
+        AssertLine(CellAt(document, 1, 1), "bottom", "dashed", "12", "FF0000");
+        AssertLine(CellAt(document, 0, 1), "right", "dashed", "12", "FF0000");
+        AssertLine(CellAt(document, 1, 0), "left", "dashed", "12", "FF0000");
+        // The lines between the four cells are as they were.
+        AssertLine(CellAt(document, 0, 0), "right");
+        AssertLine(CellAt(document, 0, 0), "bottom");
+        AssertLine(CellAt(document, 1, 1), "left");
+        AssertLine(CellAt(document, 1, 1), "top");
     }
 
     [Fact]
@@ -113,22 +146,34 @@ public sealed class TableFormattingTests
         AssertLine(CellAt(all, 0, 1), "left");
         AssertLine(CellAt(all, 1, 0), "top");
 
-        // Outside is an outline and nothing else: the lines between the cells are turned off.
-        var outside = Document(Plain3());
-        Assert.NotNull(Editor(outside).SetBorders(new CellRange(Ref(), 0, 0, 1, 1), BorderSpec.Outside()));
-        AssertLine(CellAt(outside, 0, 0), "top");
-        AssertOff(CellAt(outside, 0, 0), "right");
-        AssertOff(CellAt(outside, 1, 1), "top");
+        // On a table with no lines Box writes the outline and turns the inside lines off; it never draws one.
+        var box = Document(Plain3());
+        Assert.NotNull(Editor(box).SetBorders(new CellRange(Ref(), 0, 0, 1, 1), BorderSpec.Box()));
+        AssertLine(CellAt(box, 0, 0), "top");
+        AssertOff(CellAt(box, 0, 0), "right");
+        AssertOff(CellAt(box, 1, 1), "top");
+    }
 
-        var none = Document(Plain3());
-        var editor = Editor(none);
-        Assert.NotNull(editor.SetBorders(new CellRange(Ref(), 0, 0, 2, 2), BorderSpec.All()));
+    [Fact]
+    public void NoneTurnsEveryLineOffAndAllSetsEveryLine()
+    {
+        var (none, editor) = Gridded3();
         Assert.NotNull(editor.SetBorders(new CellRange(Ref(), 0, 0, 2, 2), BorderSpec.None()));
         foreach (var cell in TableGridMap.Of(TableAt(none)).Cells)
         {
             foreach (var side in new[] { "top", "left", "bottom", "right" })
             {
                 AssertOff(cell.Cell, side);
+            }
+        }
+
+        var all = Document(Plain3());
+        Assert.NotNull(Editor(all).SetBorders(new CellRange(Ref(), 0, 0, 2, 2), BorderSpec.All(TableBorderStyle.Dotted, 6, 0xFF92D050)));
+        foreach (var cell in TableGridMap.Of(TableAt(all)).Cells)
+        {
+            foreach (var side in new[] { "top", "left", "bottom", "right" })
+            {
+                AssertLine(cell.Cell, side, "dotted", "6", "92D050");
             }
         }
     }
@@ -226,7 +271,7 @@ public sealed class TableFormattingTests
     // ---- shading -----------------------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void ShadingUsesTheFixedColourList()
+    public void ShadingWritesTheSixHexDigitsOfEveryColourOfTheFixedList()
     {
         // The text colours of the fixed list of the Home tab (the app offers exactly these) and one with an alpha: the editor writes the six hex digits of whatever colour it is given, alpha ignored.
         uint[] list = [0xFF000000, 0xFF7F7F7F, 0xFFFFFFFF, 0xFFC00000, 0xFFFF0000, 0xFFFFC000, 0xFFFFFF00, 0xFF92D050, 0xFF00B050, 0xFF00B0F0, 0xFF0070C0, 0xFF002060, 0xFF7030A0, 0x80C0C0C0];
