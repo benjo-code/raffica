@@ -9,10 +9,11 @@ namespace Raffica.Write.Tests.Editing;
 /// <summary>
 /// Makes the files of the owner's Word check for milestone 4.5a (<c>Docs/write-word-check.md</c>, section "Tables, pictures and notes (milestone 4.5a)"): every operation goes through the editor as the app calls
 /// it and the file is saved through <see cref="DocxFile.SaveAsync(string, CancellationToken)"/>; <c>pwsh tools/word-open-check.ps1 &lt;files&gt;</c> then asks Word whether it opens each without repair. It covers the
-/// notes (<c>footnote.docx</c>, <c>endnote.docx</c> and <c>notes-in-table.docx</c>) and the tables (<c>table-*.docx</c>, each with a <c>.facts.txt</c> of the row, cell and column counts the model holds, for a
-/// comparison with Word's own); the picture files join it later. The tests write nothing and skip unless the folder is named by <c>RAFFICA_WORD_CHECK_DIR</c>.
+/// notes (<c>footnote.docx</c>, <c>endnote.docx</c> and <c>notes-in-table.docx</c>), the tables (<c>table-*.docx</c>) and the pictures (<c>picture-*.docx</c>, in <c>WordCheckObjectFilesTests.Pictures.cs</c>). Each file has a
+/// <c>.facts.txt</c> of what the model holds (the counts of tables, notes and pictures, one line per picture with its kind, size and description, and the row, cell and column counts of every table) for the comparison with
+/// Word's own (<c>pwsh tools/word-object-counts.ps1 &lt;file&gt;</c>). The tests write nothing and skip unless the folder is named by <c>RAFFICA_WORD_CHECK_DIR</c>.
 /// </summary>
-public sealed class WordCheckObjectFilesTests
+public sealed partial class WordCheckObjectFilesTests
 {
     private const string FolderVariable = "RAFFICA_WORD_CHECK_DIR";
 
@@ -60,7 +61,7 @@ public sealed class WordCheckObjectFilesTests
         var at = Type(editor, paragraph, "A sentence that carries a footnote.");
         NoteWithText(editor, at with { Offset = at.Offset - 1 }, NoteType.Footnote, "The footnote says where the sentence comes from.");
 
-        await file.SaveAsync(Path.Combine(folder, "footnote.docx"), TestContext.Current.CancellationToken);
+        await SaveWithFactsAsync(file, folder, "footnote.docx");
     }
 
     [Fact]
@@ -73,7 +74,7 @@ public sealed class WordCheckObjectFilesTests
         var at = Type(editor, paragraph, "A sentence that carries an endnote.");
         NoteWithText(editor, at with { Offset = at.Offset - 1 }, NoteType.Endnote, "The endnote collects its sources at the end.");
 
-        await file.SaveAsync(Path.Combine(folder, "endnote.docx"), TestContext.Current.CancellationToken);
+        await SaveWithFactsAsync(file, folder, "endnote.docx");
     }
 
     [Fact]
@@ -109,7 +110,7 @@ public sealed class WordCheckObjectFilesTests
         var tail = Type(editor, closing, "Text behind the table with a footnote.");
         NoteWithText(editor, tail with { Offset = tail.Offset - 1 }, NoteType.Footnote, "A footnote of the body.");
 
-        await file.SaveAsync(Path.Combine(folder, "notes-in-table.docx"), TestContext.Current.CancellationToken);
+        await SaveWithFactsAsync(file, folder, "notes-in-table.docx");
     }
 
     // ---- tables ---------------------------------------------------------------------------------------------------------------------
@@ -171,16 +172,23 @@ public sealed class WordCheckObjectFilesTests
 
     private static string FactsLine(TableGridMap map) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"rows={map.RowCount} cells={map.Cells.Count(c => !c.IsContinuation)} tcs={map.Cells.Count} columns={map.Columns}");
 
-    // Saves the file and writes what the model holds of every top-level table next to it, for the comparison with Word's counts: grid rows, cells (a merged cell counts once, as in Word's own count; <c>tcs</c> counts every <c>w:tc</c>, a continuation of a vertical merge included)
-    // and grid columns. A table the editor made must be a regular and consistent grid.
-    private static async Task SaveWithFactsAsync(DocxFile file, string folder, string name)
+    // Saves the file and writes what the model holds next to it, for the comparison with Word's counts: the object facts (counts of tables, notes and pictures, one line per picture) and, for every top-level table (or the lines the caller
+    // names), grid rows, cells (a merged cell counts once, as in Word's own count; <c>tcs</c> counts every <c>w:tc</c>, a continuation of a vertical merge included) and grid columns. A table the editor made must be a regular and consistent grid.
+    private static async Task SaveWithFactsAsync(DocxFile file, string folder, string name, IReadOnlyList<string>? tableLines = null)
     {
-        var lines = new List<string>();
-        foreach (var table in file.Model.Body.Blocks.OfType<Table>())
+        var lines = ObjectFacts(file);
+        if (tableLines is null)
         {
-            var map = TableGridMap.Of(table);
-            Assert.True(map.IsRegular && map.IsConsistent, $"{name}: a table the editor made is not a regular and consistent grid");
-            lines.Add(FactsLine(map));
+            foreach (var table in file.Model.Body.Blocks.OfType<Table>())
+            {
+                var map = TableGridMap.Of(table);
+                Assert.True(map.IsRegular && map.IsConsistent, $"{name}: a table the editor made is not a regular and consistent grid");
+                lines.Add(FactsLine(map));
+            }
+        }
+        else
+        {
+            lines.AddRange(tableLines);
         }
 
         await file.SaveAsync(Path.Combine(folder, name), TestContext.Current.CancellationToken);
@@ -346,9 +354,8 @@ public sealed class WordCheckObjectFilesTests
         FillAll(editor, file, table);
         Type(editor, closing, "Text behind the control.");
 
-        // The table is inside the control, so the top-level facts hold no table: write the facts of the one table by hand.
-        await file.SaveAsync(Path.Combine(folder, "table-in-content-control.docx"), TestContext.Current.CancellationToken);
-        await File.WriteAllLinesAsync(Path.Combine(folder, "table-in-content-control.docx.facts.txt"), [FactsLine(Map(file, table))], TestContext.Current.CancellationToken);
+        // The table is inside the control, so the top-level facts hold no table: the facts of the one table are named by hand.
+        await SaveWithFactsAsync(file, folder, "table-in-content-control.docx", [FactsLine(Map(file, table))]);
     }
 
     [Fact]
