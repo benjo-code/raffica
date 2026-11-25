@@ -148,6 +148,48 @@ public sealed class PictureEditingTests
         Assert.Equal("9", (string?)PicturesOf((Paragraph)document.Body.Blocks[2]).Single().Raw.Element(Wp + "inline")!.Element(Wp + "docPr")!.Attribute("id"));
     }
 
+    // The editor walks the document for the first id only and counts on from it: every id is new, above the document's own, and an undo frees none of them for reuse.
+    [Fact]
+    public void ManyInsertsGiveDistinctIdsAboveEveryIdOfTheDocument()
+    {
+        var document = Doc(Line("alpha"), Para(InlinePicture(7)), Line("gamma"), Line("delta"));
+        var editor = Editor(document);
+        var ids = new List<long>();
+
+        for (var i = 0; i < 6; i++)
+        {
+            Assert.NotNull(editor.InsertPicture(At(document, i % 2 == 0 ? 0 : 2, 0), TestPictures.Png(10 + i, 10), null));
+            if (i == 2)
+            {
+                Assert.NotNull(editor.History.Undo());
+            }
+
+            ids.AddRange(document.Body.Blocks.OfType<Paragraph>().SelectMany(PicturesOf).Select(p => (long)p.Raw.Descendants(Wp + "docPr").Single().Attribute("id")!).Where(id => !ids.Contains(id)));
+        }
+
+        // 7 is the file's own; the six inserts took 8 to 13 and the undone third one (10) is gone, never reissued.
+        Assert.Equal([7, 8, 9, 11, 12, 13], ids.Order().ToArray());
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    // A file whose highest id is the largest one: the lowest free id is taken, and the ones after it must not hit an id that is in use.
+    [Fact]
+    public void IdsAfterAFreeIdBelowAHostileFilesHighestNeverCollide()
+    {
+        var document = Doc(Line("alpha"), Para(InlinePicture(1).Replace("id=\"1\"", "id=\"4294967295\"", StringComparison.Ordinal)), Para(InlinePicture(2)), Para(InlinePicture(4)), Para(InlinePicture(5)));
+        var editor = Editor(document);
+
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.InsertPicture(At(document, 0, 0), TestPictures.Png(10 + i, 10), null));
+        }
+
+        var all = document.Body.Blocks.OfType<Paragraph>().SelectMany(PicturesOf).Select(p => (long)p.Raw.Descendants(Wp + "docPr").Single().Attribute("id")!).ToList();
+        Assert.Equal(all.Count, all.Distinct().Count());
+        Assert.Equal(8, all.Count);
+        Assert.Equal([1, 2, 3, 4, 5, 6, 7, 4294967295], all.Order().ToArray());
+    }
+
     [Fact]
     public void InsertFitsTheTextWidthKeepingTheAspectRatioAndRoundTripsThroughTheXml()
     {

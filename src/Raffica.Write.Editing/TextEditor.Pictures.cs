@@ -13,6 +13,23 @@ public sealed partial class TextEditor
     // A move rewrites the blocks between the two paragraphs (the one step snapshots them); beyond this many the move is refused.
     private const int MaxMoveSpan = 20_000;
 
+    // The next wp:docPr id: the first picture of the editor walks the whole document (PictureOperations.NextDocPrId), later ones count on from it. A picture enters a document through this editor or the file it was read
+    // from, so no other drawing can take a higher id in between; an undo never frees an id for reuse (a skipped id costs nothing), and the walk is taken again when the counter reaches the end of the id range or the first id was a free one below a hostile file's highest.
+    private long? _nextPictureId;
+
+    private long NextPictureId()
+    {
+        if (_nextPictureId is { } next && next < uint.MaxValue)
+        {
+            _nextPictureId = next + 1;
+            return next;
+        }
+
+        var id = PictureOperations.NextDocPrId(_document, out var aboveEvery);
+        _nextPictureId = aboveEvery && id < uint.MaxValue ? id + 1 : null;
+        return id;
+    }
+
     /// <summary>
     /// Where the bytes of a picture of the document come from when the editor needs the original size (<see cref="ResetPictureSize"/>): the relationship id of the picture in the main part, its bytes or null. The owner of the package
     /// sets it; without one only pictures that are new (<see cref="WordDocument.Media"/>) can be reset.
@@ -134,7 +151,7 @@ public sealed partial class TextEditor
         var offset = EditRules.Snap(map, Math.Max(0, at.Offset));
         var old = paragraph.Clone();
         var (width, height) = InsertSize(info, TextWidthEmu(paragraph));
-        var docPrId = PictureOperations.NextDocPrId(_document);
+        var docPrId = NextPictureId();
 
         MediaRef media;
         try
@@ -222,7 +239,7 @@ public sealed partial class TextEditor
             offset = EditRules.Snap(map, deleted.Offset);
             var (width, height) = InsertSize(info, TextWidthEmu(paragraph));
             var run = new Run();
-            run.Content.Add(new Picture(DrawingBuilder.Inline(media.RelationshipId, width, height, PictureOperations.NextDocPrId(_document), null)));
+            run.Content.Add(new Picture(DrawingBuilder.Inline(media.RelationshipId, width, height, NextPictureId(), null)));
             PlaceRun(paragraph, map, offset, run);
             gone = RemoveNotesOf(references);
         }
