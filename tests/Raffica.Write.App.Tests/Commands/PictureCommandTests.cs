@@ -408,6 +408,8 @@ public sealed class PictureCommandTests
         Assert.Equal(WriteStrings.ReasonPictureNoSelection, Command(window, WriteCommandIds.PictureProperties).CurrentDisabledReason);
     }
 
+    private static readonly RawInputModifiers CommandKey = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
     [AvaloniaFact]
     public async Task TheCopyAndCutKeysWithAPictureSelectedSayThatAPictureIsNotCopied()
     {
@@ -421,8 +423,8 @@ public sealed class PictureCommandTests
         {
             window.Status.Hint = null;
             window.ActiveView!.Focus();
-            window.KeyPressQwerty(key, RawInputModifiers.Control);
-            window.KeyReleaseQwerty(key, RawInputModifiers.Control);
+            window.KeyPressQwerty(key, CommandKey);
+            window.KeyReleaseQwerty(key, CommandKey);
             WindowFixture.Pump();
             Assert.Equal(WriteStrings.NotePictureNotCopied, window.Status.Hint);
         }
