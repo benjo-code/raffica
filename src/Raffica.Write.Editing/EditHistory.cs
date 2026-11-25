@@ -65,6 +65,14 @@ public sealed class EditHistory
     private IList<Block>? _openContainer;
     private long _openStamp;
 
+    // The pictures a dropped step added: candidates for removal from the store (the redo stack cut by a new edit, the history cleared, the oldest steps trimmed). Only a step that carries media
+    // is looked at, so typing pays a count check and nothing else.
+    private readonly Dictionary<string, MediaRef> _dropped = new(StringComparer.Ordinal);
+
+    // Candidates that were still referenced when their step was dropped (the document holds the picture, or a remaining step does). They are looked at again when a step that refers to one is dropped
+    // (its snapshots are scanned for these ids only, which costs one paragraph's XML for a typing step) and when the history is cleared.
+    private readonly Dictionary<string, MediaRef> _held = new(StringComparer.Ordinal);
+
     public EditHistory(WordDocument document, TimeProvider time, HistoryLimits limits)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -190,8 +198,8 @@ public sealed class EditHistory
     /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history). The pictures only these steps referred to leave the document's picture store (see <see cref="MediaStore.Remove"/>).</summary>
     public void Clear()
     {
-        Collect(_undo);
-        Collect(_redo);
+        Collect(_undo, _undo.Count);
+        Collect(_redo, _redo.Count);
         foreach (var held in _held.Values)
         {
             _dropped[held.RelationshipId] = held;
@@ -208,18 +216,12 @@ public sealed class EditHistory
 
     // ---- pictures of dropped steps --------------------------------------------------------------------------------------------------------
 
-    // The pictures a dropped step added: candidates for removal from the store (the redo stack cut by a new edit, the history cleared, the oldest steps trimmed). Only a step that carries media
-    // is looked at, so typing pays a count check and nothing else.
-    private readonly Dictionary<string, MediaRef> _dropped = new(StringComparer.Ordinal);
-
-    // Candidates that were still referenced when their step was dropped (the document holds the picture, or a remaining step does). They are looked at again when a step that refers to one is dropped
-    // (its snapshots are scanned for these ids only, which costs one paragraph's XML for a typing step) and when the history is cleared.
-    private readonly Dictionary<string, MediaRef> _held = new(StringComparer.Ordinal);
-
-    private void Collect(IEnumerable<Step> steps)
+    // The first <count> steps of a list: an index loop, so that trimming one step per edit at the limit allocates no iterator.
+    private void Collect(List<Step> steps, int count)
     {
-        foreach (var step in steps)
+        for (var i = 0; i < count; i++)
         {
+            var step = steps[i];
             if (step.Objects is { MediaAdded.Count: > 0 } objects)
             {
                 foreach (var media in objects.MediaAdded)
@@ -245,7 +247,7 @@ public sealed class EditHistory
     {
         if (_redo.Count > 0)
         {
-            Collect(_redo);
+            Collect(_redo, _redo.Count);
             _redo.Clear();
         }
     }
@@ -256,6 +258,13 @@ public sealed class EditHistory
     /// when a step that refers to it is dropped later (its step A was dropped while a delete step B still held a snapshot with it, and B is dropped now). The scan is made only when a dropped step carried a picture or
     /// referred to a remembered one, on the thread of the edit under the edit lease. This is the history <em>dropping</em> a step, never an undo or a redo: those keep every entry (see <see cref="ObjectChange"/>).
     /// Ids are never reused by the store, so a pruned id cannot name another picture later.
+    /// <para>
+    /// Two notes for whoever extends this. The redo stack is empty right after <see cref="DropRedo"/> (every recording drops it first), so the scan of <c>_redo</c> below matters only for a prune that runs from
+    /// <see cref="Clear"/> or a trim with redo steps present; it is kept as the defensive case. And the scan rests on this invariant: <b>pictures exist only in body blocks</b>. It covers the old and new snapshots of
+    /// every step, what a step added (<see cref="ObjectChange.MediaAdded"/>) and the whole current model through <see cref="PictureOperations.DrawingRoots"/>; the notes of a step (<see cref="ObjectChange.NotesAdded"/>
+    /// and <see cref="ObjectChange.NotesRemoved"/>) and the section carriers are not scanned, so a milestone that allows pictures in notes, headers and footers or comments must extend the scan first (an unscanned
+    /// reference would let a picture leave the store while a note still names it).
+    /// </para>
     /// </summary>
     private void PruneMedia()
     {
@@ -310,11 +319,16 @@ public sealed class EditHistory
         }
     }
 
+    /// <summary>
+    /// Records the operation that just ran (see <see cref="RecordCore"/>) and then takes the pictures of the steps this dropped out of the document's picture store (<see cref="PruneMedia"/>).
+    /// <paramref name="typed"/> is the inserted text when the operation was an insert without a selection and without a line break, else null.
+    /// </summary>
     internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
     {
         RecordCore(result, before, revisionBefore, typed, typingFormat, keepsBodySelection, after, nudge);
         PruneMedia();
     }
+
     /// <summary>The place in a list of blocks a caret has: the index of its paragraph and the offset.</summary>
     internal readonly record struct Point(int Index, int Offset);
 
@@ -325,10 +339,7 @@ public sealed class EditHistory
         return _document.Edits.Revision;
     }
 
-    /// <summary>
-    /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
-    /// selection and without a line break, else null.
-    /// </summary>
+    // The recording itself: the step is made, coalesced into the open typing step or pushed, and the history is trimmed; the pictures of what it dropped are taken out by <see cref="Record"/>.
     private void RecordCore(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
     {
         if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null && result.Objects is null))
@@ -638,7 +649,7 @@ public sealed class EditHistory
 
         if (drop > 0)
         {
-            Collect(_undo.Take(drop));
+            Collect(_undo, drop);
             _undo.RemoveRange(0, drop);
             _undoBytes = bytes;
         }

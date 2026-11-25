@@ -832,6 +832,9 @@ internal sealed partial class PageView : Control, IDisposable
     /// <summary>The typing measurement's hook, called on the render thread after every page draw with the monotonic timestamps of its start and its end (null outside a measurement).</summary>
     internal Action<long, long>? DrawProbe { get; set; }
 
+    /// <summary>The gesture measurement's hook for the overlay layer, called on the UI thread at the start of its render pass (with -1) and at its end (with 0): a pointer move that changes only the overlay renders no page, so <see cref="RenderProbe"/> never hears of it. Null outside a measurement.</summary>
+    internal Action<int>? OverlayProbe { get; set; }
+
     public override void Render(DrawingContext context)
     {
         RenderCount++;

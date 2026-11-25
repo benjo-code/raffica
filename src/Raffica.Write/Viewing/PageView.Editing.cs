@@ -1162,9 +1162,11 @@ internal sealed partial class PageView
         public override void Render(DrawingContext context)
         {
             RenderCount++;
+            _owner.OverlayProbe?.Invoke(-1);
             _owner.DrawEditing(context);
             _owner.DrawObjects(context);
             _owner.DrawTableGesture(context);
+            _owner.OverlayProbe?.Invoke(0);
         }
     }
 }

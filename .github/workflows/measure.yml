@@ -929,6 +929,25 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-sections-pane --out ${{ env.OUT }}/typing-sections-pane.csv
 
+      # Objects (milestone 4.5a): a table inserted, a row added, two cells merged, borders set, a picture inserted, pasted, resized and moved, a footnote inserted and one deleted on the thesis (--measure-objects);
+      # rows objects/<case>-median and -p95 (the time from the command to the pages in view), objects-refresh/<case>-ms. The metric objects (worst median of the ten) is judged against a fixed regression limit on
+      # every platform (decisions entry "Raffica Write: the objects limit (M4.5a)"): the check fails above it. Three launches.
+      - name: Table, picture and note commands in the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case objects --out ${{ env.OUT }}/objects.csv
+
+      # Gestures (milestone 4.5a): the pointer moves of six drag kinds (a column border, the edge of a table, a row, a cell range, the resize of a picture, the move of a floating picture) on the thesis
+      # (--measure-gesture); rows gesture/<kind>-median and -p95 (the CPU cost of one move). The metric gesture (worst p95 of the six) is judged against the fixed 16 ms. Three launches.
+      - name: Pointer drags in the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case gesture --out ${{ env.OUT }}/gesture.csv
+
+      # Typing at objects (--measure-typing-objects): the same keys in a paragraph that holds a picture and in a table cell; its rows are typing/objects-<case>-<view>-p95, so the worst p95 of typing holds them
+      # (the same fixed 16 ms).
+      - name: Typing at a picture and in a table cell (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-objects --out ${{ env.OUT }}/typing-objects.csv
+
       # Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded for the owner, never judged.
       - name: Typing during the background layout (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}

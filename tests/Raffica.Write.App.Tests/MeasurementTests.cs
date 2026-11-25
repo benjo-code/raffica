@@ -7,7 +7,7 @@ namespace Raffica.WriteApp.Tests;
 
 public sealed class MeasurementTests
 {
-    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format", "--measure-structure", "--measure-sections", "--measure-typing-sections-pane", "--measure-typing-snapshot"];
+    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format", "--measure-structure", "--measure-sections", "--measure-objects", "--measure-gesture", "--measure-typing-objects", "--measure-typing-sections-pane", "--measure-typing-snapshot"];
 
     /// <summary>Collects the lines and the exit codes of a <see cref="Measurement"/>.</summary>
     private sealed class Probe
@@ -363,6 +363,100 @@ public sealed class MeasurementTests
         Assert.Equal(Raffica.Write.Model.SectionList.Of(original.Model).Count, Raffica.Write.Model.SectionList.Of(model).Count);
         Assert.Equal(original.Model.Body.Blocks.Count, model.Body.Blocks.Count);
         Assert.False(Directory.Exists(f.Window.RecoveryFolder) && Directory.GetFiles(f.Window.RecoveryFolder).Length > 0, "a measurement run starts no autosave");
+    }
+
+    [AvaloniaFact]
+    public async Task ObjectsMeasurementWritesOneRowPerCaseAndLeavesTheDocumentAsFound()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-objects", typingKeys: 2);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+
+        // The ten commands of the objects milestone, in this order (measure.cs lists the same ten: WriteRun.ObjectsNames; the bench has the same ten).
+        string[] names = ["table-insert", "table-add-row", "table-merge", "table-border-set", "picture-insert", "picture-paste", "picture-resize", "picture-float-move", "footnote-insert", "footnote-delete"];
+        Assert.Equal(names, ObjectPlaces.Names);
+        var rows = probe.Lines.Where(l => l.StartsWith("objects case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(names.Length, rows.Length);
+        for (var i = 0; i < rows.Length; i++)
+        {
+            Assert.Matches($@"^objects case={names[i]} view=page n=2 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d", rows[i]);
+        }
+
+        var refreshes = probe.Lines.Where(l => l.StartsWith("objects-refresh case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(names.Length, refreshes.Length);
+        Assert.All(refreshes, r => Assert.Matches(@"^objects-refresh case=[a-z-]+ view=page n=1 ms=\d+\.\d\d$", r));
+
+        // Every run is undone: the file's body is the document's again, tables and footnotes included, and nothing of autosave or recovery ran.
+        using var original = Raffica.Write.Docx.DocxFile.Open(WindowFixture.Thesis);
+        var model = f.Window.Workspace.Active!.Docx.Model;
+        Assert.Equal(original.Model.Body.Blocks.Count, model.Body.Blocks.Count);
+        Assert.Equal(original.Model.Body.Blocks.OfType<Raffica.Write.Model.Table>().Count(), model.Body.Blocks.OfType<Raffica.Write.Model.Table>().Count());
+        Assert.Equal(original.Model.Footnotes?.Notes.Count, model.Footnotes?.Notes.Count);
+        Assert.False(Directory.Exists(f.Window.RecoveryFolder) && Directory.GetFiles(f.Window.RecoveryFolder).Length > 0, "a measurement run starts no autosave");
+    }
+
+    [AvaloniaFact]
+    public async Task GestureMeasurementWritesOneRowPerDragKindAndChangesNothing()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-gesture", typingKeys: 4);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        string[] names = ["column-border", "table-edge", "row", "cell-range", "picture-resize", "picture-float-move"];
+        Assert.Equal(names, GesturePlaces.Names);
+        var rows = probe.Lines.Where(l => l.StartsWith("gesture case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(names.Length, rows.Length);
+        for (var i = 0; i < rows.Length; i++)
+        {
+            Assert.Matches($@"^gesture case={names[i]} view=page n=4 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d", rows[i]);
+        }
+
+        // A gesture is cancelled at the end of its kind and the inserted pictures are undone: the document is the file's again.
+        using var original = Raffica.Write.Docx.DocxFile.Open(WindowFixture.Thesis);
+        var model = f.Window.Workspace.Active!.Docx.Model;
+        Assert.Equal(original.Model.Body.Blocks.Count, model.Body.Blocks.Count);
+        Assert.True(f.Window.ActiveView?.ObjectGesture is not { IsActive: true }, "no drag is left");
+    }
+
+    [AvaloniaFact]
+    public async Task TypingAtObjectsIsMeasuredInAPictureParagraphAndATableCell()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-typing-objects", typingKeys: 3);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        var rows = probe.Lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(4, rows.Length);
+        Assert.Equal(["picture-paragraph", "table-cell", "picture-paragraph", "table-cell"], rows.Select(r => r.Split(' ')[1]["case=".Length..]));
+        Assert.All(rows, r => Assert.Matches(@"^typing case=[a-z-]+ view=(page|writing) n=3 median-ms=", r));
     }
 
     [AvaloniaFact]
