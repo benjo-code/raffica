@@ -620,7 +620,16 @@ public sealed class EditHistory
     private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks, ObjectChange? objects)
     {
         var index = Math.Clamp(caret.Index, 0, Math.Max(0, container.Count - 1));
-        var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault();
+        var at = index < container.Count ? container[index] : null;
+        var paragraph = at as Paragraph;
+        if (paragraph is null && at is Table && TextEditor.FirstParagraph([at]) is { } inTable)
+        {
+            // A table operation names the table itself as its place: the caret goes to the first paragraph of its first cell.
+            paragraph = inTable;
+            caret = caret with { Offset = 0 };
+        }
+
+        paragraph ??= container.OfType<Paragraph>().FirstOrDefault();
         if (paragraph is null)
         {
             // A story of a table or a block content control only (a footer or header of a real file): the caret goes to the first paragraph inside, wherever it is.

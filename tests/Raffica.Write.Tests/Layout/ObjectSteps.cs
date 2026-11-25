@@ -14,17 +14,26 @@ internal enum ObjectKind
     InsertFootnote,
     InsertEndnote,
     DeleteReference,
+    InsertTable,
+    AddRow,
+    AddColumn,
+    DeleteRows,
+    DeleteColumns,
+    Merge,
+    Split,
+    MoveRow,
+    DeleteTable,
     Undo,
     Redo,
 }
 
 /// <summary>
-/// The object steps of the oracle gates (milestone 4.5a): a footnote or an endnote inserted at a random place, the deletion of a reference (with its note), and undo and redo, each made by the real
+/// The object steps of the oracle gates (milestone 4.5a): a footnote or an endnote inserted at a random place, the deletion of a reference (with its note), the table steps (see <c>ObjectSteps.Tables.cs</c>), and undo and redo, each made by the real
 /// <see cref="TextEditor"/>, brought into the layout as the session does (a result that made styles starts the layout over with <see cref="DocumentLayout.Restyle"/>, any other is
 /// <see cref="DocumentLayout.ApplyEdit"/>) and compared with a full layout, exactly, and the note numbers drawn on the pages are compared with an independent count of the references in document
 /// order. A step the editor refuses (null, or no change) is counted as a refusal and compared nowhere, except an undo and a redo with something on the stack, which must always change something.
 /// </summary>
-internal sealed class ObjectSteps
+internal sealed partial class ObjectSteps
 {
     /// <summary>The number of kinds.</summary>
     public static readonly int Kinds = Enum.GetValues<ObjectKind>().Length;
@@ -43,6 +52,18 @@ internal sealed class ObjectSteps
         ObjectKind.Redo,
         ObjectKind.Undo,
         ObjectKind.Undo,
+        ObjectKind.InsertTable,
+        ObjectKind.AddRow,
+        ObjectKind.AddColumn,
+        ObjectKind.Merge,
+        ObjectKind.Split,
+        ObjectKind.MoveRow,
+        ObjectKind.DeleteRows,
+        ObjectKind.DeleteColumns,
+        ObjectKind.DeleteTable,
+        ObjectKind.Undo,
+        ObjectKind.Undo,
+        ObjectKind.Redo,
     ];
 
     private readonly WordDocument _model;
@@ -78,18 +99,18 @@ internal sealed class ObjectSteps
     /// <summary>The labels of the steps that were compared, in order (a failure message carries them).</summary>
     public List<string> Trace { get; } = [];
 
-    /// <summary>One of every kind in a fixed order, then <paramref name="steps"/> random steps, all from <paramref name="random"/>. Returns how many steps were compared.</summary>
-    public async Task<int> RunAsync(Random random, int steps, string label)
+    /// <summary>One of every kind in a fixed order, then <paramref name="steps"/> random steps, all from <paramref name="random"/> (with a <paramref name="pool"/> no fixed order is run and the random steps draw only from the pool). Returns how many steps were compared.</summary>
+    public async Task<int> RunAsync(Random random, int steps, string label, IReadOnlyList<ObjectKind>? pool = null)
     {
         var before = Compared;
-        foreach (var kind in s_forcedOrder)
+        foreach (var kind in pool is null ? s_forcedOrder : Array.Empty<ObjectKind>())
         {
             await RunKindAsync(kind, random, $"{label} forced {kind}");
         }
 
         for (var i = 0; i < steps; i++)
         {
-            var kind = (ObjectKind)random.Next(Kinds);
+            var kind = pool is null ? (ObjectKind)random.Next(Kinds) : pool[random.Next(pool.Count)];
             await RunKindAsync(kind, random, $"{label} step {i} {kind}");
         }
 
@@ -107,6 +128,15 @@ internal sealed class ObjectSteps
                 ObjectKind.InsertFootnote => await InsertAsync(NoteType.Footnote, random, label),
                 ObjectKind.InsertEndnote => await InsertAsync(NoteType.Endnote, random, label),
                 ObjectKind.DeleteReference => await DeleteAsync(random, label),
+                ObjectKind.InsertTable => await InsertTableAsync(random, label),
+                ObjectKind.AddRow => await AddRowAsync(random, label),
+                ObjectKind.AddColumn => await AddColumnAsync(random, label),
+                ObjectKind.DeleteRows => await DeleteRowsAsync(random, label),
+                ObjectKind.DeleteColumns => await DeleteColumnsAsync(random, label),
+                ObjectKind.Merge => await MergeAsync(random, label),
+                ObjectKind.Split => await SplitAsync(random, label),
+                ObjectKind.MoveRow => await MoveRowAsync(random, label),
+                ObjectKind.DeleteTable => await DeleteTableAsync(random, label),
                 ObjectKind.Undo => Editor.History.CanUndo ? await CheckAsync(Editor.History.Undo(), label, required: true) : Refuse(),
                 _ => Editor.History.CanRedo ? await CheckAsync(Editor.History.Redo(), label, required: true) : Refuse(),
             };
@@ -190,6 +220,7 @@ internal sealed class ObjectSteps
         await _layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
         NumbersCompared += AssertNumbers(label);
+        GridsCompared += AssertTableGrids(label);
         Compared++;
         RanPerKind[(int)_kind]++;
         Trace.Add(label);

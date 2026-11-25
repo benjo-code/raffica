@@ -602,6 +602,61 @@ public sealed class SnapshotCacheOracleTests
         Check("redo delete");
     }
     [Fact]
+    public void TableOperationsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("tables.docx");
+        Support.DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        // The tables are the blocks 1, 3, 5 and 7 of the generated body.
+        var merged = new TableRef(StoryRef.Body, 1);
+        var plain = new TableRef(StoryRef.Body, 3);
+        (string Label, Func<EditResult?> Run)[] steps =
+        [
+            ("add row", () => editor.AddRow(new TableRef(StoryRef.Body, 3), 1, after: true)),
+            ("add column", () => editor.AddColumn(new TableRef(StoryRef.Body, 3), 1, after: false)),
+            ("merge", () => editor.MergeCells(new CellRange(new TableRef(StoryRef.Body, 3), 0, 0, 1, 1))),
+            ("split", () => editor.SplitCell(new TableRef(StoryRef.Body, 3), 0, 0)),
+            ("move row", () => editor.MoveRow(new TableRef(StoryRef.Body, 5), 0, 1)),
+            ("delete rows", () => editor.DeleteRows(new CellRange(new TableRef(StoryRef.Body, 5), 1, 0, 1, 0))),
+            ("delete columns", () => editor.DeleteColumns(new CellRange(new TableRef(StoryRef.Body, 5), 0, 0, 0, 0))),
+            ("delete table", () => editor.DeleteTable(new TableRef(StoryRef.Body, 5))),
+            ("insert", () => editor.InsertTable(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 2), 3, 2)),
+        ];
+        Assert.NotNull(merged.Find(model.Body.Blocks));
+        Assert.NotNull(plain.Find(model.Body.Blocks));
+
+        Check("before");
+        foreach (var (label, run) in steps)
+        {
+            Assert.True(run() is not null, label + " was refused");
+            Check(label);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public void InsertPageNumberAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));

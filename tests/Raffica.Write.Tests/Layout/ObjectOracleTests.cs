@@ -9,7 +9,7 @@ using Xunit;
 namespace Raffica.Write.Tests.Layout;
 
 /// <summary>
-/// The gate of the object steps of milestone 4.5a (notes now, tables and pictures later): over the whole corpus, every note step (a footnote or an endnote inserted, a reference deleted with its note, undo and
+/// The gate of the object steps of milestone 4.5a (notes and tables now, pictures later): over the whole corpus, every note and table step (a footnote or an endnote inserted, a reference deleted with its note, undo and
 /// redo) is brought into the layout as the session does and compared, exactly, with a full layout, and the note numbers drawn on the pages are compared with the independent count of the references in
 /// document order: a note number is never stale.
 /// </summary>
@@ -70,6 +70,7 @@ public sealed class ObjectOracleTests
     {
         var totals = new int[ObjectSteps.Kinds];
         long numbers = 0;
+        long grids = 0;
         foreach (var entry in CorpusManifest.Load(Root).Files.Where(f => f.Id != "thesis"))
         {
             using var file = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
@@ -82,6 +83,7 @@ public sealed class ObjectOracleTests
             }
 
             numbers += steps.NumbersCompared;
+            grids += steps.GridsCompared;
         }
 
         foreach (var kind in Enum.GetValues<ObjectKind>())
@@ -90,7 +92,38 @@ public sealed class ObjectOracleTests
         }
 
         Assert.True(numbers > 100, $"only {numbers} note numbers were compared with the reference");
+        Assert.True(grids > 50, $"only {grids} table pieces were compared with the model grid");
         TestContext.Current.SendDiagnosticMessage("note steps per kind on the corpus: " + string.Join(", ", Enum.GetValues<ObjectKind>().Select(k => k + " " + totals[(int)k])) + $"; {numbers} note numbers compared");
+    }
+
+    private static readonly ObjectKind[] s_tableKinds =
+    [
+        ObjectKind.InsertTable, ObjectKind.AddRow, ObjectKind.AddColumn, ObjectKind.DeleteRows, ObjectKind.DeleteColumns, ObjectKind.Merge, ObjectKind.Split, ObjectKind.MoveRow, ObjectKind.DeleteTable,
+        ObjectKind.AddRow, ObjectKind.AddColumn, ObjectKind.Merge, ObjectKind.Split, ObjectKind.MoveRow, ObjectKind.Undo, ObjectKind.Redo,
+    ];
+
+    // Tables with merges in both directions, spans and the three width modes (the corpus has no vertical merge): table steps only, each compared with a full layout and with the model grid.
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task TableStepsEqualAFullLayoutOnGeneratedTablesWithMerges(int seed)
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("tables.docx");
+        DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+        using var file = DocxFile.Open(path);
+        var layout = await SectionOracleTests.LaidAsync(file.Model);
+        var steps = new ObjectSteps(file.Model, layout, new LayoutOptions());
+
+        var compared = await steps.RunAsync(new Random(unchecked(seed * 7919)), 45, "generated " + seed, s_tableKinds);
+
+        Assert.True(compared > 20, $"only {compared} of 45 steps changed something");
+        Assert.True(steps.GridsCompared > 20, $"only {steps.GridsCompared} table pieces were compared with the model grid");
+        TestContext.Current.SendDiagnosticMessage($"generated {seed}: {compared} steps compared, {steps.GridsCompared} table pieces, refused {steps.RefusedPerKind.Sum()}");
     }
 
     // The notes with text: a part made by a step stays after its undo (with its separators), as a numbering part does.

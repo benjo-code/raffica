@@ -51,7 +51,7 @@ internal static class NoteOperations
         return made.Count == 0 ? null : made[0] with { Companions = made.Skip(1).ToList() };
     }
 
-    private static void Priority(Style style)
+    internal static void Priority(Style style)
     {
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "uiPriority", new XAttribute(W + "val", "99")))));
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "unhideWhenUsed"))));
