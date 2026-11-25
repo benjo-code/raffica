@@ -221,6 +221,7 @@ internal sealed partial class ObjectSteps
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
         NumbersCompared += AssertNumbers(label);
         GridsCompared += AssertTableGrids(label);
+        AssertChangedTables(result, label);
         Compared++;
         RanPerKind[(int)_kind]++;
         Trace.Add(label);

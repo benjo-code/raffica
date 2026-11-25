@@ -41,7 +41,7 @@ public enum TableRefusal
     /// <summary>A row, column or cell asked for is not in the table, or the range is empty or reversed.</summary>
     OutOfRange,
 
-    /// <summary>The table holds something the editor does not restructure (a wrapper element between rows or cells, a row with a tracked deletion, <c>w:gridBefore</c> or <c>w:gridAfter</c>).</summary>
+    /// <summary>The table holds something the editor does not restructure (a wrapper element between rows or cells, a row with a tracked deletion, <c>w:gridBefore</c> or <c>w:gridAfter</c>), or whose grid and cells disagree (a different number of <c>w:gridCol</c> than columns, a row shorter than the grid, a vertical-merge continuation with no head of the same column and span): repairing it would be a guess.</summary>
     UnsupportedStructure,
 
     /// <summary>The range is a single cell, so there is nothing to merge.</summary>

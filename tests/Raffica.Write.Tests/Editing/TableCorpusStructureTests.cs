@@ -61,26 +61,6 @@ public sealed class TableCorpusStructureTests
 
     private static SortedSet<int> Positions(int count) => new SortedSet<int> { 0, count / 2, count - 1 };
 
-    private static void AssertValid(Table table, bool gridMatchedBefore, string label)
-    {
-        var map = TableGridMap.Of(table);
-        Assert.True(map.IsRegular, label + ": the table is no longer regular");
-        if (gridMatchedBefore)
-        {
-            Assert.True(table.GridColumns.Count == map.Columns, $"{label}: the grid has {table.GridColumns.Count} columns, the cells {map.Columns}");
-        }
-
-        foreach (var row in table.Rows.OfType<TableRow>())
-        {
-            Assert.True(row.Items.OfType<TableCell>().Any(), label + ": a row has no cell");
-        }
-
-        foreach (var cell in map.Cells)
-        {
-            Assert.True(cell.Cell.Blocks.Count > 0 && cell.Cell.Blocks[^1] is Paragraph, label + ": a cell has no closing paragraph");
-        }
-    }
-
     [Theory]
     [MemberData(nameof(Names))]
     public async Task EveryRowAndColumnCommandKeepsTheGridOnTheCorpusTables(string name)
@@ -170,7 +150,7 @@ public sealed class TableCorpusStructureTests
             }
 
             var map = TableGridMap.Of(original);
-            if (!map.IsRegular)
+            if (!map.IsRegular || !map.IsConsistent)
             {
                 Assert.Equal(TableRefusal.UnsupportedStructure, editor.RefusalForAddRow(reference, (map.RowIndexes.Count > 0 ? map.RowIndexes[0] : 0), after: true));
                 refused++;
@@ -178,7 +158,7 @@ public sealed class TableCorpusStructureTests
             }
 
             tables++;
-            var gridMatched = original.GridColumns.Count == map.Columns;
+            var zeroWidthBefore = original.GridColumns.Count(c => c <= 0);
             var shape = Shape(original);
             var texts = Texts(original);
             var rows = map.RowIndexes;
@@ -210,6 +190,17 @@ public sealed class TableCorpusStructureTests
                 cases.Add(($"split at {at}", () => editor.SplitCell(reference, rows[0], at), static (_, _) => [], at == middle));
             }
 
+            // Every merged cell is split (the rows of the matrix above never reach one of them), and cells are merged in the middle and the last rows.
+            foreach (var merged in map.Cells.Where(c => !c.IsContinuation && (c.ColumnSpan > 1 || c.RowSpan > 1)).Take(4))
+            {
+                cases.Add(($"split merged cell at {merged.RowIndex},{merged.Column}", () => editor.SplitCell(reference, merged.RowIndex, merged.Column), static (_, _) => [], true));
+            }
+
+            foreach (var at in Positions(rows.Count).Skip(1))
+            {
+                cases.Add(($"merge in row {rows[at]}", () => editor.MergeCells(new CellRange(reference, rows[at], 0, rows[Math.Min(at + 1, rows.Count - 1)], Math.Min(1, columns.Count - 1))), static (_, _) => [], false));
+            }
+
             foreach (var (label, run, expected, roundTrip) in cases)
             {
                 var caseLabel = $"{name} table {block} {label}";
@@ -232,7 +223,7 @@ public sealed class TableCorpusStructureTests
                     continue;
                 }
 
-                AssertValid(after, gridMatched, caseLabel);
+                TableGridChecks.AssertGridEqualsCells(after, caseLabel, zeroWidthBefore);
                 var lost = Lost(texts, Texts(after));
                 Assert.True(lost is not null, caseLabel + ": a text appeared that the table did not have");
                 var expectedLost = new List<string>(removed.Where(t => t.Length > 0).Order(StringComparer.Ordinal));
@@ -268,7 +259,7 @@ public sealed class TableCorpusStructureTests
     [Fact]
     public void TheCorpusHasTablesWithSpansAndTheGeneratedOnesCoverTheMerges()
     {
-        int tables = 0, spans = 0, merges = 0, autofit = 0, percent = 0, irregular = 0;
+        int tables = 0, spans = 0, regularSpans = 0, merges = 0, autofit = 0, percent = 0, irregular = 0, inconsistent = 0;
         foreach (var entry in CorpusManifest.Load(Root).Files)
         {
             using var file = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
@@ -282,6 +273,8 @@ public sealed class TableCorpusStructureTests
                 var map = TableGridMap.Of(table);
                 tables++;
                 irregular += map.IsRegular ? 0 : 1;
+                inconsistent += map.IsRegular && !map.IsConsistent ? 1 : 0;
+                regularSpans += map.IsRegular && map.IsConsistent && map.Cells.Any(c => c.ColumnSpan > 1) ? 1 : 0;
                 spans += map.Cells.Any(c => c.ColumnSpan > 1) ? 1 : 0;
                 merges += map.Cells.Any(c => c.IsContinuation) ? 1 : 0;
                 var width = table.Properties.Get(System.Xml.Linq.XName.Get("tblW", LayoutModel.W));
@@ -290,10 +283,14 @@ public sealed class TableCorpusStructureTests
             }
         }
 
-        TestContext.Current.SendDiagnosticMessage($"corpus tables: {tables}, with spans {spans}, with vertical merges {merges}, autofit {autofit}, percentage width {percent}, not regular {irregular}");
-        Assert.True(tables >= 10, $"only {tables} top-level tables in the corpus");
+        TestContext.Current.SendDiagnosticMessage($"corpus tables: {tables}, with spans {spans}, with vertical merges {merges}, autofit {autofit}, percentage width {percent}, not regular {irregular}, regular but not consistent {inconsistent}, restructurable with spans {regularSpans}");
+        // The measured corpus of 2026-11-25: 27 top-level tables, 1 that is not regular (gridBefore/gridAfter, a tracked-deleted row, an sdt row or cell: refused with UnsupportedStructure, DeleteTable still works),
+        // none regular but inconsistent, 1 restructurable table with a grid span. A change of the corpus moves these numbers on purpose.
+        Assert.True(tables >= 27, $"only {tables} top-level tables in the corpus");
+        Assert.True(irregular <= 1, $"{irregular} tables are not regular (1 measured)");
+        Assert.True(inconsistent == 0, $"{inconsistent} tables are regular but their grid and cells disagree (0 measured)");
+        Assert.True(regularSpans >= 1, $"{regularSpans} restructurable tables have a grid span (1 measured)");
         Assert.True(spans > 0, "no table with a grid span");
-        Assert.True(irregular < tables, "every table is irregular");
     }
 
     private static List<string> RowTexts(TableGridMap map, int ordinal) =>

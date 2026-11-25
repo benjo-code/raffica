@@ -15,6 +15,31 @@ internal sealed partial class ObjectSteps
     /// <summary>How many table pieces were compared with the model grid, summed over the steps.</summary>
     public long GridsCompared { get; private set; }
 
+    /// <summary>How many cell rectangles had their row span compared with the merge of the model (tables that are whole on one page and whose rows all have a height).</summary>
+    public long RowSpansCompared { get; private set; }
+
+    private int _zeroWidthBefore;
+
+    // After a table step the table it made or changed has the grid of its cells (the definition of TableGridChecks), whatever the layout says.
+    private void AssertChangedTables(EditResult result, string label)
+    {
+        if (_kind is ObjectKind.Undo or ObjectKind.Redo or ObjectKind.InsertFootnote or ObjectKind.InsertEndnote or ObjectKind.DeleteReference)
+        {
+            return;
+        }
+
+        foreach (var change in result.Changes)
+        {
+            for (var i = change.First; i < change.First + change.Added && i < change.Container.Count; i++)
+            {
+                if (change.Container[i] is Table table)
+                {
+                    TableGridChecks.AssertGridEqualsCells(table, label, _zeroWidthBefore);
+                }
+            }
+        }
+    }
+
     private List<TableRef> Tables()
     {
         var found = new List<TableRef>();
@@ -40,11 +65,13 @@ internal sealed partial class ObjectSteps
         }
 
         var reference = tables[random.Next(tables.Count)];
+        _zeroWidthBefore = reference.Find(_model.Body.Blocks)!.GridColumns.Count(c => c <= 0);
         return (reference, TableGridMap.Of(reference.Find(_model.Body.Blocks)!));
     }
 
     private async Task<bool> InsertTableAsync(Random random, string label)
     {
+        _zeroWidthBefore = 0;
         var candidates = Paragraphs().Where(p => Editor.RefusalForInsertTable(new TextPosition(StoryRef.Body, p, 0), 2, 2) is null).ToList();
         if (candidates.Count == 0)
         {
@@ -156,6 +183,15 @@ internal sealed partial class ObjectSteps
     private long AssertTableGrids(string label)
     {
         long compared = 0;
+        var pieces = new Dictionary<int, int>();
+        for (var p = 0; p < _layout.LaidOutPages; p++)
+        {
+            foreach (var piece in _layout.Page(p).Objects.Tables)
+            {
+                pieces[piece.BlockIndex] = pieces.GetValueOrDefault(piece.BlockIndex) + 1;
+            }
+        }
+
         var drawn = new Dictionary<int, HashSet<(int Row, int Column)>>();
         var checkedTables = new Dictionary<int, TableGridMap>();
         for (var p = 0; p < _layout.LaidOutPages; p++)
@@ -186,6 +222,7 @@ internal sealed partial class ObjectSteps
                     checkedTables[grid.BlockIndex] = map;
                 }
 
+                var whole = pieces[grid.BlockIndex] == 1 && grid.RowIndexes.Count == map.RowCount && grid.RowEdges.Zip(grid.RowEdges.Skip(1), (a, b) => b - a).All(h => h > 0.5f);
                 foreach (var rect in grid.Cells)
                 {
                     var cell = map.At(rect.Row, rect.Column);
@@ -194,6 +231,12 @@ internal sealed partial class ObjectSteps
                     // The rectangle's RowSpan counts the rows of the layout that lie inside the box by height, so a row of zero height inside a merged cell counts too: it is not compared with the merge.
                     Assert.True(rect.RowSpan >= 1, $"{label}: the layout draws the cell at row {rect.Row}, column {rect.Column} of table {grid.BlockIndex} with no rows");
                     seen.Add((rect.Row, rect.Column));
+                    // A table that is on one page whole and whose rows all have a height: the rectangle covers as many rows as the model merges.
+                    if (whole && !cell.IsContinuation)
+                    {
+                        Assert.True(rect.RowSpan == cell.RowSpan, $"{label}: the layout draws {rect.RowSpan} rows for the cell at row {rect.Row}, column {rect.Column} of table {grid.BlockIndex}, the model merges {cell.RowSpan}");
+                        RowSpansCompared++;
+                    }
                 }
 
                 compared++;

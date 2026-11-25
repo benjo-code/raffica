@@ -402,12 +402,13 @@ internal static class TableOperations
         }
 
         var boundary = after ? index + 1 : index;
-        while (table.GridColumns.Count < map.Columns)
+        // The editor refuses a table whose grid and cells disagree, so the grid has a column for every grid column here. A column too narrow to share would make a column of no width.
+        var reference = table.GridColumns[index];
+        if (reference < 2)
         {
-            table.GridColumns.Add(0);
+            return TableMutation.Refuse(TableRefusal.WouldBreakTheTable);
         }
 
-        var reference = table.GridColumns[index];
         var added = reference / 2;
         table.GridColumns.Insert(boundary, added);
         table.GridColumns[after ? index : index + 1] = reference - added;

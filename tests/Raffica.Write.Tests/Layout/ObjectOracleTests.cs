@@ -126,6 +126,47 @@ public sealed class ObjectOracleTests
         TestContext.Current.SendDiagnosticMessage($"generated {seed}: {compared} steps compared, {steps.GridsCompared} table pieces, refused {steps.RefusedPerKind.Sum()}");
     }
 
+    // A guard that only the per-seed runs carry would stay green if a kind never changed anything on the generated tables.
+    [Fact]
+    public async Task EveryTableStepKindChangedSomethingOnTheGeneratedTables()
+    {
+        var ran = new int[ObjectSteps.Kinds];
+        var refused = new int[ObjectSteps.Kinds];
+        long rowSpans = 0;
+        for (var seed = 1; seed <= 6; seed++)
+        {
+            using var folder = new TempFolder();
+            var path = folder.File("tables.docx");
+            DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+            using var file = DocxFile.Open(path);
+            var layout = await SectionOracleTests.LaidAsync(file.Model);
+            var steps = new ObjectSteps(file.Model, layout, new LayoutOptions());
+            await steps.RunAsync(new Random(unchecked(seed * 7919)), 45, "generated " + seed, s_tableKinds);
+            for (var k = 0; k < ran.Length; k++)
+            {
+                ran[k] += steps.RanPerKind[k];
+                refused[k] += steps.RefusedPerKind[k];
+            }
+
+            rowSpans += steps.RowSpansCompared;
+        }
+
+        var report = string.Join(", ", Enum.GetValues<ObjectKind>().Select(k => $"{k} ran {ran[(int)k]} refused {refused[(int)k]}"));
+        TestContext.Current.SendDiagnosticMessage("generated table steps: " + report + $"; {rowSpans} row spans compared");
+        foreach (var kind in s_tableKinds.Distinct().Where(k => k is not (ObjectKind.Undo or ObjectKind.Redo)))
+        {
+            Assert.True(ran[(int)kind] > 0, $"the step kind {kind} never changed anything on the generated tables ({report})");
+        }
+
+        // Merge, Split and Move row are refused for good reasons now and then (a merge that cannot be cut, a split of a plain cell), but not nearly always.
+        foreach (var kind in new[] { ObjectKind.Merge, ObjectKind.Split, ObjectKind.MoveRow })
+        {
+            Assert.True(refused[(int)kind] <= ran[(int)kind] * 3, $"{kind} was refused {refused[(int)kind]} times and changed something {ran[(int)kind]} times ({report})");
+        }
+
+        Assert.True(rowSpans > 500, $"only {rowSpans} cell rectangles had their row span compared with the model");
+    }
+
     // The notes with text: a part made by a step stays after its undo (with its separators), as a numbering part does.
     private static (int Footnotes, int Endnotes) Counted(WordDocument model) =>
         (model.Footnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0, model.Endnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0);

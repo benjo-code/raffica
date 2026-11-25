@@ -240,8 +240,21 @@ public sealed partial class TextEditor
         }
 
         var setup = SectionPageSetup.Read(section.Properties);
-        var text = setup.WidthTwips - setup.LeftTwips - setup.RightTwips;
-        if (setup.Columns > 1)
+        var w = System.Xml.Linq.XNamespace.Get("http://schemas.openxmlformats.org/wordprocessingml/2006/main");
+        // The gutter is part of the left margin for the layout (PageGeometry), so it is taken off the text width as well.
+        var gutter = int.TryParse((string?)section.Properties.Get(w + "pgMar")?.Attribute(w + "gutter"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var g) ? Math.Max(0, g) : 0;
+        var text = setup.WidthTwips - setup.LeftTwips - setup.RightTwips - gutter;
+        var cols = section.Properties.Get(w + "cols");
+        var explicitWidths = cols?.Elements(w + "col")
+            .Select(c => int.TryParse((string?)c.Attribute(w + "w"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var cw) ? cw : 0)
+            .Where(cw => cw > 0).ToList() ?? [];
+        var unequal = cols is not null && (string?)cols.Attribute(w + "equalWidth") is "0" or "false" or "off" && explicitWidths.Count > 0;
+        if (unequal)
+        {
+            // Columns of unequal width: the narrowest one, so the table fits whichever column the caret is in.
+            text = Math.Min(text, explicitWidths.Min());
+        }
+        else if (setup.Columns > 1)
         {
             text = (text - ((setup.Columns - 1) * setup.ColumnSpaceTwips)) / setup.Columns;
         }
@@ -423,7 +436,7 @@ public sealed partial class TextEditor
             return new TableAttempt(null, refusal);
         }
 
-        if (needsGrid && !TableGridMap.Of(target.Table).IsRegular)
+        if (needsGrid && TableGridMap.Of(target.Table) is not { IsRegular: true, IsConsistent: true })
         {
             return new TableAttempt(null, TableRefusal.UnsupportedStructure);
         }
@@ -446,11 +459,12 @@ public sealed partial class TextEditor
     private EditResult ReplaceTableBlock(TableTarget target, Table replacement, Paragraph? caret)
     {
         var revision = History.BeginOperation();
+        // Everything that can throw is done before the document changes or its revision rises: a failure after a raise would leave a changed document with no result.
+        var paragraph = caret ?? FirstParagraph([replacement]) ?? throw new InvalidOperationException("A table holds no paragraph.");
         var references = NoteOperations.References([target.Table]);
         target.Container[target.Index] = replacement;
         var gone = RemoveUnreferencedNotes(references, [replacement]);
         _document.Edits.Raise();
-        var paragraph = caret ?? FirstParagraph([replacement]) ?? throw new InvalidOperationException("A table holds no paragraph.");
         var result = new EditResult(new TextPosition(StoryRef.Body, paragraph, 0), [new BlockChange(StoryRef.Body, target.Container, target.Index, 1, 1, [target.Table])], Objects: gone);
         result.Attribute(_document);
         var point = new EditHistory.Point(target.Index, 0);

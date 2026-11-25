@@ -60,22 +60,7 @@ public sealed class TableStructureTests
 
     private static string BodyXml(WordDocument document) => ModelSnapshot.Of(document).Elements("part").First(e => (string?)e.Attribute("name") == "document").ToString();
 
-    private static void AssertGridEqualsCells(Table table)
-    {
-        var map = TableGridMap.Of(table);
-        Assert.True(map.IsRegular);
-        Assert.Equal(map.Columns, table.GridColumns.Count);
-        foreach (var row in table.Rows.OfType<TableRow>())
-        {
-            Assert.NotEmpty(row.Items.OfType<TableCell>());
-        }
-
-        foreach (var cell in map.Cells)
-        {
-            Assert.NotEmpty(cell.Cell.Blocks);
-            Assert.IsType<Paragraph>(cell.Cell.Blocks[^1]);
-        }
-    }
+    private static void AssertGridEqualsCells(Table table) => TableGridChecks.AssertGridEqualsCells(table, "table");
 
     private static string? Attribute(PropertyBag bag, string name) =>
         (string?)bag.Get(System.Xml.Linq.XName.Get(name, LayoutModel.W))?.Attribute(System.Xml.Linq.XName.Get("val", LayoutModel.W));
@@ -190,6 +175,106 @@ public sealed class TableStructureTests
         Assert.Equal((12240 - 2880 - 720) / 2, TableAt(columns, 1).GridColumns.Sum());
     }
 
+    private const string Margins = "<w:pgSz w:w=\"12240\" w:h=\"15840\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\" w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/>";
+
+    private static int WidthOfInsertedTable(WordDocument document, TextPosition at)
+    {
+        Assert.NotNull(Editor(document).InsertTable(at, 2, 1));
+        return FirstTable(document).GridColumns.Sum();
+    }
+
+    private static Table FirstTable(WordDocument document) =>
+        document.Body.Blocks.SelectMany(b => b is ContentControlBlock c ? c.Content : [b]).OfType<Table>().First();
+
+    [Fact]
+    public void InsertAtTheEndOfASectionBreakParagraphTakesTheWidthOfTheNextSection()
+    {
+        var wide = "<w:sectPr><w:pgSz w:w=\"15840\" w:h=\"12240\" w:orient=\"landscape\"/><w:pgMar w:top=\"1440\" w:right=\"720\" w:bottom=\"1440\" w:left=\"720\"/></w:sectPr>";
+        string Body() => $"<w:p><w:pPr><w:sectPr>{Margins}</w:sectPr></w:pPr><w:r><w:t>a</w:t></w:r></w:p>{Line("b")}{wide}";
+
+        var atEnd = Document(Body());
+        Assert.Equal(15840 - 1440, WidthOfInsertedTable(atEnd, new TextPosition(StoryRef.Body, (Paragraph)atEnd.Body.Blocks[0], 1)));
+        var atStart = Document(Body());
+        Assert.Equal(12240 - 2880, WidthOfInsertedTable(atStart, new TextPosition(StoryRef.Body, (Paragraph)atStart.Body.Blocks[0], 0)));
+        // In the middle the paragraph is split and the section break moves to the tail: the table is in the first section.
+        var middle = Document($"<w:p><w:pPr><w:sectPr>{Margins}</w:sectPr></w:pPr><w:r><w:t>ab</w:t></w:r></w:p>{Line("b")}{wide}");
+        Assert.Equal(12240 - 2880, WidthOfInsertedTable(middle, new TextPosition(StoryRef.Body, (Paragraph)middle.Body.Blocks[0], 1)));
+    }
+
+    [Fact]
+    public void InsertInABlockControlTakesTheWidthOfTheSectionThatHoldsTheControl()
+    {
+        var wide = "<w:sectPr><w:pgSz w:w=\"15840\" w:h=\"12240\"/><w:pgMar w:top=\"1440\" w:right=\"720\" w:bottom=\"1440\" w:left=\"720\"/></w:sectPr>";
+        var document = Document($"<w:p><w:pPr><w:sectPr>{Margins}</w:sectPr></w:pPr><w:r><w:t>a</w:t></w:r></w:p><w:sdt><w:sdtPr/><w:sdtContent><w:p><w:r><w:t>in</w:t></w:r></w:p></w:sdtContent></w:sdt>{wide}");
+        var inside = (Paragraph)((ContentControlBlock)document.Body.Blocks[1]).Content[0];
+
+        Assert.Equal(15840 - 1440, WidthOfInsertedTable(document, new TextPosition(StoryRef.Body, inside, 1)));
+    }
+
+    [Fact]
+    public void InsertInColumnsTakesTheColumnWidthTheGutterAndTheNarrowestUnequalColumn()
+    {
+        string Section(string margins, string cols) => $"<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/>{margins}{cols}</w:sectPr>";
+        const string Plain = "<w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\"/>";
+        TextPosition Caret(WordDocument d) => new(StoryRef.Body, (Paragraph)d.Body.Blocks[0], 1);
+
+        var equal = Document(Line("a") + Section(Plain, "<w:cols w:num=\"2\" w:space=\"720\"/>"));
+        Assert.Equal((12240 - 2880 - 720) / 2, WidthOfInsertedTable(equal, Caret(equal)));
+
+        // The gutter is part of the left margin for the layout, so it is off the text width here too.
+        var gutter = Document(Line("a") + Section("<w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\" w:gutter=\"360\"/>", string.Empty));
+        Assert.Equal(12240 - 2880 - 360, WidthOfInsertedTable(gutter, Caret(gutter)));
+
+        // Unequal columns: the narrowest, so the table fits whichever column the caret is in.
+        var unequal = Document(Line("a") + Section(Plain, "<w:cols w:num=\"2\" w:equalWidth=\"0\" w:space=\"720\"><w:col w:w=\"5000\" w:space=\"720\"/><w:col w:w=\"3000\"/></w:cols>"));
+        Assert.Equal(3000, WidthOfInsertedTable(unequal, Caret(unequal)));
+        var unequalFirst = Document(Line("a") + Section(Plain, "<w:cols w:num=\"2\" w:equalWidth=\"0\" w:space=\"720\"><w:col w:w=\"2500\" w:space=\"720\"/><w:col w:w=\"6000\"/></w:cols>"));
+        Assert.Equal(2500, WidthOfInsertedTable(unequalFirst, Caret(unequalFirst)));
+    }
+
+    [Fact]
+    public void UndoAndRedoPutTheCaretInTheFirstCellOfTheTable()
+    {
+        var document = Document(Tbl(2, Row(Cell("a"), Cell("b")), Row(Cell("c"), Cell("d"))) + Line("after"));
+        var editor = Editor(document);
+        var first = (Paragraph)TableGridMap.Of(TableAt(document)).Cells[0].Cell.Blocks[0];
+
+        var result = editor.AddRow(Ref(), 1, after: true);
+        Assert.NotNull(result);
+        var undone = editor.History.Undo();
+        Assert.NotNull(undone);
+        Assert.Equal("a", TestEdit.TextOf(undone.Caret.Paragraph));
+        Assert.Equal(0, undone.Caret.Offset);
+        Assert.Same(TableGridMap.Of(TableAt(document)).Cells[0].Cell.Blocks[0], undone.Caret.Paragraph);
+        var redone = editor.History.Redo();
+        Assert.Same(TableGridMap.Of(TableAt(document)).Cells[0].Cell.Blocks[0], redone!.Caret.Paragraph);
+        Assert.NotNull(first);
+    }
+
+    [Fact]
+    public void AGridAndCellsThatDisagreeAreRefusedAndAColumnTooNarrowToShareToo()
+    {
+        // Two grid columns, cells that span three; a row shorter than the grid; a continuation with no head; a one-twip column.
+        var more = Document(Tbl(2, Row(Cell("a", Span(3)))));
+        var shorter = Document(Tbl(2, Row(Cell("a"), Cell("b")), Row(Cell("c"))));
+        var orphan = Document(Tbl(2, Row(Cell("a", Continue), Cell("b"))));
+        var counts = Document("<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"1\"/><w:gridCol w:w=\"2000\"/></w:tblGrid><w:tr>" + Cell("a") + Cell("b") + "</w:tr></w:tbl>");
+        foreach (var document in new[] { more, shorter, orphan })
+        {
+            var map = TableGridMap.Of(TableAt(document));
+            Assert.True(map.IsRegular);
+            Assert.False(map.IsConsistent);
+            Assert.Equal(TableRefusal.UnsupportedStructure, Editor(document).RefusalForAddRow(Ref(), 0, after: true));
+            Assert.Equal(TableRefusal.UnsupportedStructure, Editor(document).RefusalForAddColumn(Ref(), 0, after: true));
+            // The whole table can still go.
+            Assert.Null(Editor(document).RefusalForDeleteTable(Ref()));
+        }
+
+        Assert.True(TableGridMap.Of(TableAt(counts)).IsConsistent);
+        Assert.Equal(TableRefusal.WouldBreakTheTable, Editor(counts).RefusalForAddColumn(Ref(), 0, after: true));
+        Assert.Null(Editor(counts).RefusalForAddColumn(Ref(), 1, after: true));
+    }
+
     [Fact]
     public void InsertIsRefusedWhereATableDoesNotBelong()
     {
@@ -296,7 +381,7 @@ public sealed class TableStructureTests
         var widths = TableGridMap.Of(table).Cells.Select(c => (string?)c.Cell.Properties.Get(System.Xml.Linq.XName.Get("tcW", LayoutModel.W))!.Attribute(System.Xml.Linq.XName.Get("w", LayoutModel.W))).ToArray();
         Assert.Equal(["1000", "1000", "2000"], widths);
 
-        var wide = Document(Tbl(64, Row(Enumerable.Range(0, 63).Select(_ => Cell("x")).ToArray())));
+        var wide = Document(Tbl(63, Row(Enumerable.Range(0, 63).Select(_ => Cell("x")).ToArray())));
         Assert.Equal(63, TableGridMap.Of(TableAt(wide)).Columns);
         Assert.Equal(TableRefusal.TooManyColumns, Editor(wide).RefusalForAddColumn(Ref(), 0, after: true));
     }
@@ -474,7 +559,7 @@ public sealed class TableStructureTests
     // ---- delete the table, nested and limits -------------------------------------------------------------------------------------------
 
     [Fact]
-    public void ANestedTableRefusesEveryCommand()
+    public void ACaretInANestedTableAndAReferenceToNoTableRefuseEveryCommand()
     {
         var nested = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"1000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>inner</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
         var document = Document("<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"3000\"/></w:tblGrid><w:tr><w:tc>" + nested + "<w:p/></w:tc></w:tr></w:tbl>" + Line("x"));

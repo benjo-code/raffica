@@ -78,8 +78,9 @@ public sealed class TableGridMap
     private readonly GridCell?[,] _slots;
     private readonly List<int> _rowIndexes;
 
-    private TableGridMap(GridCell?[,] slots, List<int> rowIndexes, List<GridCell> cells, int columns, bool regular)
+    private TableGridMap(GridCell?[,] slots, List<int> rowIndexes, List<GridCell> cells, int columns, bool regular, bool consistent)
     {
+        IsConsistent = consistent;
         _slots = slots;
         _rowIndexes = rowIndexes;
         Cells = cells;
@@ -101,6 +102,12 @@ public sealed class TableGridMap
 
     /// <summary>False when the table holds something the map does not follow (see the class remarks); a restructuring edit must refuse such a table.</summary>
     public bool IsRegular { get; }
+
+    /// <summary>
+    /// True when the grid and the cells agree: the table has as many <c>w:gridCol</c> as grid columns, every row of the grid has cells that span exactly all the columns (no short row), and every <c>w:vMerge</c> continuation joins a head above it
+    /// that starts in the same column with the same span (no orphan continuation). A restructuring edit refuses a table that is regular but not consistent (repairing it would be a guess); the map is still made.
+    /// </summary>
+    public bool IsConsistent { get; }
 
     /// <summary>Reads the grid of a table.</summary>
     public static TableGridMap Of(Table table)
@@ -126,6 +133,7 @@ public sealed class TableGridMap
             }
         }
 
+        var consistent = table.GridColumns.Count <= MaximumColumns;
         var columns = Math.Min(table.GridColumns.Count, MaximumColumns);
         var placed = new List<List<(TableCell Cell, int ItemIndex, int Start, int Span)>>(rows.Count);
         foreach (var (row, _) in rows)
@@ -183,6 +191,7 @@ public sealed class TableGridMap
                     continue;
                 }
 
+                consistent &= !continues;
                 open[start] = merge is not null ? made : null;
                 seen[start] = true;
             }
@@ -196,7 +205,13 @@ public sealed class TableGridMap
             }
         }
 
-        return new TableGridMap(slots, [.. rows.Select(r => r.Index)], all, columns, regular);
+        consistent &= table.GridColumns.Count == columns;
+        for (var r = 0; r < rows.Count && consistent; r++)
+        {
+            consistent = placed[r].Count > 0 && placed[r].Sum(c => c.Span) == columns;
+        }
+
+        return new TableGridMap(slots, [.. rows.Select(r => r.Index)], all, columns, regular, consistent);
     }
 
     /// <summary>The cell (head or continuation) that covers a grid column in a row of <c>Table.Rows</c>; null for a row that is not a row of the grid, a column outside it or a row too short to reach it.</summary>
