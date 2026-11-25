@@ -183,4 +183,19 @@ public sealed class UntitledTabTests
         Assert.Null(tab.SuggestedSavePath);
         Assert.Equal(target, tab.Path);
     }
+
+    [AvaloniaFact]
+    public async Task ThePendingPicturesOfTheModelAreReadForTheDocumentStoryOnly()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = await NewAsync(window);
+        var added = tab.Docx.Model.Media.Add(new byte[] { 1, 2, 3 }, "image/png");
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, tab.Images.Read("document#" + added.RelationshipId).ToArray());
+        Assert.Equal(new byte[] { 1, 2, 3 }, tab.Images.Read(added.RelationshipId).ToArray());
+        Assert.Throws<FileNotFoundException>(() => tab.Images.Read("header:rId1#" + added.RelationshipId));
+        Assert.Throws<FileNotFoundException>(() => tab.Images.Read("footnotes#" + added.RelationshipId));
+        Assert.Throws<FileNotFoundException>(() => tab.Images.Read("endnotes#" + added.RelationshipId));
+    }
 }

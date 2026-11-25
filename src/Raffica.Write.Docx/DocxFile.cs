@@ -106,6 +106,9 @@ public sealed class DocxFile : IDisposable
     /// <summary>Test seam: runs with the path of the temporary file once the package is written and closed, before the checks.</summary>
     internal Action<string>? AfterPackageWritten { get; set; }
 
+    /// <summary>Test seam: called just before the pictures a save writes are looked for in the serialised document (after <see cref="AfterModelRead"/>).</summary>
+    internal Action? BeforeMediaScan { get; set; }
+
     /// <summary>Reads the whole file into memory and loads the asked-for parts.</summary>
     /// <exception cref="DocxFormatException">The file is not a usable DOCX package.</exception>
     public static DocxFile Open(string path, DocxParts parts = DocxParts.All)
@@ -441,7 +444,7 @@ public sealed class DocxFile : IDisposable
 
     // Saving.
 
-    private sealed record Written(string Name, WrittenKind Kind, byte[] Bytes, bool Created);
+    private sealed record Written(string Name, WrittenKind Kind, byte[] Bytes, bool Created, string? RelationshipId = null, string? ContentType = null);
 
     private enum WrittenKind
     {
@@ -481,14 +484,18 @@ public sealed class DocxFile : IDisposable
             var metadata = AtomicFile.TargetMetadata.Read(resolved);
             BeforeModelRead?.Invoke();
             List<Intent> intended;
+            IReadOnlyList<MediaEntry> pictures;
             try
             {
-                intended = Serialise(useSnapshotCache);
+                intended = Serialise(useSnapshotCache, out pictures);
             }
             finally
             {
                 AfterModelRead?.Invoke();
             }
+
+            // The scan for the pictures the document still refers to reads the bytes just serialised (not the model), so it runs after the lease is given back.
+            AddMediaIntents(intended, pictures);
 
             cancellationToken.ThrowIfCancellationRequested();
             CopySnapshot(temporary, metadata);
@@ -559,8 +566,10 @@ public sealed class DocxFile : IDisposable
     }
 
     /// <summary>Serialises every model part before anything is created, so a model that cannot be written ends the save early.</summary>
-    private List<Intent> Serialise(bool useSnapshotCache)
+    private List<Intent> Serialise(bool useSnapshotCache, out IReadOnlyList<MediaEntry> pictures)
     {
+        // An immutable snapshot of the entries, taken with the model; the scan is made later from the serialised main part.
+        pictures = Model.HasMedia ? Model.Media.Entries : [];
         var list = new List<Intent>
         {
             new(WrittenKind.Document, null, useSnapshotCache ? (_snapshotCache ??= new BodySnapshotCache()).Serialise(Model) : Bytes(s => DocumentXml.Write(Model.Body, s))),
@@ -615,17 +624,23 @@ public sealed class DocxFile : IDisposable
             }
         }
 
-        if (Model.HasMedia)
+        return list;
+    }
+
+    /// <summary>Adds an intent for each new picture the serialised main part (the first intent) still refers to: an undone insert leaves no part. The bytes of an entry are the store's array (no copy).</summary>
+    private void AddMediaIntents(List<Intent> intents, IReadOnlyList<MediaEntry> pictures)
+    {
+        if (pictures.Count == 0)
         {
-            // A new picture is written only when the serialised document still refers to its relationship id: an undone insert leaves no part. The bytes of an entry are the store's array (no copy).
-            foreach (var entry in MediaPartWriter.Used(list[0].Bytes, Model.Media.Entries))
-            {
-                var bytes = MemoryMarshal.TryGetArray(entry.Bytes, out var segment) && segment.Offset == 0 && segment.Count == segment.Array!.Length ? segment.Array : entry.Bytes.ToArray();
-                list.Add(new Intent(WrittenKind.Media, entry.Ref.RelationshipId, bytes, ContentType: entry.Ref.ContentType));
-            }
+            return;
         }
 
-        return list;
+        BeforeMediaScan?.Invoke();
+        foreach (var entry in MediaPartWriter.Used(intents[0].Bytes, pictures))
+        {
+            var bytes = MemoryMarshal.TryGetArray(entry.Bytes, out var segment) && segment.Offset == 0 && segment.Count == segment.Array!.Length ? segment.Array : entry.Bytes.ToArray();
+            intents.Add(new Intent(WrittenKind.Media, entry.Ref.RelationshipId, bytes, ContentType: entry.Ref.ContentType));
+        }
     }
 
     private static byte[] Bytes(Action<Stream> write)
@@ -681,9 +696,9 @@ public sealed class DocxFile : IDisposable
         }
 
         var media = intents.Where(i => i.Kind == WrittenKind.Media).Select(i => new MediaPartWriter.NewPicture(i.Id!, i.ContentType!, i.Bytes)).ToList();
-        foreach (var (name, bytes) in MediaPartWriter.AddTo(temporary, mainName, media, WrapPartWrite))
+        foreach (var (name, bytes, relationshipId, contentType) in MediaPartWriter.AddTo(temporary, mainName, media, WrapPartWrite))
         {
-            written.Add(new Written(name, WrittenKind.Media, bytes, true));
+            written.Add(new Written(name, WrittenKind.Media, bytes, true, relationshipId, contentType));
         }
 
         return (written, mainName);
@@ -839,6 +854,8 @@ public sealed class DocxFile : IDisposable
                 throw new DocxSaveException(DocxSaveReason.PartsChanged, "/" + entry.FullName);
             }
         }
+
+        CheckMedia(saved, package.MainName, written);
 
         foreach (var part in written)
         {
@@ -1128,6 +1145,44 @@ public sealed class DocxFile : IDisposable
 
         return element.Name.LocalName == "Default"
             && created.Any(n => string.Equals(Path.GetExtension(n).TrimStart('.'), (string?)element.Attribute("Extension"), StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// What the save said about each new picture is what the saved package says: the content type of the part (its Override, else the Default of its extension), and exactly one relationship
+    /// of the main part with the intended id, of the image type, that points at the part.
+    /// </summary>
+    private static void CheckMedia(ZipArchive saved, string mainName, List<Written> written)
+    {
+        var media = written.Where(w => w.Kind == WrittenKind.Media).ToList();
+        if (media.Count == 0)
+        {
+            return;
+        }
+
+        const string imageType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+        var types = Load(saved.GetEntry("[Content_Types].xml") ?? throw new DocxSaveException(DocxSaveReason.PartsChanged, "/[Content_Types].xml"));
+        var relsName = RelationshipsPartOf(mainName).TrimStart('/');
+        var rels = Load(saved.GetEntry(relsName) ?? throw new DocxSaveException(DocxSaveReason.PartsChanged, "/" + relsName));
+        var baseUri = new Uri("http://parts" + mainName[..(mainName.LastIndexOf('/') + 1)], UriKind.Absolute);
+        foreach (var part in media)
+        {
+            var extension = Path.GetExtension(part.Name).TrimStart('.');
+            var type = types.Elements().FirstOrDefault(e => e.Name.LocalName == "Override" && string.Equals((string?)e.Attribute("PartName"), part.Name, StringComparison.OrdinalIgnoreCase))
+                ?? types.Elements().FirstOrDefault(e => e.Name.LocalName == "Default" && string.Equals((string?)e.Attribute("Extension"), extension, StringComparison.OrdinalIgnoreCase));
+            var own = rels.Elements().Where(e => (string?)e.Attribute("Id") == part.RelationshipId).ToList();
+            var ok = type is not null
+                && string.Equals((string?)type.Attribute("ContentType"), part.ContentType, StringComparison.OrdinalIgnoreCase)
+                && own.Count == 1
+                && (string?)own[0].Attribute("Type") == imageType
+                && (string?)own[0].Attribute("TargetMode") != "External"
+                && (string?)own[0].Attribute("Target") is { Length: > 0 } target
+                && Uri.TryCreate(baseUri, target, out var resolved)
+                && string.Equals(Uri.UnescapeDataString(resolved.AbsolutePath), part.Name, StringComparison.OrdinalIgnoreCase);
+            if (!ok)
+            {
+                throw new DocxSaveException(DocxSaveReason.PartsChanged, part.Name);
+            }
+        }
     }
 
     /// <summary>An internal relationship of the main part whose target is a created part.</summary>

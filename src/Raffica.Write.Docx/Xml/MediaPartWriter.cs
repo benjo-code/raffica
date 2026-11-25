@@ -104,10 +104,10 @@ internal static class MediaPartWriter
     /// relationships of the main part, which only gain those entries. A relationship id the main part already uses is refused (<see cref="DocxSaveReason.PartsChanged"/>).
     /// The package layer is not used because it puts a new picture part outside <c>/word</c>.
     /// </summary>
-    /// <returns>The part names (with the leading slash) and the bytes that were written.</returns>
-    public static List<(string Name, byte[] Bytes)> AddTo(string packagePath, string mainPartName, IReadOnlyList<NewPicture> pictures, Func<string, Stream, Stream>? wrap)
+    /// <returns>The part names (with the leading slash), the bytes, the relationship id and the content type that were written. A picture is stored without compression (the formats are compressed already).</returns>
+    public static List<(string Name, byte[] Bytes, string RelationshipId, string ContentType)> AddTo(string packagePath, string mainPartName, IReadOnlyList<NewPicture> pictures, Func<string, Stream, Stream>? wrap)
     {
-        var added = new List<(string Name, byte[] Bytes)>();
+        var added = new List<(string Name, byte[] Bytes, string RelationshipId, string ContentType)>();
         if (pictures.Count == 0)
         {
             return added;
@@ -141,7 +141,7 @@ internal static class MediaPartWriter
             while (!stems.Add("image" + number.ToString(CultureInfo.InvariantCulture)));
 
             var name = "word/media/image" + number.ToString(CultureInfo.InvariantCulture) + "." + extension;
-            using (var raw = zip.CreateEntry(name, CompressionLevel.Fastest).Open())
+            using (var raw = zip.CreateEntry(name, CompressionLevel.NoCompression).Open())
             using (var target = wrap?.Invoke("/" + name, raw) ?? raw)
             {
                 target.Write(picture.Bytes);
@@ -163,7 +163,7 @@ internal static class MediaPartWriter
                 types.Root.Add(new XElement(s_contentTypes + "Override", new XAttribute("PartName", "/" + name), new XAttribute("ContentType", picture.ContentType)));
             }
 
-            added.Add(("/" + name, picture.Bytes));
+            added.Add(("/" + name, picture.Bytes, picture.RelationshipId, picture.ContentType));
         }
 
         Replace(zip, relsName, relationships);

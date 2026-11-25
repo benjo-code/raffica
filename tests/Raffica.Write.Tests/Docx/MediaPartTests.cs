@@ -342,7 +342,8 @@ public sealed class MediaPartTests
         Assert.Throws<ArgumentException>(() => store.Add(Png(), "text/plain"));
         Assert.Throws<ArgumentOutOfRangeException>(() => store.Add(ReadOnlyMemory<byte>.Empty, "image/png"));
         var error = Assert.Throws<ArgumentOutOfRangeException>(() => store.Add(new byte[MediaStore.MaxEntryBytes + 1], "image/png"));
-        Assert.DoesNotContain("PNG", error.Message, StringComparison.Ordinal);
+        Assert.Equal("A picture must hold at least one byte and at most 50 MiB. (Parameter 'bytes')", error.Message);
+        Assert.Equal("The content type is not a supported picture type. (Parameter 'contentType')", Assert.Throws<ArgumentException>(() => store.Add(Png(), "text/plain")).Message);
         Assert.Empty(store.Entries);
         Assert.Equal(["png", "jpeg", "gif", "bmp", "tiff"], s_types.Select(MediaStore.ExtensionOf).ToArray());
     }
@@ -377,5 +378,172 @@ public sealed class MediaPartTests
         await Task.WhenAll(writer, reader);
         Assert.Equal(200, store.Entries.Count);
         Assert.Equal(200, store.Entries.Select(e => e.Ref.RelationshipId).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    private static void Rewrite(string path, string entryName, Func<string, string> change)
+    {
+        using var zip = ZipFile.Open(path, ZipArchiveMode.Update);
+        var entry = zip.GetEntry(entryName)!;
+        string text;
+        using (var reader = new StreamReader(entry.Open()))
+        {
+            text = reader.ReadToEnd();
+        }
+
+        entry.Delete();
+        using var writer = new StreamWriter(zip.CreateEntry(entryName).Open(), new System.Text.UTF8Encoding(false));
+        writer.Write(change(text));
+    }
+
+    [Fact]
+    public async Task TheScanForUsedPicturesRunsAfterTheLeaseIsGiven()
+    {
+        using var folder = new TempFolder();
+        using var file = Blank();
+        var media = file.Model.Media.Add(Png(), "image/png");
+        file.Model.Body.Blocks.Add(PictureParagraph(media.RelationshipId));
+        var leaseHeld = false;
+        var scans = 0;
+        file.BeforeModelRead = () => leaseHeld = true;
+        file.AfterModelRead = () => leaseHeld = false;
+        file.BeforeMediaScan = () =>
+        {
+            Assert.False(leaseHeld);
+            scans++;
+        };
+
+        await file.SaveAsync(folder.File("a.docx"), Cancel);
+        await file.SaveSnapshotAsync(folder.File("b.docx"), Cancel);
+
+        Assert.Equal(2, scans);
+        Assert.Single(Entries(folder.File("b.docx")).Keys, k => k.StartsWith("word/media/", StringComparison.Ordinal));
+
+        // No picture in the store, no scan.
+        using var plain = Blank();
+        plain.BeforeMediaScan = () => scans++;
+        await plain.SaveAsync(folder.File("c.docx"), Cancel);
+        Assert.Equal(2, scans);
+    }
+
+    [Fact]
+    public void AnEmbedInATableCellAndInAContentControlIsFound()
+    {
+        var store = new MediaStore();
+        var inCell = store.Add(Png(1), "image/png");
+        var inControl = store.Add(Png(2), "image/png");
+        var unused = store.Add(Png(3), "image/png");
+        var xml = $"<w:document xmlns:w=\"{W.NamespaceName}\" xmlns:r=\"{R.NamespaceName}\" xmlns:a=\"{A.NamespaceName}\"><w:body>"
+            + $"<w:tbl><w:tr><w:tc><w:p><w:r><w:drawing><a:blip r:embed=\"{inCell.RelationshipId}\"/></w:drawing></w:r></w:p></w:tc></w:tr></w:tbl>"
+            + $"<w:sdt><w:sdtContent><w:p><w:r><w:drawing><a:blip r:embed=\"{inControl.RelationshipId}\"/></w:drawing></w:r></w:p></w:sdtContent></w:sdt>"
+            + $"<w:p><w:r><w:t>{unused.RelationshipId}</w:t></w:r></w:p></w:body></w:document>";
+
+        var used = Raffica.Write.Docx.Xml.MediaPartWriter.Used(System.Text.Encoding.UTF8.GetBytes(xml), store.Entries);
+
+        Assert.Equal([inCell.RelationshipId, inControl.RelationshipId], used.Select(e => e.Ref.RelationshipId).ToArray());
+    }
+
+    [Fact]
+    public void TheTotalOfThePendingPicturesIsCapped()
+    {
+        var store = new MediaStore(null, 10);
+        var first = store.Add(new byte[4], "image/png");
+        var second = store.Add(new byte[6], "image/png");
+        Assert.Equal(10, store.TotalBytes);
+
+        var refused = Assert.Throws<InvalidOperationException>(() => store.Add(new byte[1], "image/png"));
+        Assert.Equal("The pictures of the document together would hold more than 256 MiB.", refused.Message);
+        Assert.Equal(10, store.TotalBytes);
+        Assert.Equal(2, store.Entries.Count);
+
+        Assert.True(store.Remove(first));
+        Assert.Equal(6, store.TotalBytes);
+        var third = store.Add(new byte[4], "image/png");
+        Assert.Equal("rId3", third.RelationshipId);
+        Assert.Equal(10, store.TotalBytes);
+        Assert.Equal(["rId2", "rId3"], store.Entries.Select(e => e.Ref.RelationshipId).ToArray());
+        Assert.NotEqual(second, third);
+        Assert.Equal(256L * 1024 * 1024, MediaStore.MaximumTotalBytes);
+    }
+
+    [Fact]
+    public void AnEntryOfExactlyFiftyMebibytesIsAccepted()
+    {
+        var store = new MediaStore();
+
+        var added = store.Add(new byte[MediaStore.MaxEntryBytes], "image/bmp");
+
+        Assert.Equal(MediaStore.MaxEntryBytes, store.TryGet(added.RelationshipId)!.Value.Length);
+        Assert.Equal(MediaStore.MaxEntryBytes, store.TotalBytes);
+    }
+
+    [Fact]
+    public async Task ACreatedHeaderAndANewPictureGetDistinctIdsAndAValidPackage()
+    {
+        using var folder = new TempFolder();
+        var target = folder.File("both.docx");
+        string headerId;
+        string pictureId;
+        using (var file = Blank())
+        {
+            headerId = Raffica.Write.Editing.HeaderFooterParts.Create(file.Model, HeaderFooterKind.Header, null);
+            var media = file.Model.Media.Add(Png(), "image/png");
+            pictureId = media.RelationshipId;
+            file.Model.Body.Blocks.Add(PictureParagraph(pictureId));
+            await file.SaveAsync(target, Cancel);
+        }
+
+        var rels = Relationships(Entries(target));
+        Assert.NotEqual(headerId, pictureId);
+        Assert.Contains(rels, r => r.Id == headerId);
+        Assert.Contains(rels, r => r.Id == pictureId && r.Type == ImageType);
+        Assert.Equal(rels.Count, rels.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count());
+        AssertNoDangling(target);
+        using var reopened = DocxFile.Open(target);
+        Assert.Single(reopened.Model.Body.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()).SelectMany(r => r.Content).OfType<Picture>());
+    }
+
+    [Fact]
+    public async Task AnExtensionThatTheFileMapsToAnotherContentTypeGetsAnOverrideOfThePart()
+    {
+        using var folder = new TempFolder();
+        var source = folder.File("source.docx");
+        var target = folder.File("target.docx");
+        await File.WriteAllBytesAsync(source, BlankDocument.Create(PaperSize.A4), Cancel);
+        Rewrite(source, "[Content_Types].xml", t => t.Replace("</Types>", "<Default Extension=\"png\" ContentType=\"image/x-png\"/></Types>", StringComparison.Ordinal));
+        using (var file = DocxFile.Open(source))
+        {
+            var media = file.Model.Media.Add(Png(), "image/png");
+            file.Model.Body.Blocks.Add(PictureParagraph(media.RelationshipId));
+            await file.SaveAsync(target, Cancel);
+        }
+
+        var types = XDocument.Load(new MemoryStream(Entries(target)["[Content_Types].xml"])).Root!.Elements().ToList();
+        Assert.Single(types, e => (string?)e.Attribute("Extension") == "png" && (string?)e.Attribute("ContentType") == "image/x-png");
+        Assert.Single(types, e => (string?)e.Attribute("PartName") == "/word/media/image1.png" && (string?)e.Attribute("ContentType") == "image/png");
+        AssertNoDangling(target);
+    }
+
+    [Fact]
+    public async Task ATamperedContentTypeOrRelationshipOfTheCreatedPictureIsRefused()
+    {
+        using var folder = new TempFolder();
+        var target = folder.File("tampered.docx");
+        foreach (var (entry, change) in new (string, Func<string, string, string>)[]
+        {
+            ("[Content_Types].xml", (t, _) => t.Replace("image/png", "image/x-evil", StringComparison.Ordinal)),
+            ("word/_rels/document.xml.rels", (t, id) => t.Replace("Id=\"" + id + "\"", "Id=\"rId99\"", StringComparison.Ordinal)),
+            ("word/_rels/document.xml.rels", (t, _) => t.Replace(ImageType, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject", StringComparison.Ordinal)),
+        })
+        {
+            using var file = Blank();
+            var media = file.Model.Media.Add(Png(), "image/png");
+            file.Model.Body.Blocks.Add(PictureParagraph(media.RelationshipId));
+            file.AfterPackageWritten = path => Rewrite(path, entry, t => change(t, media.RelationshipId));
+
+            var error = await Assert.ThrowsAsync<DocxSaveException>(() => file.SaveAsync(target, Cancel));
+
+            Assert.Equal(DocxSaveReason.PartsChanged, error.Reason);
+            Assert.False(File.Exists(target));
+        }
     }
 }

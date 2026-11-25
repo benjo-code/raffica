@@ -13,7 +13,7 @@ public readonly record struct MediaEntry(MediaRef Ref, ReadOnlyMemory<byte> Byte
 /// <remarks>
 /// <para>
 /// The bytes of every entry stay in memory for the life of the document, saved or not: a save is always made from the opened package plus the model, so the next save writes the
-/// part again. A single entry is at most <see cref="MaxEntryBytes"/> (the last line of defence; the insert command checks the size and the pixel count earlier). Each content type
+/// part again, so the store caps the total (<see cref="MaximumTotalBytes"/>) and the editor releases an entry only when no document state and no history step can reach it (an insert that was refused after the add; never an undo or a redo). A single entry is at most <see cref="MaxEntryBytes"/> (the last line of defence; the insert command checks the size and the pixel count earlier). Each content type
 /// of a picture has one file extension (<see cref="ExtensionOf"/>).
 /// </para>
 /// <para>
@@ -28,15 +28,27 @@ public sealed class MediaStore
     /// <summary>The largest picture the store accepts (50 MiB).</summary>
     public const int MaxEntryBytes = 50 * 1024 * 1024;
 
+    /// <summary>The most bytes all entries may hold together (256 MiB); <see cref="Add"/> refuses beyond it. Entries are never released by a save or an undo.</summary>
+    public const long MaximumTotalBytes = 256L * 1024 * 1024;
+
     private const string IdPrefix = "rId";
 
     private readonly object _gate = new();
     private MediaEntry[] _entries = [];
     private long _highest;
+    private long _totalBytes;
+    private readonly long _maximumTotal;
 
     /// <summary>A store whose ids start above the numbers of <paramref name="existingIds"/> (the relationship ids of the main part; ids that do not look like <c>rId</c> and a number are ignored, they can never equal one the store makes).</summary>
     public MediaStore(IEnumerable<string>? existingIds = null)
+        : this(existingIds, MaximumTotalBytes)
     {
+    }
+
+    // The total cap is a parameter only so a test needs no 256 MiB.
+    internal MediaStore(IEnumerable<string>? existingIds, long maximumTotalBytes)
+    {
+        _maximumTotal = maximumTotalBytes;
         if (existingIds is null)
         {
             return;
@@ -62,12 +74,16 @@ public sealed class MediaStore
         _ => null,
     };
 
+    /// <summary>The bytes of all entries now.</summary>
+    public long TotalBytes => Interlocked.Read(ref _totalBytes);
+
     /// <summary>The entries now, oldest first; a snapshot that later adds and removals do not change.</summary>
     public IReadOnlyList<MediaEntry> Entries => Volatile.Read(ref _entries);
 
     /// <summary>Adds a picture and returns the reference that names it (a new relationship id each time).</summary>
     /// <exception cref="ArgumentException">The content type is not a supported picture type.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The picture is empty or larger than <see cref="MaxEntryBytes"/>.</exception>
+    /// <exception cref="InvalidOperationException">The entries would together hold more than <see cref="MaximumTotalBytes"/>; the store is unchanged.</exception>
     public MediaRef Add(ReadOnlyMemory<byte> bytes, string contentType)
     {
         var extension = ExtensionOf(contentType) ?? throw new ArgumentException("The content type is not a supported picture type.", nameof(contentType));
@@ -76,14 +92,20 @@ public sealed class MediaStore
             throw new ArgumentOutOfRangeException(nameof(bytes), "A picture must hold at least one byte and at most 50 MiB.");
         }
 
-        var copy = bytes.ToArray();
         lock (_gate)
         {
+            if (_totalBytes + bytes.Length > _maximumTotal)
+            {
+                throw new InvalidOperationException("The pictures of the document together would hold more than 256 MiB.");
+            }
+
+            var copy = bytes.ToArray();
             var reference = new MediaRef(IdPrefix + (++_highest).ToString(CultureInfo.InvariantCulture), contentType.ToLowerInvariant(), extension);
             var next = new MediaEntry[_entries.Length + 1];
             Array.Copy(_entries, next, _entries.Length);
             next[^1] = new MediaEntry(reference, copy);
             Volatile.Write(ref _entries, next);
+            Interlocked.Add(ref _totalBytes, copy.Length);
             return reference;
         }
     }
@@ -102,7 +124,7 @@ public sealed class MediaStore
         return null;
     }
 
-    /// <summary>Drops an entry; false when the store does not hold it. A document that still refers to the id would lose the picture at the next save, so an undo must not call this.</summary>
+    /// <summary>Drops an entry; false when the store does not hold it. A document that still refers to the id would lose the picture at the next save, so only a caller that knows nothing refers to it (an insert refused after the add) may call this: never an undo, a redo or a history step, whose pictures must stay reachable. Frees room under <see cref="MaximumTotalBytes"/>.</summary>
     public bool Remove(MediaRef reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
@@ -113,6 +135,8 @@ public sealed class MediaStore
             {
                 return false;
             }
+
+            Interlocked.Add(ref _totalBytes, -_entries[index].Bytes.Length);
 
             var next = new MediaEntry[_entries.Length - 1];
             Array.Copy(_entries, next, index);

@@ -4,5 +4,6 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Raffica.Write.App.Tests" />
+    <InternalsVisibleTo Include="Raffica.Write.Tests" />
   </ItemGroup>
 </Project>
