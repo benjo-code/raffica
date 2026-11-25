@@ -133,7 +133,9 @@ internal sealed partial class WriteWindow
             _tableGrid.Opened += (_, _) => picker.Reset();
         }
 
-        Control anchor = Ribbon.GetVisualDescendants().OfType<RibbonButton>().FirstOrDefault(b => b.Definition.Id == WriteCommandIds.TableInsert) ?? (Control)Ribbon;
+        // The ribbon's tab row and band belong to the frame; the RibbonView draws nothing and is in no visual tree, so a popup anchored to it never shows. The Insert button is in the band while the Insert tab is shown, else the band is the anchor.
+        var band = Ribbon.Band;
+        Control anchor = band.GetVisualDescendants().OfType<RibbonButton>().FirstOrDefault(b => b.Definition.Id == WriteCommandIds.TableInsert) ?? band;
         _tableGrid.ShowAt(anchor);
     }
 

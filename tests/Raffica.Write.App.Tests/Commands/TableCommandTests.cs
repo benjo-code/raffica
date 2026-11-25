@@ -670,6 +670,47 @@ public sealed class TableCommandTests
         Assert.Same(grid, window.TableGrid);
     }
 
+    // The window hands the ribbon's tab row and band to the frame, so the RibbonView itself is never in the visual tree: a grid anchored to it was "open" with no root and no size and never showed (found on a real display).
+    [AvaloniaFact]
+    public async Task TheGridPickerIsOnScreenUnderTheInsertButton()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture);
+        window = fixture.Window;
+        CaretOutside(session, tab);
+        Settle(window);
+        window.Ribbon.ActiveTab = window.Ribbon.Definition!.Tabs.Single(t => t.Letter == WriteRibbon.InsertLetter);
+        Settle(window);
+
+        window.ShowTableGrid();
+        WindowFixture.Pump();
+
+        var grid = Assert.IsType<TableGridPicker>(window.TableGrid);
+        Assert.NotNull(TopLevel.GetTopLevel(grid));
+        Assert.True(grid.IsLoaded);
+        Assert.True(grid.Bounds.Width > 0 && grid.Bounds.Height > 0);
+    }
+
+    // Run from the command search or the menu while another tab is shown (the Insert button is not in the band), the grid opens under the band.
+    [AvaloniaFact]
+    public async Task TheGridPickerIsOnScreenWhenTheInsertBandIsNotShown()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture);
+        window = fixture.Window;
+        CaretOutside(session, tab);
+        Settle(window);
+        Assert.Equal(WriteRibbon.HomeLetter, window.Ribbon.ActiveTab!.Letter);
+
+        window.ShowTableGrid();
+        WindowFixture.Pump();
+
+        var grid = Assert.IsType<TableGridPicker>(window.TableGrid);
+        Assert.NotNull(TopLevel.GetTopLevel(grid));
+        Assert.True(grid.IsLoaded);
+        Assert.True(grid.Bounds.Width > 0 && grid.Bounds.Height > 0);
+    }
+
     [AvaloniaFact]
     public async Task StartupCreatesNoTableWork()
     {
