@@ -51,6 +51,9 @@ public sealed class EditHistory
 {
     private static readonly TimeSpan Pause = TimeSpan.FromSeconds(2);
 
+    // Nudges of one picture within this time of the previous one are one step.
+    private static readonly TimeSpan NudgePause = TimeSpan.FromSeconds(1);
+
     private readonly WordDocument _document;
     private readonly TimeProvider _time;
     private readonly HistoryLimits _limits;
@@ -209,7 +212,7 @@ public sealed class EditHistory
     /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
     /// selection and without a line break, else null.
     /// </summary>
-    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null)
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
     {
         if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null && result.Objects is null))
         {
@@ -244,7 +247,7 @@ public sealed class EditHistory
         _redo.Clear();
 
         var plain = result.Style is null && result.Sections is null && result.Objects is null;
-        if (plain && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore, typingFormat))
+        if (plain && ((typed is not null && IsWord(typed)) || nudge is not null) && CanJoin(change, before, stamp, revisionBefore, typingFormat, nudge))
         {
             var step = _open!;
             _undoBytes -= step.Bytes;
@@ -264,13 +267,14 @@ public sealed class EditHistory
             Sections = result.Sections,
             Objects = result.Objects,
             TypingFormat = typed is not null && plain ? typingFormat : null,
+            NudgeKey = plain ? nudge : null,
             KeepsBodySelection = keepsBodySelection,
         };
         added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style) + SizeOf(added.Sections) + SizeOf(added.Objects);
         _undo.Add(added);
         _undoBytes += added.Bytes;
         _expected = endRevision;
-        if (typed is not null && plain)
+        if ((typed is not null || nudge is not null) && plain)
         {
             _open = added;
             _openContainer = change.Container;
@@ -460,10 +464,11 @@ public sealed class EditHistory
     // Undo and redo of a step with notes need every note to remove in its part; checked before anything changes.
     private bool ObjectsApplicable(Step step, bool undo) => step.Objects is not { } change || change.CanApply(_document, undo);
 
-    private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
+    private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat, object? nudge)
     {
         var step = _open;
         return step is not null
+            && Equals(step.NudgeKey, nudge)
             && ReferenceEquals(step.TypingFormat, typingFormat)
             && _undo.Count > 0
             && ReferenceEquals(_undo[^1], step)
@@ -475,7 +480,7 @@ public sealed class EditHistory
             && change.Removed == 1
             && change.Added == 1
             && before == step.After
-            && _time.GetElapsedTime(_openStamp, stamp) < Pause;
+            && _time.GetElapsedTime(_openStamp, stamp) < (nudge is null ? Pause : NudgePause);
     }
 
     private static bool IsWord(string text)
@@ -904,6 +909,9 @@ public sealed class EditHistory
 
         /// <summary>The pending format the typed text of this step took (the list of the session, compared by reference), or null for plain typing.</summary>
         public object? TypingFormat { get; init; }
+
+        /// <summary>The identity of the picture a nudge step moved (compared by value), or null: consecutive nudges of one picture join one step.</summary>
+        public object? NudgeKey { get; init; }
 
         /// <summary>Set for a step recorded from a caret in the body that changed only a header or footer story (insert page number): undo and redo carry <see cref="EditResult.KeepSelection"/>, so the owner keeps the body selection it has instead of moving it into that story.</summary>
         public bool KeepsBodySelection { get; init; }

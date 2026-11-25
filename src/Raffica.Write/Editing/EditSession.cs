@@ -99,6 +99,12 @@ internal sealed partial class EditSession
     public event Action? Changed;
 
     /// <summary>
+    /// Raised on the UI thread, before <see cref="Changed"/>, when an operation, an undo or a redo added a picture to the document or took one away (<see cref="ObjectChange.MediaAdded"/> and <see cref="ObjectChange.MediaRemoved"/>): the owner of
+    /// the layout's picture cache clears it and prefetches the pictures in view.
+    /// </summary>
+    public event Action? PicturesChanged;
+
+    /// <summary>
     /// Rises whenever an operation, an undo or a redo may have changed the sections or what they share (section properties, a move, a change in the body); it stays the same while text is typed in a header or footer.
     /// What is worked out from the sections (the status line of a shared footer) is kept while it is the same.
     /// </summary>
@@ -195,6 +201,18 @@ internal sealed partial class EditSession
         if (!typing)
         {
             Pending.Clear();
+        }
+    }
+
+    private bool _picturesChanged;
+
+    // Once per batch of operations, before Changed: the view clears its picture cache and decodes what is in view.
+    private void RaisePicturesChanged()
+    {
+        if (_picturesChanged)
+        {
+            _picturesChanged = false;
+            PicturesChanged?.Invoke();
         }
     }
 
@@ -409,6 +427,7 @@ internal sealed partial class EditSession
             var stamp = Stamp();
             if (changed)
             {
+                RaisePicturesChanged();
                 Changed?.Invoke();
             }
 
@@ -538,6 +557,7 @@ internal sealed partial class EditSession
         {
             if (changed)
             {
+                RaisePicturesChanged();
                 Changed?.Invoke();
             }
 
@@ -586,6 +606,11 @@ internal sealed partial class EditSession
 
         // The model has changed now: whatever happens next, the view must hear of it.
         changed = true;
+        if (result.Objects is { } objects && (objects.MediaAdded.Count > 0 || objects.MediaRemoved.Count > 0))
+        {
+            _picturesChanged = true;
+        }
+
         // A formatting operation changes no text: the selection that was there stays (a toggle pressed twice must see the same selection twice).
         stamp = Stamp();
         MoveSelection(result.KeepSelection && _selection is { } kept ? kept : new TextRange(result.Caret, result.Caret), typing);
@@ -683,13 +708,27 @@ internal sealed partial class EditSession
             }
 
             _format.Invalidate(model);
-            _editor = new TextEditor(model, Host, format: _format) { FragmentCodec = s_fragmentCodec };
+            _editor = new TextEditor(model, Host, format: _format) { FragmentCodec = s_fragmentCodec, PictureBytes = ReadPictureBytes };
             _bound = model;
             _numberingSeen = model.Numbering;
             _selection = StartOf(model);
         }
 
         return _editor;
+    }
+
+    // The original bytes of a picture of the main story, for Reset size: the pending pictures first, then the package (the source does both); null when they are not at hand.
+    private ReadOnlyMemory<byte>? ReadPictureBytes(string relationshipId)
+    {
+        try
+        {
+            var bytes = _tab.Images.Read(relationshipId);
+            return bytes.IsEmpty ? null : bytes;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ObjectDisposedException)
+        {
+            return null;
+        }
     }
 
     private IProjectionHost Host(StoryRef story, Paragraph paragraph)

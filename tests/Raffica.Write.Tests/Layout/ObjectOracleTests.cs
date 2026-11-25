@@ -237,6 +237,108 @@ public sealed class ObjectOracleTests
         }
     }
 
+
+    private const string DrawingNamespaces = "xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"";
+
+    private static string DrawingGraphic(string crop, string rotation) =>
+        "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic><pic:nvPicPr><pic:cNvPr id=\"0\" name=\"x\"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed=\"rId9\"/>" + crop + "</pic:blipFill>"
+        + $"<pic:spPr><a:xfrm{rotation}><a:off x=\"0\" y=\"0\"/><a:ext cx=\"1905000\" cy=\"1270000\"/></a:xfrm><a:prstGeom prst=\"rect\"/></pic:spPr></pic:pic></a:graphicData></a:graphic>";
+
+    private static string InlineDrawing(int id, string crop = "", string rotation = "") =>
+        $"<w:r><w:drawing {DrawingNamespaces}><wp:inline distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\"><wp:extent cx=\"1905000\" cy=\"1270000\"/><wp:effectExtent l=\"0\" t=\"0\" r=\"0\" b=\"0\"/><wp:docPr id=\"{id}\" name=\"Picture {id}\"/><wp:cNvGraphicFramePr/>{DrawingGraphic(crop, rotation)}</wp:inline></w:drawing></w:r>";
+
+    private static string AnchoredDrawing(int id, int height, string crop = "") =>
+        $"<w:r><w:drawing {DrawingNamespaces}><wp:anchor distT=\"0\" distB=\"0\" distL=\"114300\" distR=\"114300\" simplePos=\"0\" relativeHeight=\"{height}\" behindDoc=\"0\" locked=\"0\" layoutInCell=\"1\" allowOverlap=\"1\"><wp:simplePos x=\"0\" y=\"0\"/><wp:positionH relativeFrom=\"column\"><wp:posOffset>300000</wp:posOffset></wp:positionH><wp:positionV relativeFrom=\"paragraph\"><wp:posOffset>100000</wp:posOffset></wp:positionV><wp:extent cx=\"1905000\" cy=\"1270000\"/><wp:effectExtent l=\"0\" t=\"0\" r=\"0\" b=\"0\"/><wp:wrapSquare wrapText=\"bothSides\"/><wp:docPr id=\"{id}\" name=\"Picture {id}\"/><wp:cNvGraphicFramePr/>{DrawingGraphic(crop, string.Empty)}</wp:anchor></w:drawing></w:r>";
+
+    // Text paragraphs, cropped inline and anchored pictures, a turned one, and a table with a picture in a cell.
+    internal static string PictureBody()
+    {
+        const string Crop = "<a:srcRect l=\"10000\" t=\"5000\" r=\"20000\" b=\"0\"/>";
+        static string Text(int n) => $"<w:p><w:r><w:t>Paragraph {n} with a few words to wrap around a picture when one is put beside it.</w:t></w:r></w:p>";
+        var body = new System.Text.StringBuilder();
+        for (var i = 0; i < 8; i++)
+        {
+            body.Append(Text(i));
+        }
+
+        body.Append(System.Globalization.CultureInfo.InvariantCulture, $"<w:p>{InlineDrawing(3, Crop)}<w:r><w:t> after a cropped picture</w:t></w:r></w:p>");
+        body.Append(System.Globalization.CultureInfo.InvariantCulture, $"<w:p><w:r><w:t>An anchored one: </w:t></w:r>{AnchoredDrawing(4, 100, Crop)}<w:r><w:t>text beside it</w:t></w:r></w:p>");
+        body.Append(System.Globalization.CultureInfo.InvariantCulture, $"<w:p>{InlineDrawing(5, string.Empty, " rot=\"5400000\"")}</w:p>");
+        body.Append("<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"4000\"/><w:gridCol w:w=\"4000\"/></w:tblGrid>");
+        body.Append(System.Globalization.CultureInfo.InvariantCulture, $"<w:tr><w:tc><w:tcPr><w:tcW w:w=\"4000\" w:type=\"dxa\"/></w:tcPr><w:p>{InlineDrawing(6)}</w:p></w:tc><w:tc><w:tcPr><w:tcW w:w=\"4000\" w:type=\"dxa\"/></w:tcPr><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>");
+        for (var i = 8; i < 30; i++)
+        {
+            body.Append(Text(i));
+        }
+
+        return body.ToString();
+    }
+
+    private static readonly ObjectKind[] s_pictureKinds =
+    [
+        ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Resize, ObjectKind.Nudge, ObjectKind.Move, ObjectKind.Wrap, ObjectKind.Nudge, ObjectKind.Resize, ObjectKind.DeletePicture,
+        ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Move, ObjectKind.Nudge, ObjectKind.Undo, ObjectKind.Redo, ObjectKind.Wrap,
+    ];
+
+    // Cropped, anchored, turned and tabled pictures: picture steps only, each compared with a full layout and with the object map it publishes.
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task PictureStepsEqualAFullLayoutOnGeneratedDocumentsWithCroppedAnchoredAndTurnedPictures(int seed)
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("pictures.docx");
+        DocxBuilder.WithBody(path, PictureBody());
+        using var file = DocxFile.Open(path);
+        var layout = await SectionOracleTests.LaidAsync(file.Model);
+        var steps = new ObjectSteps(file.Model, layout, new LayoutOptions());
+
+        var compared = await steps.RunAsync(new Random(unchecked(seed * 15485863)), 50, "pictures " + seed, s_pictureKinds);
+
+        Assert.True(compared > 25, $"only {compared} of 50 steps changed something");
+        TestContext.Current.SendDiagnosticMessage($"pictures {seed}: {compared} steps compared, refused {steps.RefusedPerKind.Sum()}");
+    }
+
+    // A guard that only the per-seed runs carry would stay green if a kind never changed anything.
+    [Fact]
+    public async Task EveryPictureStepKindChangedSomethingOnTheGeneratedDocuments()
+    {
+        var ran = new int[ObjectSteps.Kinds];
+        var refused = new int[ObjectSteps.Kinds];
+        for (var seed = 1; seed <= 6; seed++)
+        {
+            using var folder = new TempFolder();
+            var path = folder.File("pictures.docx");
+            DocxBuilder.WithBody(path, PictureBody());
+            using var file = DocxFile.Open(path);
+            var layout = await SectionOracleTests.LaidAsync(file.Model);
+            var steps = new ObjectSteps(file.Model, layout, new LayoutOptions());
+            await steps.RunAsync(new Random(unchecked(seed * 15485863)), 50, "pictures " + seed, s_pictureKinds);
+            for (var k = 0; k < ran.Length; k++)
+            {
+                ran[k] += steps.RanPerKind[k];
+                refused[k] += steps.RefusedPerKind[k];
+            }
+        }
+
+        var report = string.Join(", ", Enum.GetValues<ObjectKind>().Select(k => $"{k} ran {ran[(int)k]} refused {refused[(int)k]}"));
+        TestContext.Current.SendDiagnosticMessage("generated picture steps: " + report);
+        foreach (var kind in s_pictureKinds.Distinct())
+        {
+            Assert.True(ran[(int)kind] > 0, $"the step kind {kind} never changed anything on the generated pictures ({report})");
+        }
+
+        // A picture step is refused for a good reason now and then (a picture in a cell cannot float, a turned one is not resized), but not nearly always.
+        foreach (var kind in new[] { ObjectKind.Resize, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Nudge })
+        {
+            Assert.True(refused[(int)kind] <= ran[(int)kind] * 2, $"{kind} was refused {refused[(int)kind]} times and changed something {ran[(int)kind]} times ({report})");
+        }
+    }
+
     // The notes with text: a part made by a step stays after its undo (with its separators), as a numbering part does.
     private static (int Footnotes, int Endnotes) Counted(WordDocument model) =>
         (model.Footnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0, model.Endnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0);

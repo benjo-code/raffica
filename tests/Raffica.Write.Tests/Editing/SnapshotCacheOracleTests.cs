@@ -657,6 +657,70 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void PictureOperationsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("pictures.docx");
+        Support.DocxBuilder.WithBody(path, Layout.ObjectOracleTests.PictureBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        ObjectId IdAt(int block, int ordinal = 0)
+        {
+            var paragraph = (Paragraph)model.Body.Blocks[block];
+            var picture = paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<Picture>().ElementAt(ordinal);
+            var run = paragraph.Inlines.OfType<Run>().First(r => r.Content.Contains(picture));
+            return ObjectIds.Of(StoryRef.Body, model.Body.Blocks, paragraph, run, picture)!;
+        }
+
+        // Block 8 holds a cropped inline picture, block 9 an anchored one, block 10 a turned one.
+        var png = Support.TestPictures.Png(24, 18);
+        (string Label, Func<EditResult?> Run)[] steps =
+        [
+            ("insert", () => editor.InsertPicture(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[1], 3), png, "inserted")),
+            ("resize", () => editor.ResizePicture(IdAt(8), 2000000, 1000000)),
+            ("alt text", () => editor.SetAltText(IdAt(8), "cropped")),
+            ("wrap to float", () => editor.SetPictureWrap(IdAt(8), PictureWrap.TopAndBottom)),
+            ("wrap between floats", () => editor.SetPictureWrap(IdAt(9), PictureWrap.Behind)),
+            ("nudge", () => editor.NudgePicture(IdAt(9), 4, -2)),
+            ("move", () => editor.MovePicture(IdAt(9), new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[3], 0), 77, 88)),
+            ("wrap to inline", () => editor.SetPictureWrap(editor.PictureAt(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[3], 0))!, PictureWrap.Inline)),
+            ("delete", () => editor.DeletePicture(IdAt(10))),
+        ];
+
+        Check("before");
+        foreach (var (label, run) in steps)
+        {
+            Assert.True(run() is not null, label + " was refused");
+            Check(label);
+        }
+
+        // The store keeps the bytes of the inserted picture through every undo and redo (the save decides what is written).
+        var entry = Assert.Single(model.Media.Entries);
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+            Assert.Equal(png, model.Media.TryGet(entry.Ref.RelationshipId)!.Value.ToArray());
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+            Assert.Equal(png, model.Media.TryGet(entry.Ref.RelationshipId)!.Value.ToArray());
+        }
+    }
+
+    [Fact]
     public void TableFormattingAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var folder = new Support.TempFolder();

@@ -138,6 +138,7 @@ internal sealed partial class PageView
 
     private void InitializeEditing()
     {
+        DeletePicture = DeleteSelectedPicture;
         ActualThemeVariantChanged += (_, _) => UpdateBlink();
         if (_tab.Editor is { } existing)
         {
@@ -158,6 +159,7 @@ internal sealed partial class PageView
             session.InputDropped -= OnInputDropped;
             session.ObjectSelectionChanged -= OnObjectSelectionChanged;
             session.SaveStarted -= OnSaveStarted;
+            session.PicturesChanged -= OnPicturesChanged;
             _session = null;
         }
 
@@ -193,6 +195,7 @@ internal sealed partial class PageView
             _session.InputDropped -= OnInputDropped;
             _session.ObjectSelectionChanged -= OnObjectSelectionChanged;
             _session.SaveStarted -= OnSaveStarted;
+            _session.PicturesChanged -= OnPicturesChanged;
         }
 
         _session = session;
@@ -200,6 +203,21 @@ internal sealed partial class PageView
         session.InputDropped += OnInputDropped;
         session.ObjectSelectionChanged += OnObjectSelectionChanged;
         session.SaveStarted += OnSaveStarted;
+        session.PicturesChanged += OnPicturesChanged;
+    }
+
+    // The session added or removed a picture of the document (an insert, an undo or a redo of one): the decoded pictures are dropped and the ones in view are decoded again off the UI thread. A new picture
+    // has an id the cache never saw (the store never reuses one), so this is the rule of the cache ("a feature that changes the pictures calls Clear and prefetches") and not a repair; the render
+    // thread draws a marked box for a picture that is not ready, as at the first open, and one invalidation follows the decode.
+    private void OnPicturesChanged()
+    {
+        if (_released)
+        {
+            return;
+        }
+
+        _images.Clear();
+        PrefetchPictures();
     }
 
     // Input that a save queued was not replayed: the same hint as for a refused key says why.

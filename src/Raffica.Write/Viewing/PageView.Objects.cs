@@ -36,8 +36,27 @@ internal sealed partial class PageView
     /// </summary>
     internal Func<ObjectDragKind, ObjectDragEnd, bool>? ObjectDragCommit { get; set; }
 
-    /// <summary>The operation that removes the selected picture (a later task fills it); true when it did. Delete with a picture selected calls it; without one the key does nothing.</summary>
+    /// <summary>
+    /// The operation that removes the selected picture; true when it did. The view fills it with <see cref="DeleteSelectedPicture"/> (one history step of the session, like a key); a window or a test may replace it. Delete and Backspace with a
+    /// picture selected call it; without one the keys do nothing.
+    /// </summary>
     internal Func<PictureSelection, bool>? DeletePicture { get; set; }
+
+    // The registered deleter: the same path as a key (the session is made on first use, a save queues the operation, a stale id is refused by the editor), one history step.
+    private bool DeleteSelectedPicture(PictureSelection selection)
+    {
+        if (BlockReason() is { } reason and not EditBlockedReason.Saving)
+        {
+            InputRefused?.Invoke(reason);
+            return false;
+        }
+
+        var session = _tab.EnsureEditor();
+        AttachSession(session);
+        SyncActiveMode();
+        var prefix = IsPrefixDocument;
+        return ApplyGuarded(session, ed => ed.DeletePicture(selection.Id, prefix)) is not null;
+    }
 
     /// <summary>The selected object of the tab's session, or null (also before the session exists).</summary>
     internal ObjectSelection? ObjectSelection => _tab.Editor?.ObjectSelection;

@@ -241,14 +241,41 @@ public sealed class PageViewObjectTests : IDisposable
         var view = h.View;
         Click(h, Center(ThePicture(h), view));
         var session = view.Tab.Editor!;
+        var model = view.Tab.Docx.Model;
+        var revision = model.Edits.Revision;
+        Assert.NotNull(session.ObjectSelection);
+
+        // The registered deleter is the view's own: Delete takes the picture out as one history step, the selection ends, and the paragraph stays.
+        Stroke(h, PhysicalKey.Delete);
+
+        Assert.Null(session.ObjectSelection);
+        Assert.NotEqual(revision, model.Edits.Revision);
+        Assert.DoesNotContain(ModelPictures(model), _ => true);
+        Assert.Equal(1, session.Editor.History.UndoCount);
+        Assert.Empty(view.Runner.PageLayout.Page(0).Objects.Pictures);
+        Assert.IsType<Paragraph>(model.Body.Blocks[1]);
+
+        // One undo brings it back, with the same bytes (the picture is the package's).
+        Assert.NotNull(view.ApplyOperation(ed => ed.History.Undo()));
+        Assert.Single(ModelPictures(model));
+        Assert.Equal(revision, model.Edits.Revision);
+        Assert.Single(view.Runner.PageLayout.Page(0).Objects.Pictures);
+
+        // Backspace does the same.
+        Click(h, Center(ThePicture(h), view));
+        Stroke(h, PhysicalKey.Backspace);
+        Assert.Empty(ModelPictures(model));
+    }
+
+    [AvaloniaFact]
+    public async Task ARegisteredDeleterTakesTheKeysInsteadOfTheViewsOwn()
+    {
+        using var h = await OpenAsync(ObjectDocx.Write(_folder));
+        var view = h.View;
+        Click(h, Center(ThePicture(h), view));
+        var session = view.Tab.Editor!;
         var selected = session.ObjectSelection;
         var revision = view.Tab.Docx.Model.Edits.Revision;
-
-        // With no operation registered the key does nothing at all: it never falls through to a text delete next to the picture.
-        Stroke(h, PhysicalKey.Delete);
-        Stroke(h, PhysicalKey.Backspace);
-        Assert.Equal(revision, view.Tab.Docx.Model.Edits.Revision);
-        Assert.Equal(selected, session.ObjectSelection);
 
         var deleted = new List<PictureSelection>();
         view.DeletePicture = picture =>
@@ -259,6 +286,45 @@ public sealed class PageViewObjectTests : IDisposable
         Stroke(h, PhysicalKey.Delete);
         Assert.Equal(selected, Assert.Single(deleted));
         Assert.Equal(revision, view.Tab.Docx.Model.Edits.Revision);
+        Assert.Single(ModelPictures(view.Tab.Docx.Model));
+    }
+
+    [AvaloniaFact]
+    public async Task AnInsertedPictureClearsThePictureCacheAndIsDecodedAgain()
+    {
+        using var h = await OpenAsync(ObjectDocx.Write(_folder));
+        var view = h.View;
+        var cache = view.Tab.Pictures;
+        await ViewHarness.WaitAsync(() => cache.DecodeCount >= 1);
+        var before = cache.DecodeCount;
+        var model = view.Tab.Docx.Model;
+        var events = 0;
+        view.Tab.EnsureEditor().PicturesChanged += () => events++;
+
+        var result = view.ApplyOperation(ed => ed.InsertPicture(new TextPosition(StoryRef.Body, P(h, 0), 3), GreenPng(), "new"));
+
+        Assert.NotNull(result);
+        Assert.Equal(1, events);
+        var added = Assert.Single(result.Objects!.MediaAdded);
+        await ViewHarness.WaitAsync(() => view.Tab.Pictures.IsKnown(new ImageRef("document#" + added.RelationshipId)) && view.Tab.Pictures.DecodeCount - before >= 2, 20000);
+        Assert.Equal(2, model.Body.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()).SelectMany(r => r.Content).OfType<Picture>().Count());
+
+        // An undo takes the picture away and clears again.
+        Assert.NotNull(view.ApplyOperation(ed => ed.History.Undo()));
+        Assert.Equal(2, events);
+        Assert.Single(ModelPictures(model));
+    }
+
+    private static List<Picture> ModelPictures(WordDocument model) =>
+        [.. model.Body.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()).SelectMany(r => r.Content).OfType<Picture>()];
+
+    private static byte[] GreenPng()
+    {
+        using var bitmap = new SkiaSharp.SKBitmap(12, 12);
+        bitmap.Erase(new SkiaSharp.SKColor(10, 200, 60));
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
     }
 
     [AvaloniaFact]
