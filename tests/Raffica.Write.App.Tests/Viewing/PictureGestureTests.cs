@@ -91,6 +91,8 @@ public sealed class PictureGestureTests : IDisposable
         Assert.IsType<PictureSelection>(session.ObjectSelection);
         var start = Info(h);
         Assert.Equal(2.0, Ratio(start), 3);
+        var drawing = session.SelectedDrawing;
+        var selectedId = ((PictureSelection)session.ObjectSelection!).Id;
         var steps = session.Editor.History.UndoCount;
         var revision = Revision(h);
 
@@ -108,7 +110,8 @@ public sealed class PictureGestureTests : IDisposable
         Near(start.ExtentEmu.Width + (long)Math.Round(60 / Scale(view) * 12700), grown.ExtentEmu.Width, 12700);
         Assert.Equal(revision + 1, Revision(h));
         Assert.Equal(steps + 1, session.Editor.History.UndoCount);
-        Assert.IsType<PictureSelection>(session.ObjectSelection);
+        Assert.Same(drawing, session.SelectedDrawing);
+        Assert.Equal(selectedId, Assert.IsType<PictureSelection>(session.ObjectSelection).Id);
 
         // Shift frees the proportions.
         var corner = At(h, Inline(h), HandleSlot.BottomRight);
@@ -118,6 +121,8 @@ public sealed class PictureGestureTests : IDisposable
         Near(grown.ExtentEmu.Width + (long)Math.Round(30 / Scale(view) * 12700), free.ExtentEmu.Width, 12700);
         Near(grown.ExtentEmu.Height + (long)Math.Round(30 / Scale(view) * 12700), free.ExtentEmu.Height, 12700);
         Assert.Equal(steps + 2, session.Editor.History.UndoCount);
+        Assert.Same(drawing, session.SelectedDrawing);
+        Assert.Equal(selectedId, ((PictureSelection)session.ObjectSelection!).Id);
 
         Assert.NotNull(session.Editor.History.Undo());
         Assert.NotNull(session.Editor.History.Undo());
@@ -341,8 +346,13 @@ public sealed class PictureGestureTests : IDisposable
         using var h = await OpenFloatingAsync();
         var view = h.View;
         var session = Session(h);
+        // The clock of the editor is ours: the nudges of "one second" are the nudges before we move it on, however long the machine takes.
+        var clock = new FakeTime();
+        session.EditorTime = clock;
         Click(h, Center(Floating(h), view));
         var steps = session.Editor.History.UndoCount;
+        var drawing = session.SelectedDrawing;
+        var selectedId = ((PictureSelection)session.ObjectSelection!).Id;
         var revision = Revision(h);
         var start = Info(h).Anchor!;
 
@@ -359,9 +369,48 @@ public sealed class PictureGestureTests : IDisposable
         // The nudges of one second are one history step, the revision moves with every nudge, and the picture stays selected.
         Assert.True(Revision(h) > revision);
         Assert.Equal(steps + 1, session.Editor.History.UndoCount);
-        Assert.IsType<PictureSelection>(session.ObjectSelection);
+        Assert.Same(drawing, session.SelectedDrawing);
+        Assert.Equal(selectedId, Assert.IsType<PictureSelection>(session.ObjectSelection).Id);
+
+        // A nudge a second later is a step of its own.
+        clock.Advance(1500);
+        Stroke(h, PhysicalKey.ArrowRight);
+        Assert.Equal(steps + 2, session.Editor.History.UndoCount);
+        Assert.Same(drawing, session.SelectedDrawing);
+        Assert.NotNull(session.Editor.History.Undo());
+        Assert.Equal(steps + 1, session.Editor.History.UndoCount);
         Assert.NotNull(session.Editor.History.Undo());
         Assert.Equal(start.HorizontalOffsetEmu, PictureView.Of(((Run)P(h, 1).Inlines[0]).Content.OfType<Picture>().Single())!.Anchor!.HorizontalOffsetEmu);
+    }
+
+    private sealed class FakeTime : TimeProvider
+    {
+        private long _ticks;
+
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp() => _ticks;
+
+        public void Advance(int milliseconds) => _ticks += milliseconds;
+    }
+
+    [AvaloniaFact]
+    public async Task AHeldArrowOnAnAlignedPictureSaysWhyOnlyOnce()
+    {
+        using var h = await OpenFloatingAsync(aligned: true);
+        var view = h.View;
+        Click(h, Center(Floating(h), view));
+        var notes = new List<string>();
+        view.StructureNote += notes.Add;
+
+        // The key goes down and repeats (no key up in between): one note, not one per repeat.
+        h.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+        h.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+        h.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+        h.Window.KeyReleaseQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+        ViewHarness.Pump();
+
+        Assert.Equal([WriteStrings.ReasonPictureAlignedPosition], notes);
     }
 
     [AvaloniaFact]

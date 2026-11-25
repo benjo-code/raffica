@@ -153,6 +153,88 @@ public sealed class PictureCardsTests
     }
 
     [AvaloniaFact]
+    public void EnterWithoutLeavingTheBoxStillKeepsTheProportions()
+    {
+        var (card, answers) = ShowProperties();
+        using var _ = card;
+        card.Type("PART_Width", "10");
+        card.Press(card.Find<TextBox>("PART_Width"), PhysicalKey.Enter, Key.Enter);
+
+        // The box was never left (no blur), and the picture is still not distorted: the height followed the width at OK.
+        var answer = Assert.Single(answers)!;
+        Assert.Equal(5669L * 635, answer.WidthEmu);
+        Assert.Equal(2834L * 635, answer.HeightEmu);
+        Assert.Equal("5", card.Find<TextBox>("PART_Height").Text);
+    }
+
+    [AvaloniaFact]
+    public void TypingAWidthAndTypingTheOldOneBackGivesTheOriginalPair()
+    {
+        var (card, answers) = ShowProperties(new PicturePropertiesContext(2880, 1440, string.Empty, "inline", false, true, false));
+        using var _ = card;
+        card.Type("PART_Width", "5.29");
+        Leave(card, "PART_Width");
+        Assert.NotEqual("2.54", card.Find<TextBox>("PART_Height").Text);
+
+        card.Type("PART_Width", "5.08");
+        Leave(card, "PART_Width");
+        Assert.Equal("2.54", card.Find<TextBox>("PART_Height").Text);
+        card.Click("PART_Ok");
+
+        // 5.08 cm is 2880 twips again: the sizes are the original pair, so nothing is written.
+        Assert.Equal([null], answers);
+    }
+
+    [AvaloniaFact]
+    public void TheSideEditedLastDecidesAndTheLockFollowsWhenItIsSwitchedOn()
+    {
+        var (card, answers) = ShowProperties(new PicturePropertiesContext(2880, 1440, string.Empty, "inline", false, true, false));
+        using var _ = card;
+
+        // The height first, then the width: the width is the last word, the height is derived from it.
+        card.Type("PART_Height", "4");
+        card.Type("PART_Width", "10.16");
+        card.Press(card.Find<TextBox>("PART_Width"), PhysicalKey.Enter, Key.Enter);
+        var answer = Assert.Single(answers)!;
+        Assert.Equal(5760L * 635, answer.WidthEmu);
+        Assert.Equal(2880L * 635, answer.HeightEmu);
+    }
+
+    [AvaloniaFact]
+    public void TheHeightEditedLastDrivesTheWidthAndSwitchingTheLockOnFollowsAtOnce()
+    {
+        var (card, answers) = ShowProperties(new PicturePropertiesContext(2880, 1440, string.Empty, "inline", false, true, false));
+        using var _ = card;
+        card.Find<CheckBox>("PART_LockRatio").IsChecked = false;
+        card.Type("PART_Width", "10.16");
+        Assert.Equal("2.54", card.Find<TextBox>("PART_Height").Text);
+
+        // Locked again: the width was edited last, so the height follows it now, before OK.
+        card.Find<CheckBox>("PART_LockRatio").IsChecked = true;
+        CardWindow.Pump();
+        Assert.Equal("5.08", card.Find<TextBox>("PART_Height").Text);
+        card.Type("PART_Height", "1.27");
+        card.Press(card.Find<TextBox>("PART_Height"), PhysicalKey.Enter, Key.Enter);
+        var answer = Assert.Single(answers)!;
+        Assert.Equal(1440L * 635, answer.WidthEmu);
+        Assert.Equal(720L * 635, answer.HeightEmu);
+    }
+
+    [AvaloniaFact]
+    public void WithTheLockOffBothSidesAreWrittenAsTyped()
+    {
+        var (card, answers) = ShowProperties(new PicturePropertiesContext(2880, 1440, string.Empty, "inline", false, true, false));
+        using var _ = card;
+        card.Find<CheckBox>("PART_LockRatio").IsChecked = false;
+        card.Type("PART_Width", "10.16");
+        card.Type("PART_Height", "1.27");
+        card.Press(card.Find<TextBox>("PART_Height"), PhysicalKey.Enter, Key.Enter);
+        var answer = Assert.Single(answers)!;
+        Assert.Equal(5760L * 635, answer.WidthEmu);
+        Assert.Equal(720L * 635, answer.HeightEmu);
+    }
+
+    [AvaloniaFact]
     public void TheDescriptionAndTheWrapAreGivenOnlyWhenChanged()
     {
         var (card, answers) = ShowProperties();

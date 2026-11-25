@@ -408,7 +408,7 @@ internal sealed partial class PageView
             return true;
         }
 
-        if (selection is PictureSelection selectedPicture && e.Key is Key.Left or Key.Right or Key.Up or Key.Down && NudgeSelectedPicture(selectedPicture, e.Key, e.KeyModifiers))
+        if (selection is PictureSelection selectedPicture && e.Key is Key.Left or Key.Right or Key.Up or Key.Down && NudgeSelectedPicture(selectedPicture, e.Key, e.KeyModifiers, repeat))
         {
             return true;
         }

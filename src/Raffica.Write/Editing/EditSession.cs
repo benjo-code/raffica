@@ -708,7 +708,7 @@ internal sealed partial class EditSession
             }
 
             _format.Invalidate(model);
-            _editor = new TextEditor(model, Host, format: _format) { FragmentCodec = s_fragmentCodec, PictureBytes = ReadPictureBytes };
+            _editor = new TextEditor(model, Host, EditorTime, format: _format) { FragmentCodec = s_fragmentCodec, PictureBytes = ReadPictureBytes };
             _bound = model;
             _numberingSeen = model.Numbering;
             _selection = StartOf(model);
@@ -716,6 +716,9 @@ internal sealed partial class EditSession
 
         return _editor;
     }
+
+    /// <summary>The clock of the editor the session makes (null: the system clock). A test sets it before the editor is first used, so that the one-step-per-second rule of the nudges cannot depend on how long the machine takes.</summary>
+    internal TimeProvider? EditorTime { get; set; }
 
     // The original bytes of a picture of the main story, for Reset size: the pending pictures first, then the package (the source does both); null when they are not at hand.
     private ReadOnlyMemory<byte>? ReadPictureBytes(string relationshipId)

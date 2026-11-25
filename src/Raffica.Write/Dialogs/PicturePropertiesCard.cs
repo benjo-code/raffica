@@ -48,20 +48,45 @@ internal static class PicturePropertiesCard
         var sizeOn = !context.Rotated;
         width.Box.IsEnabled = height.Box.IsEnabled = ratio.IsEnabled = reset.IsEnabled = sizeOn;
         reset.IsCheckedChanged += (_, _) => width.Box.IsEnabled = height.Box.IsEnabled = ratio.IsEnabled = sizeOn && reset.IsChecked != true;
-        width.Box.LostFocus += (_, _) => Follow(width, height, context.HeightTwips / (double)Math.Max(1, context.WidthTwips), fromWidth: true);
-        height.Box.LostFocus += (_, _) => Follow(height, width, context.WidthTwips / (double)Math.Max(1, context.HeightTwips), fromWidth: false);
+        // The proportions are the picture's own (width over height as the card opened). The side the user edited LAST decides: the other follows it when the box is left, when the lock is switched on and, as a last
+        // word, when OK is pressed (Enter confirms without leaving the box, so a blur alone would let a distorted picture through). A side that was never edited never drives the other.
+        var lastEdited = (PageSetupCard.Length?)null;
+        var applying = false;
+        // The property changes at once (the TextChanged event of a box is raised later), so a value the card sets itself is told from a typed one by the flag.
+        width.Box.PropertyChanged += (_, e) => EditedBy(e, width);
+        height.Box.PropertyChanged += (_, e) => EditedBy(e, height);
+        width.Box.LostFocus += (_, _) => Follow();
+        height.Box.LostFocus += (_, _) => Follow();
+        ratio.IsCheckedChanged += (_, _) => Follow();
 
-        void Follow(PageSetupCard.Length changed, PageSetupCard.Length other, double factor, bool fromWidth)
+        void EditedBy(Avalonia.AvaloniaPropertyChangedEventArgs e, PageSetupCard.Length field)
         {
-            if (ratio.IsChecked != true || !changed.TryRead(out var twips) || twips < MinTwips || twips > MaxTwips)
+            if (e.Property == TextBox.TextProperty && !applying)
             {
-                return;
+                lastEdited = field;
+            }
+        }
+
+        // The other side of the one edited last, or null when nothing was edited, the lock is off or the edited text is no valid size.
+        (PageSetupCard.Length Other, int Twips)? Derived()
+        {
+            if (!sizeOn || ratio.IsChecked != true || lastEdited is null || !lastEdited.TryRead(out var twips) || twips < MinTwips || twips > MaxTwips)
+            {
+                return null;
             }
 
-            var current = fromWidth ? context.WidthTwips : context.HeightTwips;
-            if (twips != current)
+            var fromWidth = ReferenceEquals(lastEdited, width);
+            var factor = fromWidth ? context.HeightTwips / (double)Math.Max(1, context.WidthTwips) : context.WidthTwips / (double)Math.Max(1, context.HeightTwips);
+            return (fromWidth ? height : width, (int)Math.Clamp(Math.Round(twips * factor), 1, int.MaxValue));
+        }
+
+        void Follow()
+        {
+            if (Derived() is { } follow)
             {
-                other.Set((int)Math.Clamp(Math.Round(twips * factor), MinTwips, MaxTwips));
+                applying = true;
+                follow.Other.Set(follow.Twips);
+                applying = false;
             }
         }
 
@@ -94,6 +119,7 @@ internal static class PicturePropertiesCard
 
         (PictureProperties? Properties, (string Text, TextBox Focus)? Problem) Read()
         {
+            Follow();
             long? newWidth = null;
             long? newHeight = null;
             var resetSize = sizeOn && reset.IsChecked == true;

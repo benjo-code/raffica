@@ -148,8 +148,8 @@ internal sealed partial class PageView
 
     // ---- keys ---------------------------------------------------------------------------------------------------------------------
 
-    // The arrows with a picture selected: a floating picture is nudged (1 point, Shift 10); an inline one is not claimed, so the key moves the caret and the selection ends. True when the key was claimed.
-    private bool NudgeSelectedPicture(PictureSelection picture, Key key, KeyModifiers modifiers)
+    // The arrows with a picture selected: a floating picture is nudged (1 point, Shift 10; a held key says why it cannot only once); an inline one is not claimed, so the key moves the caret and the selection ends. True when the key was claimed.
+    private bool NudgeSelectedPicture(PictureSelection picture, Key key, KeyModifiers modifiers, bool repeat)
     {
         if (modifiers is not (KeyModifiers.None or KeyModifiers.Shift) || _tab.Editor is not { SelectedDrawing: { } drawing } session || PictureView.Of(drawing) is not { IsFloating: true })
         {
@@ -171,7 +171,7 @@ internal sealed partial class PageView
             refusal = ed.RefusalForNudgePicture(picture.Id, dx, dy, prefix);
             return refusal is null ? ed.NudgePicture(picture.Id, dx, dy, prefix) : null;
         });
-        if (result is null && session.BlockedReason is null)
+        if (result is null && session.BlockedReason is null && !repeat)
         {
             StructureNote?.Invoke(refusal is { } reason ? PictureWording.ReasonText(reason) : WriteStrings.NotePictureFailed);
         }

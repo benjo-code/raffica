@@ -302,6 +302,8 @@ public sealed class PictureCommandTests
         var (window, tab, session) = await OpenAsync(fixture);
         Select(session, tab, 4);
         Settle(window);
+        var drawing = session.SelectedDrawing;
+        var selected = Assert.IsType<PictureSelection>(session.ObjectSelection).Id;
         var steps = session.Editor.History.UndoCount;
         var revision = tab.Docx.Model.Edits.Revision;
 
@@ -320,7 +322,8 @@ public sealed class PictureCommandTests
         WindowFixture.Pump();
         Assert.Equal(PictureWrap.Square, InfoOf(tab, 4).Wrap);
         Assert.Equal(steps + 1, session.Editor.History.UndoCount);
-        Assert.IsType<PictureSelection>(session.ObjectSelection);
+        Assert.Same(drawing, session.SelectedDrawing);
+        Assert.Equal(selected, Assert.IsType<PictureSelection>(session.ObjectSelection).Id);
 
         // Original size: the pixels of the picture at 96 DPI (8 by 8 pixels).
         Settle(window);
@@ -329,6 +332,8 @@ public sealed class PictureCommandTests
         WindowFixture.Pump();
         Assert.Equal(new EmuSize(8 * 9525, 8 * 9525), InfoOf(tab, 4).ExtentEmu);
         Assert.Equal(steps + 2, session.Editor.History.UndoCount);
+        Assert.Same(drawing, session.SelectedDrawing);
+        Assert.Equal(selected, Assert.IsType<PictureSelection>(session.ObjectSelection).Id);
 
         // Now it is at its original size: the command is off and says why.
         Settle(window);
@@ -357,6 +362,8 @@ public sealed class PictureCommandTests
         var (window, tab, session) = await OpenAsync(fixture);
         Select(session, tab, 4);
         Settle(window);
+        var drawing = session.SelectedDrawing;
+        var selectedId = Assert.IsType<PictureSelection>(session.ObjectSelection).Id;
         var cards = new FakePictureCards { Properties = new PictureProperties(WidthEmu: 1_270_000, HeightEmu: 635_000, AltText: "A new description", Wrap: PictureWrap.TopAndBottom) };
         window.PictureCards = cards;
         var steps = session.Editor.History.UndoCount;
@@ -373,7 +380,8 @@ public sealed class PictureCommandTests
         Assert.Equal(new EmuSize(1_270_000, 635_000), info.ExtentEmu);
         Assert.Equal("A new description", info.AltText);
         Assert.Equal(PictureWrap.TopAndBottom, info.Wrap);
-        Assert.IsType<PictureSelection>(session.ObjectSelection);
+        Assert.Same(drawing, session.SelectedDrawing);
+        Assert.Equal(selectedId, Assert.IsType<PictureSelection>(session.ObjectSelection).Id);
 
         // One undo takes all three parts back.
         Assert.NotNull(session.Editor.History.Undo());
@@ -488,6 +496,13 @@ public sealed class PictureCommandTests
             Assert.Equal((false, false), Gone(Path.Combine(folder, "missing.png")));
             Assert.Equal((false, false), Gone(folder));
 
+            // An empty file is no picture (refused before the card), and neither is a directory.
+            var empty = Path.Combine(folder, "empty.png");
+            File.WriteAllBytes(empty, []);
+            var (emptyBytes, emptyRefusal) = WriteWindow.ReadPictureFile(empty);
+            Assert.Null(emptyBytes);
+            Assert.Equal(PictureRefusal.NotAnImage, emptyRefusal);
+
             // One byte above the limit: refused from the size alone (a file that is not readable by anyone could not be read at all).
             var big = Path.Combine(folder, "big.png");
             using (var stream = new FileStream(big, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -510,6 +525,81 @@ public sealed class PictureCommandTests
     {
         var (bytes, refusal) = WriteWindow.ReadPictureFile(path);
         return (bytes is not null, refusal is not null);
+    }
+
+    [AvaloniaFact]
+    public async Task AnEmptyFileAndAPickWithNoLocalPathAreRefusedBeforeTheCard()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture);
+        CaretIn(session, tab, 0);
+        Settle(window);
+        var cards = new FakePictureCards { Insert = "never" };
+        window.PictureCards = cards;
+        var revision = tab.Docx.Model.Edits.Revision;
+
+        var empty = Path.Combine(fixture.Folder, "SECRET-NAME-empty.png");
+        File.WriteAllBytes(empty, []);
+        window.PictureFilePicker = () => Task.FromResult<string?>(empty);
+        Command(window, WriteCommandIds.PictureInsert).Run!();
+        await WindowFixture.WaitAsync(() => window.Status.Hint == PictureWording.ReasonText(PictureRefusal.NotAnImage));
+        Assert.DoesNotContain("SECRET", window.Status.Hint ?? string.Empty, StringComparison.Ordinal);
+
+        // A directory is no file: "could not be read".
+        window.PictureFilePicker = () => Task.FromResult<string?>(fixture.Folder);
+        Command(window, WriteCommandIds.PictureInsert).Run!();
+        await WindowFixture.WaitAsync(() => window.Status.Hint == WriteStrings.NotePictureReadFailed);
+
+        // A pick that has no local path (the picker answers an empty path): a note, not silence.
+        window.Status.Hint = null;
+        window.PictureFilePicker = () => Task.FromResult<string?>(string.Empty);
+        Command(window, WriteCommandIds.PictureInsert).Run!();
+        await WindowFixture.WaitAsync(() => window.Status.Hint == WriteStrings.NotePictureReadFailed);
+
+        Assert.Equal(0, cards.InsertAsked);
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+    }
+
+    [AvaloniaFact]
+    public async Task ASecondInsertWhileTheFirstIsOpenDoesNothingAndAfterCancelInsertWorksAgain()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture);
+        CaretIn(session, tab, 0);
+        Settle(window);
+        var png = Path.Combine(fixture.Folder, "small.png");
+        File.WriteAllBytes(png, FloatingDocx.Png());
+        var picks = 0;
+        window.PictureFilePicker = () =>
+        {
+            picks++;
+            return Task.FromResult<string?>(png);
+        };
+        var gate = new TaskCompletionSource<string?>();
+        var cards = new FakePictureCards { Gate = gate };
+        window.PictureCards = cards;
+        var pictures = PicturesIn(tab);
+
+        Command(window, WriteCommandIds.PictureInsert).Run!();
+        await WindowFixture.WaitAsync(() => cards.InsertAsked == 1);
+
+        // The card is open: a second Insert opens no second picker and no second card.
+        Command(window, WriteCommandIds.PictureInsert).Run!();
+        WindowFixture.Pump();
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        WindowFixture.Pump();
+        Assert.Equal((1, 1), (picks, cards.InsertAsked));
+
+        gate.SetResult(null);
+        await WindowFixture.WaitAsync(() => window.PictureFlowIdle);
+        Assert.Equal(pictures, PicturesIn(tab));
+
+        // After the cancel the flow is free again.
+        cards.Gate = null;
+        cards.Insert = "again";
+        Command(window, WriteCommandIds.PictureInsert).Run!();
+        await WindowFixture.WaitAsync(() => PicturesIn(tab) == pictures + 1);
+        Assert.Equal((2, 2), (picks, cards.InsertAsked));
     }
 
     [AvaloniaFact]
@@ -652,6 +742,9 @@ public sealed class PictureCommandTests
     {
         public string? Insert { get; set; }
 
+        // A card that stays open until the test answers it.
+        public TaskCompletionSource<string?>? Gate { get; set; }
+
         public PictureProperties? Properties { get; set; }
 
         public int InsertAsked { get; private set; }
@@ -663,7 +756,7 @@ public sealed class PictureCommandTests
         public Task<string?> AskInsertAsync()
         {
             InsertAsked++;
-            return Task.FromResult(Insert);
+            return Gate?.Task ?? Task.FromResult(Insert);
         }
 
         public Task<PictureProperties?> AskPropertiesAsync(PicturePropertiesContext context)

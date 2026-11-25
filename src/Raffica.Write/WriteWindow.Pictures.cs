@@ -17,7 +17,10 @@ internal sealed partial class WriteWindow
     private PictureFactsSource? _pictures;
     private PicturePickers _picturePickers = null!;
     private IPictureCards? _pictureCards;
-    private bool _pictureDialogShowing;
+    private bool _pictureFlowRunning;
+
+    /// <summary>Whether no Insert picture flow runs (tests).</summary>
+    internal bool PictureFlowIdle => !_pictureFlowRunning;
 
     /// <summary>The cards Insert picture and Picture properties open: the dialogs of the window (made on first use), or the cards a test put in.</summary>
     internal IPictureCards PictureCards
@@ -89,10 +92,11 @@ internal sealed partial class WriteWindow
         return taken;
     }
 
-    // Insert picture: the file, the card, then the command with the bytes and the description. The plan check of the other cards: a card answered after the document changed is refused with a note.
+    // Insert picture: the file, the card, then the command with the bytes and the description. The whole flow (picker, read, card, insert) is one at a time: a second Insert while one runs is ignored. The plan of
+    // the other cards is taken at the start, so a document that changed while the picker or the card was open is refused at OK with a note.
     private async Task InsertPictureAsync()
     {
-        if (ActiveView is not { } view || _pictureDialogShowing)
+        if (ActiveView is not { } view || _pictureFlowRunning)
         {
             return;
         }
@@ -107,52 +111,65 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        string? path;
-        _pictureDialogShowing = true;
-        _keysDown.Clear();
+        _pictureFlowRunning = true;
         try
         {
-            path = PictureFilePicker is { } picker ? await picker() : await PickPictureWithSystemDialogAsync();
+            var plan = CardPlan.Of(view);
+            string? path;
+            _keysDown.Clear();
+            try
+            {
+                path = PictureFilePicker is { } picker ? await picker() : await PickPictureWithSystemDialogAsync();
+            }
+            finally
+            {
+                _keysDown.Clear();
+            }
+
+            if (path is null)
+            {
+                return;
+            }
+
+            // A pick that has no local path (a provider that gives no file) is no file we can read: say so.
+            var (bytes, problem) = path.Length == 0 ? (null, null) : await Task.Run(() => ReadPictureFile(path));
+            if (bytes is null)
+            {
+                ShowStructureNote(view, problem is { } refusal ? PictureWording.ReasonText(refusal) : WriteStrings.NotePictureReadFailed);
+                return;
+            }
+
+            if (await PictureCards.AskInsertAsync() is not { } alt || CardIsStale(view, plan))
+            {
+                return;
+            }
+
+            _ = RunPictureFromUi(WriteCommandIds.PictureInsert, new PictureFile(bytes, alt));
         }
         finally
         {
-            _pictureDialogShowing = false;
-            _keysDown.Clear();
+            _pictureFlowRunning = false;
         }
-
-        if (path is null)
-        {
-            return;
-        }
-
-        var (bytes, problem) = await Task.Run(() => ReadPictureFile(path));
-        if (bytes is null)
-        {
-            ShowStructureNote(view, problem is { } refusal ? PictureWording.ReasonText(refusal) : WriteStrings.NotePictureReadFailed);
-            return;
-        }
-
-        var plan = CardPlan.Of(view);
-        if (await PictureCards.AskInsertAsync() is not { } alt || CardIsStale(view, plan))
-        {
-            return;
-        }
-
-        _ = RunPictureFromUi(WriteCommandIds.PictureInsert, new PictureFile(bytes, alt));
     }
 
     /// <summary>
     /// Reads a picture file for Insert picture: the size is checked BEFORE a byte is read (a file above <see cref="PictureRules.MaxBytes"/> is refused with <see cref="PictureRefusal.TooLarge"/>), and the read itself stops one
-    /// byte beyond the limit (a file that grew meanwhile is refused too). A file that cannot be read gives no bytes and no refusal (the caller says "could not be read" and never the name or the system message).
+    /// byte beyond the limit (a file that grew meanwhile is refused too). An empty file is refused as no picture (<see cref="PictureRefusal.NotAnImage"/>), also a file that reports no length (a pipe or a device). A directory or a file that cannot be read gives no bytes and no refusal (the caller says "could not be read" and never the name or the system message).
     /// </summary>
     internal static (byte[]? Bytes, PictureRefusal? Refusal) ReadPictureFile(string path)
     {
         try
         {
             var info = new FileInfo(path);
-            if (!info.Exists)
+            if (!info.Exists || (info.Attributes & (FileAttributes.Directory | FileAttributes.Device)) != 0)
             {
                 return (null, null);
+            }
+
+            // An empty file is no picture. A pipe, a device or a file of the system that has no length reports 0 here, so it is refused before it is opened (a pipe would block the read).
+            if (info.Length == 0)
+            {
+                return (null, PictureRefusal.NotAnImage);
             }
 
             if (info.Length > PictureRules.MaxBytes)
@@ -177,6 +194,11 @@ internal sealed partial class WriteWindow
             if (read > PictureRules.MaxBytes)
             {
                 return (null, PictureRefusal.TooLarge);
+            }
+
+            if (read == 0)
+            {
+                return (null, PictureRefusal.NotAnImage);
             }
 
             return (read == buffer.Length ? buffer : buffer[..read], null);
@@ -204,7 +226,8 @@ internal sealed partial class WriteWindow
                 },
             ],
         });
-        return files.Select(f => f.TryGetLocalPath()).OfType<string>().FirstOrDefault();
+        // Null: cancelled. Empty: a file was picked that has no local path.
+        return files.Count == 0 ? null : files[0].TryGetLocalPath() ?? string.Empty;
     }
 
     // Picture properties: the card with the values of the picture as it is now, then the command with the parts that changed (the same plan check).
