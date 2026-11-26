@@ -28,7 +28,7 @@ internal sealed record BookmarkRequest(BookmarkAction Action, string Name)
 internal sealed record CaptionRequest(string Label, string Text, CaptionPlace Place, bool ChapterNumber)
 {
     /// <summary>Whether the request is well formed: a label that is a sequence identifier, a text that is one line, a known place.</summary>
-    public bool IsValid => CaptionLabels.Problem(Label) is null && CaptionBuilder.IsLine(Text) && Enum.IsDefined(Place);
+    public bool IsValid => CaptionLabels.IsUsable(Label) && CaptionLabels.IsLine(Text) && Enum.IsDefined(Place);
 }
 
 /// <summary>

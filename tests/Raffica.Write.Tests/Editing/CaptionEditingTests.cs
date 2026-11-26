@@ -476,4 +476,97 @@ public sealed class CaptionEditingTests
             Assert.Equal(start, Bytes(document));
         }
     }
+
+    [Fact]
+    public void AFileLabelThatIsNotAsciiIsOfferedAcceptedAndContinued()
+    {
+        var document = Doc(
+            P(Run("Équation ") + Field("SEQ Équation \\* ARABIC", "1"))
+            + P(Run("Équation ") + Field("SEQ Équation \\* ARABIC", "2"))
+            + Text("end"));
+        var editor = Editor(document);
+
+        Assert.Contains("Équation", CaptionLabels.Known(document));
+        Assert.True(CaptionLabels.IsAllowed(document, "Équation"));
+        Assert.NotNull(CaptionLabels.Problem("Équation"));
+        Assert.False(CaptionLabels.IsAllowed(document, "Ecuación"));
+
+        Assert.NotNull(editor.InsertCaption(At(document, 2), "Équation", ": c", CaptionPlace.Below, false, "Équation"));
+        var caption = Para(document, 3);
+        Assert.Equal("Équation 3: c", TextOf(caption));
+        var field = Assert.Single(Fields(caption));
+        Assert.Equal("Équation", field.Instruction.Argument);
+        Assert.Contains("SEQ Équation \\* ARABIC", Bytes(document), StringComparison.Ordinal);
+        Refresh(editor, document);
+        Assert.Equal("Équation 3: c", TextOf(Para(document, 3)));
+    }
+
+    [Fact]
+    public void AFileLabelThatWouldBreakTheInstructionIsNotOffered()
+    {
+        var document = Doc(
+            P(Run("a ") + Field("SEQ \"My Fig\"", "1"))
+            + P(Run("b ") + Field("SEQ \"a\\\\b\"", "1"))
+            + P(Run("c ") + Field("SEQ " + new string('x', 41), "1"))
+            + P(Run("d ") + Field("SEQ Listing", "1")));
+
+        var labels = CaptionLabels.Known(document);
+
+        Assert.Equal(["Figure", "Table", "Equation", "Listing"], labels);
+        Assert.False(CaptionLabels.IsAllowed(document, "My Fig"));
+        Assert.Null(Editor(document).InsertCaption(At(document, 0), "My Fig", string.Empty, CaptionPlace.Below, false, "My Fig"));
+        Assert.Equal(4, document.Body.Blocks.Count);
+    }
+
+    [Fact]
+    public void TextThatXmlCannotHoldIsRefused()
+    {
+        var document = Doc(Text("one"));
+        var editor = Editor(document);
+        foreach (var bad in new[] { "a" + (char)0xFFFF + "b", "a" + (char)0xFFFE + "b", "a" + (char)0xD800 + "b", "a" + (char)0xDC00, "x" + (char)0xD83D })
+        {
+            Assert.Null(editor.InsertCaption(At(document, 0), "Figure", bad, CaptionPlace.Below, false, "Figure"));
+            Assert.Null(editor.InsertCaption(At(document, 0), "Figure", string.Empty, CaptionPlace.Below, false, bad));
+        }
+
+        Assert.Single(document.Body.Blocks);
+        Assert.NotNull(editor.InsertCaption(At(document, 0), "Figure", ": \U0001F600 ok", CaptionPlace.Below, false, "Figure"));
+    }
+
+    [Fact]
+    public void ACaptionStyleIdTakenByACharacterStyleGetsAFreeId()
+    {
+        var document = Doc(Text("one") + Text("two"), captionStyle: false);
+        document.Styles!.Styles.Add(new Style { Id = "Caption", Type = "character", Name = "My character style" });
+        document.Styles.Styles.Add(new Style { Id = "Caption1", Type = "paragraph", Name = "Other" });
+        var editor = Editor(document);
+
+        var first = editor.InsertCaption(At(document, 0), "Figure", string.Empty, CaptionPlace.Below, false, "Figure");
+
+        Assert.NotNull(first?.Style);
+        Assert.Equal("Caption2", Para(document, 1).Properties.StyleId);
+        Assert.Equal("paragraph", document.Styles.Find("Caption2")!.Type);
+        Assert.Equal("caption", document.Styles.Find("Caption2")!.Name);
+        Assert.Equal("character", document.Styles.Find("Caption")!.Type);
+        Assert.Single(document.Styles.Styles, s => s.Id == "Caption");
+
+        // The second caption finds the paragraph style it made.
+        var second = editor.InsertCaption(At(document, 2), "Figure", string.Empty, CaptionPlace.Below, false, "Figure");
+        Assert.Null(second!.Style);
+        Assert.Equal("Caption2", Para(document, 3).Properties.StyleId);
+    }
+
+    [Fact]
+    public void AHeadingBeforeTheFirstFieldOfALabelRestartsNothingLikeTheRefresh()
+    {
+        // The counter of a label exists from its first field on (as in the refresh): the plain field after the heading counts 1, and a chapter caption after it counts 2, not 1.
+        var document = Doc(Text("Chapter one", "Heading1") + P(Run("Figure ") + Field("SEQ Figure", "1")) + Text("pic"), numberedHeadings: true);
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+
+        Assert.NotNull(editor.InsertCaption(At(document, 2), "Figure", string.Empty, CaptionPlace.Below, true, "Figure", host));
+
+        Assert.Equal("Figure 1-2", TextOf(Para(document, 3)));
+        Assert.Equal(0, editor.RefreshFields(host, RefreshScope.OrderBased).Written);
+    }
 }

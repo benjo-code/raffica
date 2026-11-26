@@ -378,4 +378,43 @@ public sealed class CaptionCommandTests
         Assert.Equal(reads, window.FieldFactReads);
         Assert.Equal(0, window.Ribbon.Definition!.Tabs.Single(t => t.Letter == WriteRibbon.ReferencesLetter).FullWidthAtLeast);
     }
+
+    [AvaloniaFact]
+    public async Task ALabelOfTheFileIsTakenAndAForeignOneIsNot()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(
+            fixture,
+            "<w:r><w:t>Équation </w:t></w:r><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> SEQ Équation \\* ARABIC</w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r>");
+        var view = window.ActiveView!;
+        Caret(session, tab, 0, 0);
+        var revision = tab.Docx.Model.Edits.Revision;
+
+        // A label no sequence of the file uses and that is not an ASCII identifier is not taken; the file's own one is.
+        Assert.False(view.RunCaptionCommand(new CaptionRequest("Ecuación", string.Empty, CaptionPlace.Below, ChapterNumber: false)));
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+        Assert.True(view.RunCaptionCommand(new CaptionRequest("Équation", string.Empty, CaptionPlace.Below, ChapterNumber: false)));
+        Assert.Equal("Équation 2", TextOf(P(tab, 1)));
+    }
+
+    [AvaloniaFact]
+    public async Task AStaleRefusalIsNeverWordedWhenTheEditorWasNotAsked()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, "<w:r><w:t>one two three</w:t></w:r>");
+        Caret(session, tab, 0, 3);
+        var view = window.ActiveView!;
+        var notes = new List<string>();
+        view.StructureNote += notes.Add;
+
+        // A refusal that leaves its reason in the editor ...
+        Assert.True(view.RunCaptionCommand(new CaptionRequest("Figure", string.Empty, CaptionPlace.Below, ChapterNumber: true)));
+        Assert.Equal([WriteStrings.NoteCaptionChapter], notes);
+
+        // ... is not repeated for a run that never reached the editor (no selection): the generic note, not the old reason.
+        notes.Clear();
+        session.SetSelection(null);
+        Assert.True(view.RunCaptionCommand(new CaptionRequest("Figure", string.Empty, CaptionPlace.Below, ChapterNumber: false)));
+        Assert.DoesNotContain(WriteStrings.NoteCaptionChapter, notes);
+    }
 }

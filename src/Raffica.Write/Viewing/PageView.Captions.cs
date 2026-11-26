@@ -28,7 +28,7 @@ internal sealed partial class PageView
     internal bool RunCaptionCommand(CaptionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (_released || !request.IsValid)
+        if (_released || !request.IsValid || !CaptionLabels.IsAllowed(_tab.Docx.Model, request.Label))
         {
             return false;
         }
@@ -48,28 +48,34 @@ internal sealed partial class PageView
         var model = _tab.Docx.Model;
         var word = CaptionLabels.WordFor(model, request.Label, WriteStrings.Culture);
         var host = _tab.RefreshesFields ? _tab.EnsureFields().Host : null;
+
+        // Whether the operation reached the editor: a run that did not (no selection) must not word a refusal an earlier call left in it.
+        var asked = false;
         var result = ApplyGuarded(session, ed =>
         {
             if (session.ObjectSelection is CellSelection cells)
             {
+                asked = true;
                 return ed.InsertCaption(cells.Table, request.Label, request.Text, request.Place, request.ChapterNumber, word, host, prefix);
             }
 
             if (session.TargetPicture() is { } picture && ed.PositionAfterPicture(picture) is { } behind)
             {
+                asked = true;
                 return ed.InsertCaption(behind, request.Label, request.Text, request.Place, request.ChapterNumber, word, host, prefix);
             }
 
             // Above the first paragraph of the selection, below the last one.
+            asked = session.Selection is not null;
             return session.Selection?.Normalized() is { } selection
                 ? ed.InsertCaption(request.Place == CaptionPlace.Above ? selection.Start : selection.End, request.Label, request.Text, request.Place, request.ChapterNumber, word, host, prefix)
                 : null;
         });
 
         // The rules said yes but the editor had nothing to do: a visible note with the editor's reason, never silence. A table of contents has said so already (ApplyGuarded); a save queues the operation and says nothing.
-        if (result is null && session.BlockedReason is null && session.Editor.LastCaptionRefusal != CaptionRefusal.InsideToc)
+        if (result is null && session.BlockedReason is null && !(asked && session.Editor.LastCaptionRefusal == CaptionRefusal.InsideToc))
         {
-            StructureNote?.Invoke(RefusalWords(session.Editor.LastCaptionRefusal) ?? WriteStrings.NoteStructureFailed);
+            StructureNote?.Invoke((asked ? RefusalWords(session.Editor.LastCaptionRefusal) : null) ?? WriteStrings.NoteStructureFailed);
         }
 
         return true;

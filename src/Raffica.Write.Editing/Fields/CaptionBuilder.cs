@@ -8,16 +8,10 @@ namespace Raffica.Write.Editing;
 /// The paragraph has the <c>Caption</c> style (made as a companion step when the document lacks it). A new caption carries the number the refresh would give, worked out here from the model alone (the same counter,
 /// the same order), so the caret never lands on a caption that shows a wrong number.
 /// </summary>
-public static class CaptionBuilder
+internal static class CaptionBuilder
 {
     /// <summary>The id of the caption paragraph style.</summary>
     public const string StyleId = "Caption";
-
-    /// <summary>The separator between the chapter number and the number in the chapter (Word's own).</summary>
-    public const string ChapterSeparator = "-";
-
-    /// <summary>The longest text and word a caption takes: a caption is a line, not a document.</summary>
-    public const int MaxText = 1000;
 
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
@@ -49,7 +43,14 @@ public static class CaptionBuilder
             return null;
         }
 
-        var style = new Style { Id = StyleId, Type = "paragraph", Name = "caption", BasedOn = sheet.Find("Normal") is null ? null : "Normal", Next = sheet.Find("Normal") is null ? null : "Normal" };
+        // The id Caption may be taken by a style of another kind (a character style): the paragraph style then gets the first free Caption1, Caption2, ... and the paragraph uses that.
+        var id = StyleId;
+        for (var n = 1; sheet.Find(id) is not null; n++)
+        {
+            id = StyleId + n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        var style = new Style { Id = id, Type = "paragraph", Name = "caption", BasedOn = sheet.Find("Normal") is null ? null : "Normal", Next = sheet.Find("Normal") is null ? null : "Normal" };
         style.ParagraphProperties.Set(W + "spacing", new XElement(W + "spacing", new XAttribute(W + "before", "60"), new XAttribute(W + "after", "200"), new XAttribute(W + "line", "240"), new XAttribute(W + "lineRule", "auto")));
         style.RunProperties.Set(W + "i", new XElement(W + "i"));
         style.RunProperties.Set(W + "iCs", new XElement(W + "iCs"));
@@ -60,7 +61,7 @@ public static class CaptionBuilder
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "unhideWhenUsed"))));
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "qFormat"))));
         sheet.Styles.Add(style);
-        styleId = StyleId;
+        styleId = id;
         return new StyleChange(style.Clone(), style.Clone());
     }
 
@@ -75,9 +76,11 @@ public static class CaptionBuilder
     /// What a new caption at the place of <paramref name="placeholder"/> (a paragraph already in the document where the caption will stand) shows: the number of its <c>SEQ</c> field, counted like the refresh does (in document
     /// order, a heading of level n restarts the numbers that have <c>\s n</c>), and, for a chapter number, the label of the last Heading 1 above it (<c>Chapter</c> is null when there is none, which the caller refuses).
     /// </summary>
+    // Keep in step with FieldRefresh.State.Walk: the same walk, so the number a new caption carries equals the number the refresh gives.
     public static (string Number, string? Chapter) Results(WordDocument document, Paragraph placeholder, string label, bool chapterNumber, IFieldHost? host)
     {
-        var counter = new SeqCounter();
+        // Like the refresh, the counter of the label exists from its first usable field on: a heading that went by before that field restarts nothing.
+        SeqCounter? counter = null;
         Paragraph? lastChapter = null;
         foreach (var paragraph in BookmarkOperations.ParagraphsOf(document.Body.Blocks))
         {
@@ -88,7 +91,7 @@ public static class CaptionBuilder
 
             if (FieldRefresh.HeadingLevel(paragraph) is { } level)
             {
-                counter.NoteHeading(level);
+                counter?.NoteHeading(level);
                 if (level == 1)
                 {
                     lastChapter = paragraph;
@@ -104,12 +107,12 @@ public static class CaptionBuilder
             {
                 if (span.Parent is null && span.Support.Kind == FieldKind.Seq && FieldRefresh.IsUsable(span) && string.Equals(span.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase))
                 {
-                    counter.Next(span.Instruction);
+                    (counter ??= new SeqCounter()).Next(span.Instruction);
                 }
             }
         }
 
-        var number = counter.Next(FieldInstruction.Parse(SeqInstruction(label, chapterNumber))) ?? "1";
+        var number = (counter ??= new SeqCounter()).Next(FieldInstruction.Parse(SeqInstruction(label, chapterNumber))) ?? "1";
         string? chapter = null;
         if (chapterNumber && lastChapter is not null)
         {
@@ -140,7 +143,7 @@ public static class CaptionBuilder
                 paragraph.Inlines.Add(inline);
             }
 
-            paragraph.Inlines.Add(TextRun(ChapterSeparator));
+            paragraph.Inlines.Add(TextRun(CaptionLabels.ChapterSeparator));
         }
 
         foreach (var inline in FieldWriter.Make(SeqInstruction(label, chapterNumber), number, null))
@@ -155,9 +158,6 @@ public static class CaptionBuilder
 
         return paragraph;
     }
-
-    /// <summary>True when the text is a line a caption can hold: not too long and with no control character (a line break would not be one paragraph of a caption).</summary>
-    public static bool IsLine(string text, int max = MaxText) => text.Length <= max && !text.Any(char.IsControl);
 
     private static Run TextRun(string text)
     {

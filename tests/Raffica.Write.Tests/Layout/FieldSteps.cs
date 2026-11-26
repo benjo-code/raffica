@@ -227,8 +227,29 @@ internal sealed class FieldSteps
         var word = random.Next(3) == 0 ? "Table" : "Figure";
         var place = random.Next(2) == 0 ? CaptionPlace.Above : CaptionPlace.Below;
         var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
-        var result = Editor.InsertCaption(at, word, ": caption " + _names++, place, chapter, word, new FakeFieldHost(_model));
-        return await CheckAsync(result, label, required: false) && await RefreshAsync(label + " refresh", touchedOnly: true);
+        var host = new FakeFieldHost(_model);
+        var result = Editor.InsertCaption(at, word, ": caption " + _names++, place, chapter, word, host);
+        if (!await CheckAsync(result, label, required: false))
+        {
+            return false;
+        }
+
+        // Before the refresh heals anything: the new paragraph must already show the number the independent count gives.
+        AssertNewCaptionIsRight(result!.Caret.Paragraph, host, label);
+        return await RefreshAsync(label + " refresh", touchedOnly: true);
+    }
+
+    // Every field of the new caption that the independent count has an answer for stores that answer at once (a wrong number at insert time is not healed by the refresh that follows).
+    private void AssertNewCaptionIsRight(Paragraph caption, FakeFieldHost host, string label)
+    {
+        var checkedFields = 0;
+        foreach (var field in ReferenceFields.Expected(_model, host).Where(f => ReferenceEquals(f.Paragraph, caption) && f.Text is not null))
+        {
+            Assert.True(string.Equals(field.Text, ReferenceFields.Stored(caption, field.Ordinal), StringComparison.Ordinal), $"{label}: a new caption stores another result than the count gives (expected \"{field.Text}\", stored \"{ReferenceFields.Stored(caption, field.Ordinal)}\", {field.Instruction}, para \"{ParagraphProjection.Build(caption, ProjectionHost.Plain).Text}\")");
+            checkedFields++;
+        }
+
+        Assert.True(checkedFields > 0, label + ": the independent count has no answer for the new caption");
     }
 
     // The paragraphs that hold a SEQ field of their own (a caption), with the list of blocks that holds each.

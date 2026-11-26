@@ -35,7 +35,7 @@ public static class CaptionLabels
 
             foreach (var span in FieldView.InParagraph(paragraph))
             {
-                if (span.Support.Kind == FieldKind.Seq && span.Instruction.Argument is { Length: > 0 } label && !labels.Any(l => string.Equals(l, label, StringComparison.OrdinalIgnoreCase)))
+                if (span.Support.Kind == FieldKind.Seq && span.Instruction.Argument is { Length: > 0 } label && IsUsable(label) && !labels.Any(l => string.Equals(l, label, StringComparison.OrdinalIgnoreCase)))
                 {
                     labels.Add(label);
                 }
@@ -45,7 +45,59 @@ public static class CaptionLabels
         return labels;
     }
 
-    /// <summary>The reason <paramref name="label"/> cannot be a sequence identifier (a letter first, then letters, digits and underscores, at most 40: the rule of a bookmark name), or null.</summary>
+    /// <summary>The longest label (a sequence identifier) Write offers or writes.</summary>
+    public const int MaxLabel = 40;
+
+    /// <summary>The longest text a caption takes: a caption is a line, not a document.</summary>
+    public const int MaxText = 1000;
+
+    /// <summary>The separator between the chapter number and the number in the chapter (Word's own).</summary>
+    public const string ChapterSeparator = "-";
+
+    /// <summary>
+    /// True when a label that a file already uses can be written back into an instruction unchanged: not empty, at most <see cref="MaxLabel"/> characters, no white space, quote, backslash or control character, and nothing XML cannot hold.
+    /// Word's own labels in other languages ("Équation", "Ilustración") pass; a label that would need quoting does not (it would be re-emitted unquoted and break the instruction).
+    /// </summary>
+    public static bool IsUsable(string label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+        return label.Length is > 0 and <= MaxLabel && IsXmlText(label) && !label.Any(c => char.IsWhiteSpace(c) || c is '"' or '\\' || char.IsControl(c));
+    }
+
+    /// <summary>
+    /// True when the document may take <paramref name="label"/> for a caption: a new label that follows the strict rule (<see cref="Problem"/>), or a label of the file's own that <see cref="Known"/> offers (which
+    /// <see cref="IsUsable"/> has passed).
+    /// </summary>
+    public static bool IsAllowed(WordDocument document, string label)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(label);
+        return Problem(label) is null || (IsUsable(label) && Known(document).Any(l => string.Equals(l, label, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>True when the text is a line a caption can hold: at most <paramref name="max"/> characters, no control character (a line break would not be one paragraph of a caption) and nothing XML cannot hold.</summary>
+    public static bool IsLine(string text, int max = MaxText)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return text.Length <= max && IsXmlText(text) && !text.Any(char.IsControl);
+    }
+
+    // No lone surrogate, no U+FFFE or U+FFFF: the XML writer would throw or write a file Word refuses.
+    private static bool IsXmlText(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c is '￾' or '￿' || (char.IsLowSurrogate(c)) || (char.IsHighSurrogate(c) && (i + 1 >= text.Length || !char.IsLowSurrogate(text[++i]))))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The reason <paramref name="label"/> cannot be a new sequence identifier (a letter first, then letters, digits and underscores, at most 40: the rule of a bookmark name), or null.</summary>
     public static BookmarkNameProblem? Problem(string label)
     {
         ArgumentNullException.ThrowIfNull(label);

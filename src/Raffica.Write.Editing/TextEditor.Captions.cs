@@ -102,8 +102,8 @@ public sealed partial class TextEditor
         return PlaceCaption(StoryRef.Body, body, slot, anchor, label, text, chapterNumber, labelWord, host);
     }
 
-    private static bool ValidCaptionInput(string label, string text, string labelWord) =>
-        CaptionLabels.Problem(label) is null && CaptionBuilder.IsLine(text) && CaptionBuilder.IsLine(labelWord, 100);
+    private bool ValidCaptionInput(string label, string text, string labelWord) =>
+        CaptionLabels.IsAllowed(_document, label) && CaptionLabels.IsLine(text) && CaptionLabels.IsLine(labelWord, 100);
 
     // The caption paragraph at <slot> of the container, as one step. The number it shows is worked out with an empty paragraph standing in its place (taken out again before anything is recorded), so a refusal that depends
     // on the place (a chapter number with no Heading 1 above) changes nothing. <anchor> is where the caret goes when the step is undone.

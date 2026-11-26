@@ -190,8 +190,30 @@ public sealed class CaptionCardTests
     public void ARequestIsWellFormedOnlyWithAnIdentifierAndALine()
     {
         Assert.True(new CaptionRequest("Figure", ": a", CaptionPlace.Above, false).IsValid);
-        Assert.False(new CaptionRequest("1x", string.Empty, CaptionPlace.Above, false).IsValid);
+        // The shape only: whether a label is new (strict) or the file's own is decided against the document when the request is run.
+        Assert.True(new CaptionRequest("Équation", string.Empty, CaptionPlace.Above, false).IsValid);
+        Assert.False(new CaptionRequest("two words", string.Empty, CaptionPlace.Above, false).IsValid);
         Assert.False(new CaptionRequest("Figure", "a\nb", CaptionPlace.Above, false).IsValid);
         Assert.False(new CaptionRequest("Figure", string.Empty, (CaptionPlace)7, false).IsValid);
+    }
+
+    [AvaloniaFact]
+    public void AFileLabelOfAnotherLanguageIsAnsweredFromTheListButATypedOneMustBeAscii()
+    {
+        var (card, answers) = Show(Context(true, "Équation", "Équation"));
+        using (card)
+        {
+            card.Click("PART_Ok");
+            Assert.Equal([new CaptionRequest("Équation", string.Empty, CaptionPlace.Below, ChapterNumber: false)], answers);
+        }
+
+        var (typed, refused) = Show(Context());
+        using (typed)
+        {
+            typed.Type("PART_NewLabel", "Équation");
+            typed.Click("PART_Ok");
+            Assert.Empty(refused);
+            Assert.Equal(WriteStrings.CaptionProblemLabel, typed.Find<TextBlock>("PART_Hint").Text);
+        }
     }
 }

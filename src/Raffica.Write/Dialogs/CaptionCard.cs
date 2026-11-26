@@ -15,7 +15,7 @@ namespace Raffica.Write.Dialogs;
 internal static class CaptionCard
 {
     // The sample number of the preview: the first caption of the first chapter.
-    private const string SampleChapterNumber = "2" + CaptionBuilder.ChapterSeparator + "1";
+    private const string SampleChapterNumber = "2" + CaptionLabels.ChapterSeparator + "1";
 
     /// <param name="context">The labels to offer, the label to start with, whether a chapter number is possible and the word of a label.</param>
     /// <param name="done">What the user chose, or null when the card was closed.</param>
@@ -110,7 +110,8 @@ internal static class CaptionCard
         void Confirm()
         {
             var chosen = CurrentLabel();
-            if (CaptionLabels.Problem(chosen) is not null)
+            // A new label follows the strict rule; one chosen from the list is a label the file already uses (the list holds only those that can be written back).
+            if (!string.IsNullOrEmpty(newLabel.Text?.Trim()) && CaptionLabels.Problem(chosen) is not null)
             {
                 hint.Text = WriteStrings.CaptionProblemLabel;
                 hint.IsVisible = true;
@@ -120,7 +121,7 @@ internal static class CaptionCard
             }
 
             var line = text.Text ?? string.Empty;
-            if (!CaptionBuilder.IsLine(line))
+            if (!CaptionLabels.IsLine(line))
             {
                 hint.Text = WriteStrings.CaptionProblemText;
                 hint.IsVisible = true;

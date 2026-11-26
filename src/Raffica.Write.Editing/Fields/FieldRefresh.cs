@@ -274,6 +274,7 @@ internal static class FieldRefresh
 
         public int Written { get; private set; }
 
+        // Keep in step with CaptionBuilder.Results: it counts a new caption's SEQ number and chapter label with the same walk (headings restart, usable SEQ fields count); a change here needs the same change there and a case in CaptionEditingTests.
         public void Walk()
         {
             _paragraphs = [];
