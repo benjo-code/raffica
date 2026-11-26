@@ -96,41 +96,54 @@ public sealed partial class TextEditor
         var bookmarks = new TocRefresh.TocBookmarks(_document);
         var top = ReferenceEquals(container, _document.Body.Blocks) ? index : Math.Max(0, TopLevelIndexOf(_document.Body.Blocks, at.Paragraph));
         var tabs = options.PageNumbers && options.RightAlign ? TocBuilder.RightTab(TocBuilder.TextWidthTwips(_document, top), options.Leader) : null;
-        var style = TocBuilder.EnsureStyles(_document, spec);
-        var made = TocBuilder.Entries(
-            _document,
-            spec,
-            entries,
-            entry => bookmarks.NameFor(entry.Source),
-            (entry, _) => host.PageOf(new TextPosition(StoryRef.Body, entry.Source, 0))?.PageText ?? "?",
-            tabs);
-        var marks = FieldWriter.Make(TocSpec.InstructionFor(options), string.Empty, null);
-        for (var i = 2; i >= 0; i--)
+        // From here the model changes (the styles, the bookmarks of the headings, the paragraphs). Whatever throws in this part must not leave a changed model with no raise: the raise makes the history clear itself
+        // and the snapshot tracker write the whole body (an unattributed raise), the same fail-safe as every other operation of the editor; the exception goes on to the session, which faults.
+        StyleChange? style;
+        List<Paragraph> made;
+        Block[] old;
+        try
         {
-            made[0].Inlines.Insert(0, marks[i]);
-        }
+            style = TocBuilder.EnsureStyles(_document, spec);
+            made = TocBuilder.Entries(
+                _document,
+                spec,
+                entries,
+                entry => bookmarks.NameFor(entry.Source),
+                (entry, _) => host.PageOf(new TextPosition(StoryRef.Body, entry.Source, 0))?.PageText ?? "?",
+                tabs);
+            var marks = FieldWriter.Make(TocSpec.InstructionFor(options), string.Empty, null);
+            for (var i = 2; i >= 0; i--)
+            {
+                made[0].Inlines.Insert(0, marks[i]);
+            }
 
-        if (made.Count == 1)
-        {
-            // A list of one line (or the sentence of an empty one) gets the end mark in a paragraph of its own, so that the field spans two paragraphs and is protected as a whole (see TocRefresh).
-            var end = new Paragraph();
-            end.Inlines.Add(marks[4]);
-            made.Add(end);
-        }
-        else
-        {
-            made[^1].Inlines.Add(marks[4]);
-        }
+            if (made.Count == 1)
+            {
+                // A list of one line (or the sentence of an empty one) gets the end mark in a paragraph of its own, so that the field spans two paragraphs and is protected as a whole (see TocRefresh).
+                var end = new Paragraph();
+                end.Inlines.Add(marks[4]);
+                made.Add(end);
+            }
+            else
+            {
+                made[^1].Inlines.Add(marks[4]);
+            }
 
-        var old = replaces ? new Block[] { at.Paragraph.Clone() } : [];
-        if (replaces)
-        {
-            container.RemoveAt(index);
-        }
+            old = replaces ? [at.Paragraph.Clone()] : [];
+            if (replaces)
+            {
+                container.RemoveAt(index);
+            }
 
-        for (var k = 0; k < made.Count; k++)
+            for (var k = 0; k < made.Count; k++)
+            {
+                container.Insert(slot + k, made[k]);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            container.Insert(slot + k, made[k]);
+            _document.Edits.Raise();
+            throw;
         }
 
         _document.Edits.Raise();
@@ -175,20 +188,31 @@ public sealed partial class TextEditor
             old.Add(container[i].Clone());
         }
 
-        for (var i = 0; i < count; i++)
-        {
-            container.RemoveAt(site.First);
-        }
-
-        // A list with no paragraph left (a cell, a control, a body of tables) gets an empty one: a caret needs a paragraph and a body that ends in a table is one Word repairs.
+        // The model changes from here: an exception must not leave it changed with no raise (see InsertToc).
         var added = 0;
-        if (!container.OfType<Paragraph>().Any())
+        List<(Paragraph Paragraph, Paragraph Before)> orphans;
+        try
         {
-            container.Insert(Math.Min(site.First, container.Count), new Paragraph());
-            added = 1;
+            for (var i = 0; i < count; i++)
+            {
+                container.RemoveAt(site.First);
+            }
+
+            // A list with no paragraph left (a cell, a control, a body of tables) gets an empty one: a caret needs a paragraph and a body that ends in a table is one Word repairs.
+            if (!container.OfType<Paragraph>().Any())
+            {
+                container.Insert(Math.Min(site.First, container.Count), new Paragraph());
+                added = 1;
+            }
+
+            orphans = TocRefresh.RemoveOrphans(_document);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _document.Edits.Raise();
+            throw;
         }
 
-        var orphans = TocRefresh.RemoveOrphans(_document);
         _document.Edits.Raise();
         var caretIndex = -1;
         for (var i = site.First; i < container.Count && caretIndex < 0; i++)

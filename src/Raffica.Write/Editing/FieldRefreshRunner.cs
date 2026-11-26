@@ -194,7 +194,8 @@ internal sealed class FieldRefreshRunner : IDisposable
             return Hold.Never;
         }
 
-        // A session that cannot edit now (a save runs, the model is still opening) holds the refresh: a structural result must go through the session's own history, never through the bare editor made for a tab with no session.
+        // A session that cannot edit now (a save runs, the model is still opening) holds the refresh, so a structural result never goes to a history that is not the session's while one exists. The bare editor made by EditorFor is still
+        // used when the tab has no session at all; that is safe because its history is empty, so an attach there ends as NothingToProtect and the change stands.
         if (_tab.Docx.IsPrefix || !_tab.Runner.FullModelReady || _tab.Editor?.IsSaving == true || _tab.Editor is { CanEdit: false })
         {
             return Hold.Later;
@@ -275,8 +276,16 @@ internal sealed class FieldRefreshRunner : IDisposable
                     layoutFailed = false;
                     if (partial.Structural is { } done)
                     {
-                        // The paragraphs of a table of contents were replaced before the failure: the history must carry that change even though the refresh is tried again.
-                        HandleStructural(editor, done);
+                        // The paragraphs of a table of contents were replaced before the failure: the history must carry that change even though the refresh is tried again. A failure of the attach must not hide the
+                        // first failure (the history clears itself when it cannot place a record), so it is swallowed here and the original is rethrown below.
+                        try
+                        {
+                            HandleStructural(editor, done);
+                        }
+                        catch (Exception attach) when (attach is not OutOfMemoryException)
+                        {
+                            Failures++;
+                        }
                     }
 
                     throw;

@@ -76,6 +76,13 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
             var last = site.Last;
             var areaLast = shape.TailParagraph ? last - 1 : last;
             var oldCount = areaLast - first + 1;
+            // A paragraph of the entries that ends a section would lose its break when the paragraphs are replaced: such a list keeps its bytes and is counted (the paragraph with the end mark that stands alone is not rewritten).
+            if (Enumerable.Range(first, areaLast - first + 1).Any(i => site.Container[i] is Paragraph { SectionBreak: not null }))
+            {
+                notUpdated++;
+                continue;
+            }
+
             var entries = EntriesOf(spec, excluded);
             var newCount = Math.Max(1, entries.Count);
             if (newCount != oldCount && !allowStructural)
@@ -126,7 +133,7 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
         var tailSource = shape.TailParagraph ? null : (Paragraph)container[last];
         var tail = tailSource?.Inlines.Skip(shape.End).Select(i => i.Clone()).ToList() ?? [];
         var pages = StoredPages(old);
-        var tabs = TabsFor(container, first, old, spec);
+        var tabs = TabsFor(old);
         var proposed = TocBuilder.Entries(
             document,
             spec,
@@ -235,8 +242,9 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
         }
     }
 
-    // The tab stops of the entries: those the table of contents already has in its paragraphs, else (when it shows page numbers and its style has none) a right tab with dots at the width of the text.
-    private XElement? TabsFor(IList<Block> container, int first, List<Paragraph> old, TocSpec spec)
+    // The tab stops of the entries: the ones the list already has in its paragraphs (the first paragraph that has any; a new entry copies that situation), else none. Right alignment is the insert's job (the tab stops
+    // of the paragraphs it writes, or the TOC1 to TOC9 styles of a file); a refresh never invents a tab stop, so a list the user made left-aligned stays so and a foreign list keeps the look its file gave it.
+    private static XElement? TabsFor(List<Paragraph> old)
     {
         foreach (var paragraph in old)
         {
@@ -246,46 +254,7 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
             }
         }
 
-        if (!spec.ShowsAnyPage || TocBuilder.StyleHasTabs(document, TocBuilder.StyleIdFor(spec.FirstLevel, spec.IsFigureList)))
-        {
-            return null;
-        }
-
-        var top = ReferenceEquals(container, document.Body.Blocks) ? first : TopLevelIndexOf(container);
-        return TocBuilder.RightTab(TocBuilder.TextWidthTwips(document, top), TocLeader.Dots);
-    }
-
-    // The index in the body of the top-level block that holds the list (a block content control or a table).
-    private int TopLevelIndexOf(IList<Block> container)
-    {
-        var body = document.Body.Blocks;
-        for (var i = 0; i < body.Count; i++)
-        {
-            if (body[i] is not Paragraph && Holds(body[i], container, 0))
-            {
-                return i;
-            }
-        }
-
-        return 0;
-    }
-
-    private static bool Holds(Block block, IList<Block> container, int depth)
-    {
-        if (depth > BookmarkOperations.MaxDepth)
-        {
-            return false;
-        }
-
-        switch (block)
-        {
-            case ContentControlBlock control:
-                return ReferenceEquals(control.Content, container) || control.Content.Any(b => Holds(b, container, depth + 1));
-            case Table table:
-                return table.Rows.OfType<TableRow>().SelectMany(r => r.Items.OfType<TableCell>()).Any(c => ReferenceEquals(c.Blocks, container) || c.Blocks.Any(b => Holds(b, container, depth + 1)));
-            default:
-                return false;
-        }
+        return null;
     }
 
     // The page text stored in every PAGEREF field of the old paragraphs, by the bookmark the field names.

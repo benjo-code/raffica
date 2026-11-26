@@ -416,5 +416,13 @@ public sealed class TocEditingTests
         Assert.False(result.StructuralDeferred);
     }
 
+    [Fact]
+    public void TheCaptionLabelsAGivenListCanBeMadeOfAreNeverEmpty()
+    {
+        // The card builds a list from these: the three built-in labels are always there, also in a document with no caption and no field at all.
+        var document = Doc(Text("plain"));
+        Assert.Equal(["Figure", "Table", "Equation"], CaptionLabels.Known(document).ToArray());
+    }
+
     private static string Instruction(WordDocument document) => TocRefresh.Find(document.Body.Blocks)[0].Instruction;
 }

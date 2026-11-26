@@ -282,23 +282,6 @@ internal static class TocBuilder
         return Math.Max(720, setup.WidthTwips - setup.LeftTwips - setup.RightTwips);
     }
 
-    /// <summary>True when the style (or one it is based on) has a tab stop of its own: a table of contents whose style has them needs none in its paragraphs.</summary>
-    public static bool StyleHasTabs(WordDocument document, string styleId)
-    {
-        var seen = 0;
-        for (var style = document.Styles?.Find(styleId); style is not null && seen < 32; seen++)
-        {
-            if (style.ParagraphProperties.Get(W + "tabs") is not null)
-            {
-                return true;
-            }
-
-            style = style.BasedOn is { } parent ? document.Styles?.Find(parent) : null;
-        }
-
-        return false;
-    }
-
     /// <summary>
     /// The paragraphs of the entries (the sentence of an empty list when there are none), detached and without the marks of the field. <paramref name="bookmarkOf"/> gives the hidden bookmark of an entry (null: none can be made, the entry is
     /// plain text) and <paramref name="pageOf"/> the page text of an entry's bookmark. <paramref name="tabs"/> is the tab stop element written into every paragraph (null for none).

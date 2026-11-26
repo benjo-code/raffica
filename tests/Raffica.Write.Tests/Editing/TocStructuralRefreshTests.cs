@@ -352,6 +352,120 @@ public sealed class TocStructuralRefreshTests
         Assert.Equal(settled, BodyBytes(document));
     }
 
+    private static readonly System.Xml.Linq.XName s_tabs = System.Xml.Linq.XName.Get("tabs", "http://schemas.openxmlformats.org/wordprocessingml/2006/main");
+
+    [Fact]
+    public void AListMadeWithoutRightAlignmentStaysSoThroughRefreshesAndNewEntries()
+    {
+        var document = Doc(Text("Alpha", "Heading1") + Text("x") + Text("Beta", "Heading1") + Text(string.Empty));
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+        Assert.NotNull(editor.InsertToc(At(document, 3), new TocOptions(1, 3, true, false, TocLeader.Dots, null), host));
+        var before = BodyBytes(document);
+        Assert.All(TocParagraphs(document), p => Assert.Null(p.Properties.Get(s_tabs)));
+
+        // The next refresh finds nothing to write: it never invents a tab stop.
+        var again = editor.RefreshFields(host, RefreshScope.OrderBased);
+        Assert.Empty(again.Content);
+        Assert.Equal(before, BodyBytes(document));
+
+        // A heading added later gets an entry like its neighbours: no tab stop.
+        var step = Step(editor.ApplyParagraphStyle(Whole(document, 1), "Heading1"));
+        var (result, _) = Refresh(editor, host, step);
+        Assert.NotNull(result.Structural);
+        Assert.Equal(["Alpha|?", "x|?", "Beta|?"], Lines(document));
+        Assert.All(TocParagraphs(document), p => Assert.Null(p.Properties.Get(s_tabs)));
+        ReferenceToc.AssertEqualToExpected(document, host, "left aligned");
+    }
+
+    [Fact]
+    public void ARightAlignedListGivesANewEntryTheTabStopOfItsNeighbours()
+    {
+        var (document, editor, host) = WithToc(Text("Alpha", "Heading1") + Text("x") + Text("Beta", "Heading1") + Text(string.Empty), 3);
+        var own = TocParagraphs(document)[0].Properties.Get(s_tabs);
+        Assert.NotNull(own);
+
+        var step = Step(editor.ApplyParagraphStyle(Whole(document, 1), "Heading1"));
+        var (result, _) = Refresh(editor, host, step);
+
+        Assert.NotNull(result.Structural);
+        var paragraphs = TocParagraphs(document);
+        Assert.Equal(3, paragraphs.Count);
+        Assert.All(paragraphs, p => Assert.Equal(own.ToString(SaveOptions.DisableFormatting), p.Properties.Get(s_tabs)?.ToString(SaveOptions.DisableFormatting)));
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+    }
+
+    [Fact]
+    public void AForeignListWithoutTabStopsKeepsNone()
+    {
+        var document = StaleDocument();
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        Assert.Equal(["Alpha|7", "Beta|?", "Gamma|8"], Lines(document));
+        Assert.All(TocParagraphs(document), p => Assert.Null(p.Properties.Get(s_tabs)));
+    }
+
+    [Fact]
+    public void TwoListsInOneContainerThatBothChangeTheirParagraphCountUndoAndRedoToTheSameBytes()
+    {
+        var document = Doc(
+            Marked("Alpha", 1) + Marked("Beta", 2, "Heading2") + Marked("Gamma", 3) + Text("after")
+            + StaleToc("TOC \\o \"1-1\" \\h \\z \\u", ("_Toc100000001", "Alpha", 1)) + Text("mid")
+            + StaleToc("TOC \\o \"1-2\" \\h \\z \\u", ("_Toc100000001", "Alpha", 1)) + Text("end"));
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+        var original = BodyBytes(document);
+        var typing = Step(editor.InsertText(new TextRange(At(document, 3, 1), At(document, 3, 1)), "q"));
+        var beforeRefresh = BodyBytes(document);
+
+        var (result, outcome) = Refresh(editor, host);
+
+        // Both lists grow (one entry became two, one became three) in one refresh: one record with two changes, each in the coordinates after the one before it.
+        Assert.NotNull(typing);
+        Assert.Equal(AttachOutcome.Attached, outcome);
+        Assert.Equal(2, result.Structural!.Changes.Count);
+        Assert.Equal([1, 2], result.Structural.Changes.Select(c => c.Added - c.Removed).ToArray());
+        ReferenceToc.AssertEqualToExpected(document, host, "two lists");
+        var afterRefresh = BodyBytes(document);
+        Assert.NotEqual(beforeRefresh, afterRefresh);
+
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(original, BodyBytes(document));
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(afterRefresh, BodyBytes(document));
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+    }
+
+    [Fact]
+    public void AListWhoseEntriesCarryASectionBreakIsNotUpdatedButOneWithTheBreakOnItsEndParagraphIs()
+    {
+        const string Break = "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>";
+        var entries = (("_Toc100000001", "Alpha", 1), ("_Toc100000003", "Gamma", 1));
+        var toc = StaleToc(TocInstruction, entries.Item1, entries.Item2);
+        var marked = Marked("Alpha", 1) + Marked("Beta", 2) + Marked("Gamma", 3) + Text("after");
+
+        // A break on an entry paragraph: replacing the paragraphs would lose it, so the list keeps its bytes and is counted.
+        var inside = Doc(marked + toc.Replace("<w:pStyle w:val=\"TOC1\"/></w:pPr>", "<w:pStyle w:val=\"TOC1\"/>" + Break + "</w:pPr>", StringComparison.Ordinal) + Text("end"));
+        var insideEditor = Editor(inside);
+        var before = BodyBytes(inside);
+        var skipped = insideEditor.RefreshFields(new FakeFieldHost(inside), RefreshScope.OrderBased);
+        Assert.Equal(before, BodyBytes(inside));
+        Assert.Null(skipped.Structural);
+        Assert.True(skipped.NotUpdated >= 1);
+
+        // A break on the paragraph that holds the end mark alone is not rewritten: the list is updated and the break stays.
+        var tail = Doc(marked + toc.Replace("<w:p><w:r><w:fldChar w:fldCharType=\"end\"/>", "<w:p><w:pPr>" + Break + "</w:pPr><w:r><w:fldChar w:fldCharType=\"end\"/>", StringComparison.Ordinal) + Text("end"));
+        var tailEditor = Editor(tail);
+        var done = tailEditor.RefreshFields(new FakeFieldHost(tail), RefreshScope.OrderBased);
+        Assert.NotNull(done.Structural);
+        Assert.Equal(["Alpha|7", "Beta|?", "Gamma|8"], Lines(tail));
+        var site = Assert.Single(TocRefresh.Find(tail.Body.Blocks));
+        Assert.NotNull(((Paragraph)site.Container[site.Last]).SectionBreak);
+    }
+
     // One row per step kind the editor records; the table of contents sits after the paragraphs the steps work on and misses the entry of Beta, so the refresh after the step is structural.
     public static TheoryData<string> Kinds() => ["typing", "format", "list", "move", "section", "object", "bookmark"];
 
