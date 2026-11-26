@@ -2217,4 +2217,58 @@
   <data name="PpOutOfRangeFormat" xml:space="preserve">
     <value>{0}: This size is not possible for a picture.</value>
   </data>
+  <data name="TabReferences" xml:space="preserve">
+    <value>References</value>
+  </data>
+  <data name="MenuReferences" xml:space="preserve">
+    <value>References</value>
+  </data>
+  <data name="GroupLinks" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="CmdBookmark" xml:space="preserve">
+    <value>Bookmark</value>
+  </data>
+  <data name="DescBookmark" xml:space="preserve">
+    <value>Marks a place or a piece of text with a name, so that you can jump to it and refer to it later.</value>
+  </data>
+  <data name="BookmarkTitle" xml:space="preserve">
+    <value>Bookmarks</value>
+  </data>
+  <data name="BookmarkNameLabel" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="BookmarkListLabel" xml:space="preserve">
+    <value>Bookmarks in this document</value>
+  </data>
+  <data name="BookmarkNone" xml:space="preserve">
+    <value>There are no bookmarks yet.</value>
+  </data>
+  <data name="BookmarkAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="BookmarkGoTo" xml:space="preserve">
+    <value>Go to</value>
+  </data>
+  <data name="BookmarkDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="BookmarkProblemEmpty" xml:space="preserve">
+    <value>Enter a name for the bookmark.</value>
+  </data>
+  <data name="BookmarkProblemTooLong" xml:space="preserve">
+    <value>A name has at most 40 characters.</value>
+  </data>
+  <data name="BookmarkProblemBadStart" xml:space="preserve">
+    <value>A name starts with a letter from A to Z.</value>
+  </data>
+  <data name="BookmarkProblemBadCharacter" xml:space="preserve">
+    <value>A name has only letters from A to Z, digits and underscores.</value>
+  </data>
+  <data name="BookmarkProblemDuplicate" xml:space="preserve">
+    <value>A bookmark with this name exists already.</value>
+  </data>
+  <data name="NoteBookmarkMissing" xml:space="preserve">
+    <value>This bookmark does not exist any more.</value>
+  </data>
 </root>

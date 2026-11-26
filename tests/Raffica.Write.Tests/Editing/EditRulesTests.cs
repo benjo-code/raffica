@@ -305,13 +305,20 @@ public sealed class EditRulesTests
     [Fact]
     public void BookmarkMarkersMoveToTheNearestRemainingPosition()
     {
+        // A bookmark whose whole range is deleted goes with its text (milestone 4.5b); one that is only partly deleted keeps both markers.
         var p = P(R("ab"), new BookmarkStart(1, "b"), R("cd"), new BookmarkEnd(1), R("ef"));
 
         Editor(Doc(p)).Delete(Sel(p, 1, 5));
 
         Assert.Equal("af", Text(p));
-        var order = p.Inlines.Select(i => i switch { BookmarkStart => "BS", BookmarkEnd => "BE", _ => "R" }).ToArray();
-        Assert.Equal(["R", "BS", "BE", "R"], order);
+        Assert.Equal(["R", "R"], p.Inlines.Select(i => i switch { BookmarkStart => "BS", BookmarkEnd => "BE", _ => "R" }).ToArray());
+
+        var half = P(R("ab"), new BookmarkStart(3, "h"), R("cd"), R("ef"), new BookmarkEnd(3));
+
+        Editor(Doc(half)).Delete(Sel(half, 1, 4));
+
+        Assert.Equal("aef", Text(half));
+        Assert.Equal(["R", "BS", "R", "BE"], half.Inlines.Select(i => i switch { BookmarkStart => "BS", BookmarkEnd => "BE", _ => "R" }).ToArray());
 
         var first = P(R("Hello"), new BookmarkStart(2, "c"), R(" there"));
         var last = P(R("again"), new BookmarkEnd(2), R(" end"));

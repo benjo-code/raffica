@@ -42,7 +42,7 @@ public sealed class DerivedHistoryTests
         new(At(document, first), At(document, last, TestEdit.TextOf((Paragraph)document.Body.Blocks[last]).Length));
 
     /// <summary>One row per step kind the editor records: the operation that makes the step.</summary>
-    public static TheoryData<string> Kinds() => ["typing", "format", "style-only", "list", "move", "section", "object"];
+    public static TheoryData<string> Kinds() => ["typing", "format", "style-only", "list", "move", "section", "object", "bookmark"];
 
     private static EditResult? Run(string kind, WordDocument document, TextEditor editor) => kind switch
     {
@@ -53,6 +53,7 @@ public sealed class DerivedHistoryTests
         "move" => editor.MoveBlocks(0, 2, 7),
         "section" => editor.InsertSectionBreak(At(document, 3, 1), SectionBreakKind.NextPage),
         "object" => editor.InsertNote(At(document, 3, 1), NoteType.Footnote),
+        "bookmark" => editor.AddBookmark(Range(document, 1, 3), "Mark"),
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 

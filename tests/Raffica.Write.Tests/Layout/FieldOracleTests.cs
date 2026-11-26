@@ -1,0 +1,90 @@
+using Raffica.Write.Docx;
+using Raffica.Write.Editing;
+using Raffica.Write.Layout;
+using Raffica.Write.Model;
+using WriteCorpus;
+using Xunit;
+
+namespace Raffica.Write.Tests.Layout;
+
+/// <summary>
+/// The gate of the field steps of milestone 4.5b (bookmarks now, captions, cross-references and tables of contents with the later tasks): over the whole corpus, every step is brought into the layout as the session does and
+/// compared, exactly, with a full layout, and the bookmarks are checked after each step.
+/// </summary>
+public sealed class FieldOracleTests
+{
+    private const int StepsPerFile = 14;
+    private const int StepsOnTheThesis = 4;
+
+    private static string Root => Path.Combine(Raffica.TestSupport.TestData.Root, "testdata", "write-corpus");
+
+    /// <summary>The corpus files.</summary>
+    public static TheoryData<string> Names()
+    {
+        var data = new TheoryData<string>();
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            data.Add(entry.Id);
+        }
+
+        return data;
+    }
+
+    // FNV-1a over the UTF-16 code units: stable across processes (string.GetHashCode is randomized per process).
+    private static Random RandomFor(string name)
+    {
+        var hash = 2166136261u;
+        foreach (var c in "fields " + name)
+        {
+            hash = unchecked((hash ^ c) * 16777619u);
+        }
+
+        return new Random(unchecked((int)hash));
+    }
+
+    [Theory]
+    [MemberData(nameof(Names))]
+    public async Task FieldStepsEqualAFullLayoutOnTheCorpus(string name)
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, name, name + ".docx"));
+        var layout = await SectionOracleTests.LaidAsync(file.Model);
+        var steps = new FieldSteps(file.Model, layout, new LayoutOptions());
+
+        var compared = await steps.RunAsync(RandomFor(name), name == "thesis" ? StepsOnTheThesis : StepsPerFile, name);
+
+        if (BookmarkOperations.ParagraphsOf(file.Model.Body.Blocks).Any())
+        {
+            Assert.True(compared > 0, $"{name}: no step changed anything");
+        }
+
+        TestContext.Current.SendDiagnosticMessage($"{name}: {compared} field steps compared, refused {steps.RefusedPerKind.Sum()}, bookmarks taken by a delete {steps.RemovedByDelete}");
+    }
+
+    // A guard that only the per-file runs carry would stay green if a kind were skipped everywhere.
+    [Fact]
+    public async Task EveryFieldStepKindRanOnTheCorpus()
+    {
+        var totals = new int[FieldSteps.Kinds];
+        var removed = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files.Where(f => f.Id != "thesis"))
+        {
+            using var file = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
+            var layout = await SectionOracleTests.LaidAsync(file.Model);
+            var steps = new FieldSteps(file.Model, layout, new LayoutOptions());
+            await steps.RunAsync(RandomFor("kinds " + entry.Id), 6, entry.Id);
+            for (var k = 0; k < totals.Length; k++)
+            {
+                totals[k] += steps.RanPerKind[k];
+            }
+
+            removed += steps.RemovedByDelete;
+        }
+
+        foreach (var kind in Enum.GetValues<FieldStepKind>())
+        {
+            Assert.True(totals[(int)kind] > 0, $"the step kind {kind} never ran a step that changed something in the corpus (ran per kind: {string.Join(", ", Enum.GetValues<FieldStepKind>().Select(k => k + " " + totals[(int)k]))})");
+        }
+
+        Assert.True(removed > 0, "no delete ever took a bookmark away with its text");
+    }
+}

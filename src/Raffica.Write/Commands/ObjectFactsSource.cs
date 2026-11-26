@@ -92,6 +92,12 @@ internal sealed class ObjectFactsSource
             return new ObjectCommandFacts(ObjectBlock.PrefixDocument);
         }
 
+        // A bookmark command is offered in either view; only a prefix document refuses it.
+        if (WriteCommandIds.IsBookmark(id))
+        {
+            return ObjectCommandFacts.Permissive;
+        }
+
         if (!back && writingView)
         {
             return new ObjectCommandFacts(ObjectBlock.WritingView);

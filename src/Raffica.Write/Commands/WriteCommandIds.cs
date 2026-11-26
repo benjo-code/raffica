@@ -107,6 +107,7 @@ internal static class WriteCommandIds
     public const string PictureWrap = "picture.wrap";
     public const string PictureReset = "picture.reset";
     public const string PictureDelete = "picture.delete";
+    public const string BookmarkInsert = "bookmark.insert";
 
     /// <summary>Whether the command belongs to the text (undo, redo, the clipboard and select all): the page view owns their keys, so the window never matches them itself.</summary>
     public static bool IsEditing(string id) => id.StartsWith("edit.", StringComparison.Ordinal);
@@ -157,4 +158,10 @@ internal static class WriteCommandIds
     /// the facts that enable them are read through <see cref="PictureFactsSource"/>.
     /// </summary>
     public static bool IsPicture(string id) => id.StartsWith("picture.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether the command is one of the bookmark commands (<c>bookmark.*</c>: the Links group of the References tab). They have no keys; the facts that enable them are read through <see cref="ObjectFactsSource"/>
+    /// (a prefix document is the only place that refuses, the card says the rest).
+    /// </summary>
+    public static bool IsBookmark(string id) => id.StartsWith("bookmark.", StringComparison.Ordinal);
 }

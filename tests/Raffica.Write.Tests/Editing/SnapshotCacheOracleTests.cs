@@ -298,6 +298,49 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void ABookmarkAddedAndDeletedWithItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => TestEdit.TextOf(p).Length >= 6).Take(2).ToList();
+        Assert.Equal(2, paragraphs.Count);
+        TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
+
+        // A bookmark across two paragraphs, a point, then the text of the first one deleted (the whole-range rule takes its markers), the bookmark removed by name, and every step undone and redone.
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[0], 1), At(paragraphs[1], 4)), "Across"));
+        Check("add across paragraphs");
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[0], 3), At(paragraphs[0], 3)), "Point"));
+        Check("add a point");
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[1], 4), At(paragraphs[1], 6)), "Inner"));
+        Check("add inner");
+        Assert.NotNull(editor.Delete(new TextRange(At(paragraphs[1], 4), At(paragraphs[1], 6))));
+        Assert.DoesNotContain(BookmarkOperations.Visible(model), b => b.Name == "Inner");
+        Check("delete the whole range");
+        Assert.NotNull(editor.DeleteBookmark("Across"));
+        Check("delete by name");
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));

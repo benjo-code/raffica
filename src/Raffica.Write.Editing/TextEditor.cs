@@ -882,7 +882,20 @@ public sealed partial class TextEditor
         return false;
     }
 
+    // The text delete and the bookmark rule: a bookmark whose whole range lies in the deleted range is removed with both markers; a bookmark that is only partly deleted keeps them (moved by the anchor rule).
     private Deleted DeleteSpan(Span span)
+    {
+        var inside = EditRules.BookmarksInside(span.Container, span.FirstIndex, span.LastIndex);
+        var deleted = DeleteSpanCore(span);
+        if (inside is not null && deleted.Changed)
+        {
+            EditRules.RemoveEmptiedBookmarks(deleted.Survivor, inside);
+        }
+
+        return deleted;
+    }
+
+    private Deleted DeleteSpanCore(Span span)
     {
         var first = Map(span.Story, span.First);
         var firstLength = first.Projection.Text.Length;

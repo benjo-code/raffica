@@ -49,6 +49,7 @@ internal sealed partial class WriteWindow
         CreateSectionPickers();
         AddSectionActions();
         AddObjectActions();
+        AddFieldActions();
         CreateTablePickers();
         AddTableActions();
         CreatePicturePickers();

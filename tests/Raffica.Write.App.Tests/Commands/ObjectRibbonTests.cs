@@ -22,7 +22,7 @@ public sealed class ObjectRibbonTests
         Assert.Equal(["1", "2", "3"], insert.Groups.Select(g => g.Digit).ToArray());
 
         // The tabs are Home, Insert, Layout, View in this order, with unique key tips; the field codes of the tab are unique and none begins another.
-        Assert.Equal(["H", "I", "T", "P", "V"], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal(["H", "I", "T", "P", "R", "V"], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
         var codes = insert.Groups.SelectMany(g => g.Commands.Select(c => c.FieldCode)).ToList();
         Assert.Equal(codes.Count, codes.Distinct().Count());
         Assert.All(codes, a => Assert.DoesNotContain(codes, b => a != b && b.StartsWith(a, StringComparison.Ordinal)));
@@ -42,6 +42,7 @@ public sealed class ObjectRibbonTests
         Assert.Equal(0, tabs[WriteRibbon.InsertLetter]);
         Assert.Equal(0, tabs[WriteRibbon.TableLetter]);
         Assert.Equal(0, tabs[WriteRibbon.LayoutLetter]);
+        Assert.Equal(0, tabs[WriteRibbon.ReferencesLetter]);
         Assert.Equal(0, tabs[WriteRibbon.ViewLetter]);
     }
 }

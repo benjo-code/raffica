@@ -100,7 +100,7 @@ public sealed class TableCommandTests
         Assert.Equal(WriteRibbon.InsertLetter, Of("table.insert").Tab.Letter);
         Assert.All(s_ids.Where(id => id != "table.insert"), id => Assert.Equal(WriteRibbon.TableLetter, Of(id).Tab.Letter));
         Assert.Equal("T", WriteRibbon.TableLetter);
-        Assert.Equal(["H", "I", "T", "P", "V"], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal(["H", "I", "T", "P", "R", "V"], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
         Assert.False(WriteCommandIds.IsTable("note.back"));
         Assert.False(WriteCommandIds.IsSection("table.delete"));
 

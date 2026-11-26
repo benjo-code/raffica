@@ -65,6 +65,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         _ when WriteCommandIds.IsStructure(id) => hasDocument() && StructureReason(id) is null,
         _ when WriteCommandIds.IsSection(id) => hasDocument() && SectionReason(id) is null,
         _ when WriteCommandIds.IsNote(id) => hasDocument() && NoteReason(id) is null,
+        _ when WriteCommandIds.IsBookmark(id) => hasDocument() && BookmarkReason(id) is null,
         _ when WriteCommandIds.IsTable(id) => hasDocument() && TableReason(id) is null,
         _ when WriteCommandIds.IsPicture(id) => hasDocument() && PictureReason(id) is null,
         _ => hasDocument(),
@@ -109,6 +110,11 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         if (WriteCommandIds.IsNote(id))
         {
             return NoteReason(id);
+        }
+
+        if (WriteCommandIds.IsBookmark(id))
+        {
+            return BookmarkReason(id);
         }
 
         if (WriteCommandIds.IsTable(id))
@@ -220,6 +226,25 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
     // The reason a note command of the Insert tab is disabled, or null when it may run. The block comes first, a save included (the commands read the caret's place from the model as it is now), then what
     // the place says (the writing view, a prefix document, a header, a footer, a comment, a note or a plain-text control for a new note; a caret outside a note for Back); the facts are read only while editing is not blocked.
     private string? NoteReason(string id)
+    {
+        switch (State.Blocked)
+        {
+            case EditBlockedReason.StillOpening:
+                return WriteStrings.ReasonEditOpening;
+            case EditBlockedReason.Faulted:
+                return WriteStrings.EditUnavailable;
+            case EditBlockedReason.Saving:
+                return WriteStrings.ReasonEditSaving;
+            default:
+                break;
+        }
+
+        return ObjectWording.ReasonText((objectFacts?.Invoke(id) ?? ObjectCommandFacts.Permissive).Block);
+    }
+
+    // The reason the bookmark command (the Links group of the References tab) is disabled, or null when it may run. The block comes first, a save included (the card lists and changes the bookmarks of the model as it is
+    // now), then the prefix document; what a name or a selection lacks is the card's to say, never a disabled command.
+    private string? BookmarkReason(string id)
     {
         switch (State.Blocked)
         {

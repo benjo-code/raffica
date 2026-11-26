@@ -2217,4 +2217,58 @@
   <data name="PpOutOfRangeFormat" xml:space="preserve">
     <value>{0}: Diese Größe ist für ein Bild nicht möglich.</value>
   </data>
+  <data name="TabReferences" xml:space="preserve">
+    <value>Verweise</value>
+  </data>
+  <data name="MenuReferences" xml:space="preserve">
+    <value>Verweise</value>
+  </data>
+  <data name="GroupLinks" xml:space="preserve">
+    <value>Verknüpfungen</value>
+  </data>
+  <data name="CmdBookmark" xml:space="preserve">
+    <value>Textmarke</value>
+  </data>
+  <data name="DescBookmark" xml:space="preserve">
+    <value>Markiert eine Stelle oder einen Textabschnitt mit einem Namen, damit Sie später dorthin springen und darauf verweisen können.</value>
+  </data>
+  <data name="BookmarkTitle" xml:space="preserve">
+    <value>Textmarken</value>
+  </data>
+  <data name="BookmarkNameLabel" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="BookmarkListLabel" xml:space="preserve">
+    <value>Textmarken in diesem Dokument</value>
+  </data>
+  <data name="BookmarkNone" xml:space="preserve">
+    <value>Es gibt noch keine Textmarken.</value>
+  </data>
+  <data name="BookmarkAdd" xml:space="preserve">
+    <value>Hinzufügen</value>
+  </data>
+  <data name="BookmarkGoTo" xml:space="preserve">
+    <value>Anspringen</value>
+  </data>
+  <data name="BookmarkDelete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="BookmarkProblemEmpty" xml:space="preserve">
+    <value>Geben Sie einen Namen für die Textmarke ein.</value>
+  </data>
+  <data name="BookmarkProblemTooLong" xml:space="preserve">
+    <value>Ein Name hat höchstens 40 Zeichen.</value>
+  </data>
+  <data name="BookmarkProblemBadStart" xml:space="preserve">
+    <value>Ein Name beginnt mit einem Buchstaben von A bis Z.</value>
+  </data>
+  <data name="BookmarkProblemBadCharacter" xml:space="preserve">
+    <value>Ein Name enthält nur Buchstaben von A bis Z, Ziffern und Unterstriche.</value>
+  </data>
+  <data name="BookmarkProblemDuplicate" xml:space="preserve">
+    <value>Eine Textmarke mit diesem Namen gibt es bereits.</value>
+  </data>
+  <data name="NoteBookmarkMissing" xml:space="preserve">
+    <value>Diese Textmarke gibt es nicht mehr.</value>
+  </data>
 </root>
