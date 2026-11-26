@@ -191,7 +191,7 @@ public sealed class FieldOracleTests
 
         await steps.RunAsync(new Random(seed), 40, "captions " + seed);
 
-        foreach (var kind in new[] { FieldStepKind.InsertCaption, FieldStepKind.InsertChapterCaption, FieldStepKind.MoveCaption, FieldStepKind.DeleteCaption })
+        foreach (var kind in new[] { FieldStepKind.InsertCaption, FieldStepKind.InsertChapterCaption, FieldStepKind.MoveCaption, FieldStepKind.DeleteCaption, FieldStepKind.InsertCrossReference, FieldStepKind.DeleteTarget })
         {
             Assert.True(steps.RanPerKind[(int)kind] > 0, $"the step kind {kind} never changed anything (ran per kind: {string.Join(", ", Enum.GetValues<FieldStepKind>().Select(k => k + " " + steps.RanPerKind[(int)k]))})");
         }

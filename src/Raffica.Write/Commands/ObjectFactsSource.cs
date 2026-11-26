@@ -33,6 +33,9 @@ internal enum ObjectBlock
     /// <summary>The caret is in a content control that holds one line, which takes no caption.</summary>
     CaptionRestricted,
 
+    /// <summary>The caret is in a content control that holds plain text only, which takes no cross-reference.</summary>
+    CrossRefRestricted,
+
     /// <summary>Back to the text needs the caret in a note.</summary>
     NotInNote,
 }
@@ -59,6 +62,7 @@ internal static class ObjectWording
         ObjectBlock.NotInNote => WriteStrings.ReasonNoteNotInNote,
         ObjectBlock.InsideToc => WriteStrings.NoteTocProtected,
         ObjectBlock.CaptionRestricted => WriteStrings.ReasonCaptionRestricted,
+        ObjectBlock.CrossRefRestricted => WriteStrings.ReasonCrossRefRestricted,
         _ => null,
     };
 
@@ -70,6 +74,16 @@ internal static class ObjectWording
         CaptionRefusal.InsideToc => ObjectBlock.InsideToc,
         CaptionRefusal.SectionEnd or CaptionRefusal.ChapterNeedsNumberedHeadings => ObjectBlock.None,
         _ => ObjectBlock.NoPosition,
+    };
+
+    /// <summary>The block of a refusal of the editor to put a cross-reference at the caret (what the target and the choice allow is worded as a note when the reference is made).</summary>
+    public static ObjectBlock BlockOf(CrossRefRefusal refusal) => refusal switch
+    {
+        CrossRefRefusal.Prefix => ObjectBlock.PrefixDocument,
+        CrossRefRefusal.RestrictedControl => ObjectBlock.CrossRefRestricted,
+        CrossRefRefusal.InsideToc => ObjectBlock.InsideToc,
+        CrossRefRefusal.NoPosition or CrossRefRefusal.NotInBody => ObjectBlock.NoPosition,
+        _ => ObjectBlock.None,
     };
 
     /// <summary>The block of a refusal of the editor.</summary>

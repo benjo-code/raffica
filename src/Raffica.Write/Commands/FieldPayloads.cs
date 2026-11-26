@@ -37,11 +37,21 @@ internal sealed record CaptionRequest(string Label, string Text, CaptionPlace Pl
 /// </summary>
 internal sealed record CaptionContext(IReadOnlyList<string> Labels, string DefaultLabel, bool CanChapterNumber, Func<string, string> WordFor);
 
+/// <summary>The answer of the Cross-reference card: the target (as the card listed it) and what the reference shows of it.</summary>
+internal sealed record CrossRefRequest(CrossRefTarget Target, CrossRefKind Kind)
+{
+    /// <summary>Whether the request is well formed: a known kind that the target offers.</summary>
+    public bool IsValid => Target is not null && Enum.IsDefined(Target.Kind) && CrossReferences.Refusal(Kind, Target) is null;
+}
+
+/// <summary>What the Cross-reference card needs: the targets of a type, asked when the type is chosen (read from the model when the card opens, never earlier), and the type to start with.</summary>
+internal sealed record CrossRefContext(Func<CrossRefTargetKind, IReadOnlyList<CrossRefTarget>> TargetsOf, CrossRefTargetKind DefaultType);
+
 /// <summary>What the Bookmarks card needs: the names the user may see (sorted) and every name of the document, hidden ones included, which a new name must not repeat.</summary>
 internal sealed record BookmarkContext(IReadOnlyList<string> Names, IReadOnlyList<string> AllNames);
 
 /// <summary>
-/// The cards of the References tab, which the window owns (the Bookmarks card and the Caption card). A command asks its card and runs the answer (null: the user cancelled). The window uses <see cref="DialogFieldCards"/>; a test puts
+/// The cards of the References tab, which the window owns (the Bookmarks, Caption and Cross-reference cards). A command asks its card and runs the answer (null: the user cancelled). The window uses <see cref="DialogFieldCards"/>; a test puts
 /// its own in.
 /// </summary>
 internal interface IFieldCards
@@ -51,6 +61,9 @@ internal interface IFieldCards
 
     /// <summary>Asks for a caption: the label, the text, the place and the chapter number; null when closed.</summary>
     Task<CaptionRequest?> AskCaptionAsync(CaptionContext context);
+
+    /// <summary>Asks for a cross-reference: the type of the target, the target and what to show of it; null when closed.</summary>
+    Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context);
 }
 
 /// <summary>The real cards, shown one at a time through the window's <see cref="DialogQueue"/>.</summary>
@@ -63,4 +76,8 @@ internal sealed class DialogFieldCards(DialogQueue dialogs) : IFieldCards
     /// <inheritdoc/>
     public Task<CaptionRequest?> AskCaptionAsync(CaptionContext context) =>
         dialogs.ShowAsync<CaptionRequest?>(done => CaptionCard.Create(context, done));
+
+    /// <inheritdoc/>
+    public Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context) =>
+        dialogs.ShowAsync<CrossRefRequest?>(done => CrossReferenceCard.Create(context, done));
 }

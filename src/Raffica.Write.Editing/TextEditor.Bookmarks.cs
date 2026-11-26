@@ -41,24 +41,7 @@ public sealed partial class TextEditor
         var revision = History.BeginOperation();
         var old = CloneBlocks(span);
 
-        // The start first, then the end from a fresh map: at one place the end goes right behind the start, never before it.
-        var startMap = Map(span.Story, span.First);
-        var startOffset = EditRules.Snap(startMap, Math.Max(0, span.FirstOffset));
-        var start = new BookmarkStart(id, name);
-        PlaceRun(span.First, startMap, startOffset, start);
-
-        var end = new BookmarkEnd(id);
-        var endMap = Map(span.Story, span.Last);
-        var endOffset = EditRules.Snap(endMap, Math.Max(0, span.LastOffset));
-        if (ReferenceEquals(span.First, span.Last) && endOffset <= startOffset)
-        {
-            var at = BookmarkOperations.Find(span.First.Inlines, start) ?? throw new InvalidOperationException("The start marker was not placed.");
-            at.Owner.Insert(at.Index + 1, end);
-        }
-        else
-        {
-            PlaceRun(span.Last, endMap, endOffset, end);
-        }
+        PlaceBookmarkMarkers(span.Story, span.First, span.FirstOffset, span.Last, span.LastOffset, id, name);
 
         _document.Edits.Raise();
         var count = span.LastIndex - span.FirstIndex + 1;
@@ -120,6 +103,28 @@ public sealed partial class TextEditor
         result.Attribute(_document);
         History.Record(result, new EditHistory.Point(first, 0), revision, null);
         return result;
+    }
+
+    // The two markers of a bookmark: the start first, then the end from a fresh map, so at one place the end goes right behind the start, never before it. The markers are zero-width, so no offset of the paragraphs changes.
+    private void PlaceBookmarkMarkers(StoryRef story, Paragraph first, int firstOffset, Paragraph last, int lastOffset, int id, string name)
+    {
+        var startMap = Map(story, first);
+        var startOffset = EditRules.Snap(startMap, Math.Max(0, firstOffset));
+        var start = new BookmarkStart(id, name);
+        PlaceRun(first, startMap, startOffset, start);
+
+        var end = new BookmarkEnd(id);
+        var endMap = Map(story, last);
+        var endOffset = EditRules.Snap(endMap, Math.Max(0, lastOffset));
+        if (ReferenceEquals(first, last) && endOffset <= startOffset)
+        {
+            var at = BookmarkOperations.Find(first.Inlines, start) ?? throw new InvalidOperationException("The start marker was not placed.");
+            at.Owner.Insert(at.Index + 1, end);
+        }
+        else
+        {
+            PlaceRun(last, endMap, endOffset, end);
+        }
     }
 
     // The index of the top-level block that holds the paragraph (the paragraph itself, or its table or block content control), or -1.

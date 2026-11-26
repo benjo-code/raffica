@@ -109,6 +109,7 @@ internal static class WriteCommandIds
     public const string PictureDelete = "picture.delete";
     public const string BookmarkInsert = "bookmark.insert";
     public const string CaptionInsert = "caption.insert";
+    public const string CrossReferenceInsert = "xref.insert";
 
     /// <summary>Whether the command belongs to the text (undo, redo, the clipboard and select all): the page view owns their keys, so the window never matches them itself.</summary>
     public static bool IsEditing(string id) => id.StartsWith("edit.", StringComparison.Ordinal);
@@ -171,4 +172,10 @@ internal static class WriteCommandIds
     /// caption) are read through <see cref="FieldFactsSource"/>.
     /// </summary>
     public static bool IsCaption(string id) => id.StartsWith("caption.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether the command is the cross-reference command (<c>xref.insert</c>: the Links group of the References tab). It has no key; the facts that enable it (a prefix document, a caret in a table of contents or in a one-line
+    /// content control) are read through <see cref="FieldFactsSource"/>.
+    /// </summary>
+    public static bool IsCrossReference(string id) => id.StartsWith("xref.", StringComparison.Ordinal);
 }

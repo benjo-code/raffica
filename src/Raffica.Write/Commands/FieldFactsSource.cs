@@ -5,13 +5,13 @@ using Raffica.Write.Model;
 namespace Raffica.Write.Commands;
 
 /// <summary>
-/// Reads <see cref="ObjectCommandFacts"/> for the rules of the caption command of the References tab (the later field commands join this source): lazily and per question, nothing exists before the first question and
-/// nothing is read for a tab without an editing session (a prefix document is a flag of the file and is answered without one). The answer is remembered for the model, its edit stamp (a refresh of a field result moves
-/// it) and the selection. The asks come from the refresh of the ribbon, never from the key path.
+/// Reads <see cref="ObjectCommandFacts"/> for the rules of the caption and cross-reference commands of the References tab (the later field commands join this source): lazily and per question, nothing exists before the first
+/// question and nothing is read for a tab without an editing session (a prefix document is a flag of the file and is answered without one). The answer is remembered for the command, the model, its edit stamp (a refresh of a
+/// field result moves it) and the selection. The asks come from the refresh of the ribbon, never from the key path.
 /// </summary>
 internal sealed class FieldFactsSource
 {
-    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, ObjectBlock Value)? _known;
+    private ((string Id, WordDocument Model, EditStamp Stamp, TextRange Range) Key, ObjectBlock Value)? _known;
 
     /// <summary>How many times the place of the caret was worked out for the facts (tests; 0 before the first ask).</summary>
     public int Reads { get; private set; }
@@ -20,7 +20,8 @@ internal sealed class FieldFactsSource
     public ObjectCommandFacts Read(WriteTab? tab, string id)
     {
         ArgumentNullException.ThrowIfNull(id);
-        if (tab is null || !WriteCommandIds.IsCaption(id))
+        var crossReference = WriteCommandIds.IsCrossReference(id);
+        if (tab is null || !(crossReference || WriteCommandIds.IsCaption(id)))
         {
             return ObjectCommandFacts.Permissive;
         }
@@ -37,14 +38,13 @@ internal sealed class FieldFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Stamp, range);
+        var key = (id, model, model.Edits.Stamp, range);
         if (_known is not { } known || !known.Key.Equals(key))
         {
             try
             {
                 Reads++;
-                var refusal = session.Editor.RefusalForCaption(range.End, chapterNumber: false);
-                known = (key, refusal is { } r ? ObjectWording.BlockOf(r) : ObjectBlock.None);
+                known = (key, crossReference ? BlockOfCrossReference(session, range) : BlockOfCaption(session, range));
             }
             catch (StalePositionException)
             {
@@ -57,4 +57,11 @@ internal sealed class FieldFactsSource
 
         return new ObjectCommandFacts(known.Value);
     }
+
+    private static ObjectBlock BlockOfCaption(EditSession session, TextRange range) =>
+        session.Editor.RefusalForCaption(range.End, chapterNumber: false) is { } refusal ? ObjectWording.BlockOf(refusal) : ObjectBlock.None;
+
+    // The reference is put at the end of the selection, as the command does.
+    private static ObjectBlock BlockOfCrossReference(EditSession session, TextRange range) =>
+        session.Editor.RefusalForCrossReference(range.Normalized().End) is { } refusal ? ObjectWording.BlockOf(refusal) : ObjectBlock.None;
 }

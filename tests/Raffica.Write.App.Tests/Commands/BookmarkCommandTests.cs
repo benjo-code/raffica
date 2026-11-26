@@ -70,6 +70,8 @@ public sealed class BookmarkCommandTests
 
         public Task<CaptionRequest?> AskCaptionAsync(CaptionContext context) => Task.FromResult<CaptionRequest?>(null);
 
+        public Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context) => Task.FromResult<CrossRefRequest?>(null);
+
         public Task<BookmarkRequest?> AskBookmarkAsync(BookmarkContext context)
         {
             Asked++;

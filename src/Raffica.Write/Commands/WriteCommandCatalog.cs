@@ -46,7 +46,7 @@ namespace Raffica.Write.Commands;
  *   table.borders -> grid-3x3, table.shading -> paint-bucket, table.headerRow -> panel-top-dashed, table.properties -> table-properties, table.distributeColumns -> columns-3
  *   table.rowUp -> move-up, table.rowDown -> move-down, table.selectRow -> grip-horizontal, table.selectColumn -> grip-vertical, table.selectTable -> grid-2x2
   *   picture.insert -> image-plus, picture.properties -> sliders-horizontal, picture.wrap -> text-wrap, picture.reset -> image-upscale, picture.delete -> image-off
- *   bookmark.insert -> bookmark, caption.insert -> captions
+ *   bookmark.insert -> bookmark, caption.insert -> captions, xref.insert -> external-link
  */
 
 /// <summary>Which modifier a shortcut starts with: the command key of the platform (Ctrl, Cmd on macOS) or Alt.</summary>
@@ -329,12 +329,13 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true)
             .Add(WriteCommandIds.SectionsPane, "CmdSections", "Rows3", "33", toggle: true);
 
-        // The References tab (key tip R): the group Captions (digit 2) holds the caption command and the group Links (digit 3) the bookmark command; the group Table of contents (digit 1) and the cross-reference button come with the later commands.
+        // The References tab (key tip R): the group Captions (digit 2) holds the caption command and the group Links (digit 3) the bookmark and the cross-reference commands; the group Table of contents (digit 1) comes with the later commands.
         var references = new CatalogTab("TabReferences", WriteRibbon.ReferencesLetter);
         references.Group("GroupCaptions", "2")
             .Add(WriteCommandIds.CaptionInsert, "CmdCaption", "Captions", "21", size: CommandSize.Large, describe: true);
         references.Group("GroupLinks", "3")
-            .Add(WriteCommandIds.BookmarkInsert, "CmdBookmark", "Bookmark", "31", size: CommandSize.Large, describe: true);
+            .Add(WriteCommandIds.BookmarkInsert, "CmdBookmark", "Bookmark", "31", size: CommandSize.Large, describe: true)
+            .Add(WriteCommandIds.CrossReferenceInsert, "CmdCrossReference", "ExternalLink", "32", size: CommandSize.Large, describe: true);
 
         Tabs = [home, insert, table, layout, references, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();

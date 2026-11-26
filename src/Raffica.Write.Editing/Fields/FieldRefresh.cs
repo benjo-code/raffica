@@ -261,6 +261,97 @@ internal static class FieldRefresh
         }
     }
 
+    /// <summary>
+    /// What a <c>REF</c> field shows for the bookmark that starts in <paramref name="start"/> with id <paramref name="id"/>: the number label of the paragraph without its trailing periods when <paramref name="number"/> is set (the <c>\n</c> and
+    /// <c>\r</c> switches), else the text between the markers (both must stand in that paragraph; a deleted range is left out, a tab and a line break read as the refresh reads them). Null when the label or the range is not there.
+    /// </summary>
+    internal static string? ReferenceText(Paragraph start, int id, bool number, IFieldHost host)
+    {
+        if (number)
+        {
+            return host.NumberLabel(start) is { Length: > 0 } label ? TrimLabel(label) : null;
+        }
+
+        var text = new StringBuilder();
+        return Scan(
+            (start, id),
+            content =>
+            {
+                switch (content)
+                {
+                    case TextContent t:
+                        text.Append(t.Text);
+                        break;
+                    case TabContent:
+                        text.Append('\t');
+                        break;
+                    case BreakContent:
+                        text.Append(' ');
+                        break;
+                    default:
+                        break;
+                }
+
+                return false;
+            })
+            ? text.ToString()
+            : null;
+    }
+
+    /// <summary>What a <c>NOTEREF</c> field shows for that bookmark: the mark of the first note reference in its range, or null when there is none (or the host knows no mark).</summary>
+    internal static string? NoteMark(Paragraph start, int id, IFieldHost host)
+    {
+        string? found = null;
+        var ended = Scan(
+            (start, id),
+            content =>
+            {
+                switch (content)
+                {
+                    case FootnoteReference f:
+                        found = host.NoteMarkText(f.Id, NoteType.Footnote);
+                        return true;
+                    case EndnoteReference e:
+                        found = host.NoteMarkText(e.Id, NoteType.Endnote);
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+        return ended ? found : null;
+    }
+
+    // Reads the contents of the live runs between the bookmark's markers (a deleted range is left out), which must both stand in the one paragraph, start first. True when the range was complete or the visitor stopped it.
+    private static bool Scan((Paragraph Start, int Id) mark, Func<RunContent, bool> visit)
+    {
+        var inside = false;
+        foreach (var (inline, deleted) in Leaves(mark.Start.Inlines, false))
+        {
+            switch (inline)
+            {
+                case BookmarkStart start when start.Id == mark.Id:
+                    inside = true;
+                    break;
+                case BookmarkEnd end when end.Id == mark.Id:
+                    return inside;
+                case Run run when inside && !deleted:
+                    foreach (var content in run.Content)
+                    {
+                        if (visit(content))
+                        {
+                            return true;
+                        }
+                    }
+
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return false;
+    }
+
     private sealed class State(IFieldHost host, IList<Block> body, HashSet<int>? targets)
     {
         private readonly Dictionary<int, Block> _olds = [];
@@ -464,96 +555,10 @@ internal static class FieldRefresh
             return _bookmarks.TryGetValue(name, out var found) ? found : null;
         }
 
-        private string? RefText(FieldInstruction instruction)
-        {
-            if (Find(instruction.Argument!) is not { } mark)
-            {
-                return null;
-            }
+        private string? RefText(FieldInstruction instruction) =>
+            Find(instruction.Argument!) is { } mark ? ReferenceText(mark.Start, mark.Id, instruction.Has("n") || instruction.Has("r"), host) : null;
 
-            if (instruction.Has("n") || instruction.Has("r"))
-            {
-                return host.NumberLabel(mark.Start) is { Length: > 0 } label ? TrimLabel(label) : null;
-            }
-
-            var text = new StringBuilder();
-            return Scan(mark, content =>
-            {
-                switch (content)
-                {
-                    case TextContent t:
-                        text.Append(t.Text);
-                        break;
-                    case TabContent:
-                        text.Append('\t');
-                        break;
-                    case BreakContent:
-                        text.Append(' ');
-                        break;
-                    default:
-                        break;
-                }
-
-                return false;
-            })
-                ? text.ToString()
-                : null;
-        }
-
-        private string? NoteText(FieldInstruction instruction)
-        {
-            if (Find(instruction.Argument!) is not { } mark)
-            {
-                return null;
-            }
-
-            string? found = null;
-            var ended = Scan(mark, content =>
-            {
-                switch (content)
-                {
-                    case FootnoteReference f:
-                        found = host.NoteMarkText(f.Id, NoteType.Footnote);
-                        return true;
-                    case EndnoteReference e:
-                        found = host.NoteMarkText(e.Id, NoteType.Endnote);
-                        return true;
-                    default:
-                        return false;
-                }
-            });
-            return ended ? found : null;
-        }
-
-        // Reads the contents of the live runs between the bookmark's markers (a deleted range is left out), which must both stand in the one paragraph, start first. True when the range was complete or the visitor stopped it.
-        private static bool Scan((Paragraph Start, int Id) mark, Func<RunContent, bool> visit)
-        {
-            var inside = false;
-            foreach (var (inline, deleted) in Leaves(mark.Start.Inlines, false))
-            {
-                switch (inline)
-                {
-                    case BookmarkStart start when start.Id == mark.Id:
-                        inside = true;
-                        break;
-                    case BookmarkEnd end when end.Id == mark.Id:
-                        return inside;
-                    case Run run when inside && !deleted:
-                        foreach (var content in run.Content)
-                        {
-                            if (visit(content))
-                            {
-                                return true;
-                            }
-                        }
-
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            return false;
-        }
+        private string? NoteText(FieldInstruction instruction) =>
+            Find(instruction.Argument!) is { } mark ? NoteMark(mark.Start, mark.Id, host) : null;
     }
 }

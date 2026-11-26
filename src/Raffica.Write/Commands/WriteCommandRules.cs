@@ -67,6 +67,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         _ when WriteCommandIds.IsNote(id) => hasDocument() && NoteReason(id) is null,
         _ when WriteCommandIds.IsBookmark(id) => hasDocument() && BookmarkReason(id) is null,
         _ when WriteCommandIds.IsCaption(id) => hasDocument() && CaptionReason(id) is null,
+        _ when WriteCommandIds.IsCrossReference(id) => hasDocument() && CrossReferenceReason(id) is null,
         _ when WriteCommandIds.IsTable(id) => hasDocument() && TableReason(id) is null,
         _ when WriteCommandIds.IsPicture(id) => hasDocument() && PictureReason(id) is null,
         _ => hasDocument(),
@@ -121,6 +122,11 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         if (WriteCommandIds.IsCaption(id))
         {
             return CaptionReason(id);
+        }
+
+        if (WriteCommandIds.IsCrossReference(id))
+        {
+            return CrossReferenceReason(id);
         }
 
         if (WriteCommandIds.IsTable(id))
@@ -271,6 +277,10 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
     // from the model as it is now), then what the place says (a prefix document, a caret in a table of contents, a header, a footer, a note, a comment or a one-line content control); the facts are read only while editing
     // is not blocked. What the card asks (the label, the text, the chapter number) is the card's to say, never a disabled command.
     private string? CaptionReason(string id) => BookmarkReason(id);
+
+    // The reason the cross-reference command (the Links group of the References tab) is disabled, or null when it may run: the same ladder (the block first, a save included, then what the place says); what the card asks for
+    // (a type, a target, a choice) is the card's to say, never a disabled command.
+    private string? CrossReferenceReason(string id) => BookmarkReason(id);
 
     // The reason a table command (the grid of the Insert tab and the Table tab) is disabled, or null when it may run. The block comes first, a save included (the commands read the cells from the model as it is
     // now), then what the place says (a prefix document, the writing view for the width commands, a caret outside a table, the editor's refusal); the facts are read only while editing is not blocked.

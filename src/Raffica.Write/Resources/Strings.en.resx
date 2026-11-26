@@ -2343,4 +2343,76 @@
   <data name="NoteCaptionChapter" xml:space="preserve">
     <value>A chapter number needs numbered headings and a Heading 1 above the caption.</value>
   </data>
+  <data name="CmdCrossReference" xml:space="preserve">
+    <value>Cross-reference</value>
+  </data>
+  <data name="DescCrossReference" xml:space="preserve">
+    <value>Inserts a link to a heading, caption, note or bookmark that shows its number, text or page and follows every change.</value>
+  </data>
+  <data name="CrossRefTitle" xml:space="preserve">
+    <value>Insert cross-reference</value>
+  </data>
+  <data name="CrossRefTypeLabel" xml:space="preserve">
+    <value>Reference type</value>
+  </data>
+  <data name="CrossRefTypeHeading" xml:space="preserve">
+    <value>Heading</value>
+  </data>
+  <data name="CrossRefTypeCaption" xml:space="preserve">
+    <value>Caption</value>
+  </data>
+  <data name="CrossRefTypeFootnote" xml:space="preserve">
+    <value>Footnote</value>
+  </data>
+  <data name="CrossRefTypeEndnote" xml:space="preserve">
+    <value>Endnote</value>
+  </data>
+  <data name="CrossRefTypeBookmark" xml:space="preserve">
+    <value>Bookmark</value>
+  </data>
+  <data name="CrossRefTargetLabel" xml:space="preserve">
+    <value>Insert reference to</value>
+  </data>
+  <data name="CrossRefKindLabel" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="CrossRefKindLabelAndNumber" xml:space="preserve">
+    <value>Label and number</value>
+  </data>
+  <data name="CrossRefKindNumber" xml:space="preserve">
+    <value>Number</value>
+  </data>
+  <data name="CrossRefKindText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="CrossRefKindPage" xml:space="preserve">
+    <value>Page number</value>
+  </data>
+  <data name="CrossRefNone" xml:space="preserve">
+    <value>There is nothing of this type to refer to.</value>
+  </data>
+  <data name="CrossRefOk" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="ReasonCrossRefRestricted" xml:space="preserve">
+    <value>This content control holds plain text only, so it cannot hold a cross-reference.</value>
+  </data>
+  <data name="NoteCrossRefGone" xml:space="preserve">
+    <value>The target has changed since the list was made. Open the cross-reference again.</value>
+  </data>
+  <data name="NoteCrossRefInside" xml:space="preserve">
+    <value>A reference cannot stand inside the text it shows.</value>
+  </data>
+  <data name="NoteCrossRefNoNumber" xml:space="preserve">
+    <value>This target has no number to show. Number the headings first, or choose another reference.</value>
+  </data>
+  <data name="NoteCrossRefSeveral" xml:space="preserve">
+    <value>The text of a bookmark across several paragraphs cannot be shown. Choose the page number.</value>
+  </data>
+  <data name="NoteCrossRefNotOffered" xml:space="preserve">
+    <value>This target does not offer that choice.</value>
+  </data>
+  <data name="NoteCrossRefIds" xml:space="preserve">
+    <value>No bookmark name or id is free for the reference.</value>
+  </data>
 </root>

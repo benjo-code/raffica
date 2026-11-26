@@ -72,6 +72,8 @@ public sealed class CaptionCommandTests
 
         public Task<BookmarkRequest?> AskBookmarkAsync(BookmarkContext context) => Task.FromResult<BookmarkRequest?>(null);
 
+        public Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context) => Task.FromResult<CrossRefRequest?>(null);
+
         public Task<CaptionRequest?> AskCaptionAsync(CaptionContext context)
         {
             Asked++;

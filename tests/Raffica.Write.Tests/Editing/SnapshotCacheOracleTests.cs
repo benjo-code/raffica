@@ -387,6 +387,52 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void ACrossReferenceMadeReusedAndUndoneGivesTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => TestEdit.TextOf(p).Length >= 6).Take(3).ToList();
+        Assert.Equal(3, paragraphs.Count);
+        TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
+
+        // A bookmark, a caption and references to both from the last paragraph (a step across the blocks between them), the same target again (the bookmark is reused), then every step undone and redone.
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[0], 1), At(paragraphs[0], 4)), "Mine"));
+        Check("bookmark");
+        Assert.NotNull(editor.InsertCaption(At(paragraphs[1], 0), "Figure", ": a", CaptionPlace.Below, false, "Figure", host));
+        Check("caption");
+        var bookmark = CrossReferences.Targets(model, host, CrossRefTargetKind.Bookmark).Single();
+        var caption = CrossReferences.Targets(model, host, CrossRefTargetKind.Caption).Single();
+        Assert.NotNull(editor.InsertCrossReference(At(paragraphs[2], 2), bookmark, CrossRefKind.Text, host));
+        Check("reference to a bookmark");
+        Assert.NotNull(editor.InsertCrossReference(At(paragraphs[2], 0), caption, CrossRefKind.LabelAndNumber, host));
+        Check("reference to a caption");
+        Assert.NotNull(editor.InsertCrossReference(At(paragraphs[2], 0), bookmark, CrossRefKind.Page, host));
+        Check("reuse");
+        var steps = 0;
+        while (editor.History.CanUndo)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + steps++);
+        }
+
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));

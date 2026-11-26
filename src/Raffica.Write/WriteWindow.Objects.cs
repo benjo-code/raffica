@@ -29,7 +29,7 @@ internal sealed partial class WriteWindow
 
     // The facts of the rules; the sources are made on the first question. Nothing is read before the active tab has an editing session.
     private ObjectCommandFacts ReadObjectFacts(string id) =>
-        WriteCommandIds.IsCaption(id)
+        WriteCommandIds.IsCaption(id) || WriteCommandIds.IsCrossReference(id)
             ? (_fieldFacts ??= new FieldFactsSource()).Read(Workspace.Active, id)
             : (_objects ??= new ObjectFactsSource()).Read(Workspace.Active, id, ActiveView?.Mode == WriteView.Writing);
 

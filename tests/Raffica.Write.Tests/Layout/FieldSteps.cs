@@ -40,6 +40,12 @@ internal enum FieldStepKind
 
     /// <summary>The paragraph of a caption moved to another place of the body, followed by a refresh.</summary>
     MoveCaption,
+
+    /// <summary>A cross-reference of a random choice to a random target (heading, caption, note or bookmark) at a random place, after a refresh that makes every stored result right: the new field must store the independent count's answer before any refresh runs, the layout must equal a full layout and a refresh then finds nothing.</summary>
+    InsertCrossReference,
+
+    /// <summary>The text of a hidden reference bookmark deleted whole (the whole-range rule removes the bookmark): the fields that point at it keep their stored result.</summary>
+    DeleteTarget,
 }
 
 /// <summary>
@@ -78,6 +84,14 @@ internal sealed class FieldSteps
         FieldStepKind.Undo,
         FieldStepKind.Redo,
         FieldStepKind.InsertCaption,
+        FieldStepKind.InsertCrossReference,
+        FieldStepKind.InsertCrossReference,
+        FieldStepKind.InsertCrossReference,
+        FieldStepKind.InsertCrossReference,
+        FieldStepKind.DeleteTarget,
+        FieldStepKind.Undo,
+        FieldStepKind.Redo,
+        FieldStepKind.InsertCrossReference,
         FieldStepKind.TypeInToc,
     ];
 
@@ -150,6 +164,8 @@ internal sealed class FieldSteps
             FieldStepKind.InsertChapterCaption => await InsertCaptionAsync(random, chapter: true, label),
             FieldStepKind.DeleteCaption => await DeleteCaptionAsync(random, label),
             FieldStepKind.MoveCaption => await MoveCaptionAsync(random, label),
+            FieldStepKind.InsertCrossReference => await InsertCrossReferenceAsync(random, label),
+            FieldStepKind.DeleteTarget => await DeleteTargetAsync(random, label),
             FieldStepKind.Undo => Editor.History.CanUndo ? await CheckAsync(Editor.History.Undo(), label, required: true) : Refuse(),
             _ => Editor.History.CanRedo ? await CheckAsync(Editor.History.Redo(), label, required: true) : Refuse(),
         };
@@ -265,6 +281,95 @@ internal sealed class FieldSteps
         }
 
         return found;
+    }
+
+    // A cross-reference: the stored results are made right first (so the new field's number is judged against an exact count, not a stale one), the reference is made, and BEFORE the refresh heals anything every result the independent count
+    // has an answer for in the paragraph of the new field must already be stored. A page reference has no answer in the count; it must be there and be a link.
+    private async Task<bool> InsertCrossReferenceAsync(Random random, string label)
+    {
+        await RefreshAsync(label + " settle", touchedOnly: false);
+        var host = new FakeFieldHost(_model);
+        var kinds = Enum.GetValues<CrossRefTargetKind>().Where(k => CrossReferences.Targets(_model, host, k).Count > 0).ToList();
+        var paragraphs = Paragraphs();
+        if (kinds.Count == 0 || paragraphs.Count == 0)
+        {
+            return Refuse();
+        }
+
+        var targets = CrossReferences.Targets(_model, host, kinds[random.Next(kinds.Count)]);
+        var target = targets[random.Next(targets.Count)];
+        var choices = CrossReferences.Offered(target.Kind);
+        var choice = choices[random.Next(choices.Count)];
+        var paragraph = paragraphs[random.Next(paragraphs.Count)];
+        var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
+        var before = FieldView.InParagraph(paragraph).Count(f => f.Parent is null);
+        var result = Editor.InsertCrossReference(at, target, choice, host);
+        if (!await CheckAsync(result, label, required: false))
+        {
+            return false;
+        }
+
+        var made = result!.Caret.Paragraph;
+        var fields = FieldView.InParagraph(made).Where(f => f.Parent is null).ToList();
+        Assert.True(fields.Count == before + 1, $"{label}: the paragraph of a new cross-reference holds {fields.Count} fields, not {before + 1}");
+        Assert.True(fields.Any(f => f.Support.IsSupported && f.Instruction.Has("h") && f.Support.Kind is FieldKind.Ref or FieldKind.NoteRef or FieldKind.PageRef), label + ": no supported link field in the paragraph of the new cross-reference");
+        var checkedFields = 0;
+        foreach (var field in ReferenceFields.Expected(_model, host).Where(f => ReferenceEquals(f.Paragraph, made) && f.Text is not null))
+        {
+            Assert.True(string.Equals(field.Text, ReferenceFields.Stored(made, field.Ordinal), StringComparison.Ordinal), $"{label}: a new cross-reference stores another result than the count gives (expected \"{field.Text}\", stored \"{ReferenceFields.Stored(made, field.Ordinal)}\", {field.Instruction}, {choice} of {target.Kind})");
+            checkedFields++;
+        }
+
+        if (choice != CrossRefKind.Page)
+        {
+            Assert.True(checkedFields > 0, $"{label}: the independent count has no answer for the new {choice} reference to a {target.Kind}");
+        }
+
+        return await RefreshAsync(label + " refresh", touchedOnly: true);
+    }
+
+    // The text of a hidden reference bookmark is deleted whole: the bookmark goes, and the fields that pointed at it keep the result they stored (the count has no answer for them, so the refresh must leave them alone).
+    private async Task<bool> DeleteTargetAsync(Random random, string label)
+    {
+        var marks = BookmarkOperations.Scan(_model, (s, p) => _layout.ProjectionHost(s, p))
+            .Where(f => f.Name.StartsWith("_Ref", StringComparison.Ordinal) && f.EndParagraph is not null && ReferenceEquals(f.StartParagraph, f.EndParagraph) && f.EndOffset > f.StartOffset)
+            .ToList();
+        if (marks.Count == 0)
+        {
+            return Refuse();
+        }
+
+        var mark = marks[random.Next(marks.Count)];
+        var kept = new List<(Paragraph Paragraph, int Ordinal, string? Stored)>();
+        foreach (var paragraph in Paragraphs())
+        {
+            var all = FieldView.InParagraph(paragraph);
+            for (var i = 0; i < all.Count; i++)
+            {
+                if (all[i].Parent is null && all[i].Support.Kind is FieldKind.Ref or FieldKind.NoteRef or FieldKind.PageRef && string.Equals(all[i].Instruction.Argument, mark.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    kept.Add((paragraph, i, ReferenceFields.Stored(paragraph, i)));
+                }
+            }
+        }
+
+        var range = new TextRange(new TextPosition(StoryRef.Body, mark.StartParagraph, mark.StartOffset), new TextPosition(StoryRef.Body, mark.EndParagraph!, mark.EndOffset));
+        if (!await CheckAsync(Editor.Delete(range), label, required: false))
+        {
+            return false;
+        }
+
+        Assert.DoesNotContain(mark.Name, BookmarkOperations.AllNames(_model));
+        var done = await RefreshAsync(label + " refresh", touchedOnly: true);
+        foreach (var (paragraph, ordinal, stored) in kept)
+        {
+            if (BookmarkOperations.ParagraphsOf(_model.Body.Blocks).Any(p => ReferenceEquals(p, paragraph)) && FieldView.InParagraph(paragraph).Count > ordinal && string.Equals(FieldView.InParagraph(paragraph)[ordinal].Instruction.Argument, mark.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                Assert.True(string.Equals(stored, ReferenceFields.Stored(paragraph, ordinal), StringComparison.Ordinal), label + ": a field whose bookmark was deleted did not keep its stored result");
+            }
+        }
+
+        return done;
     }
 
     // A caption's paragraph deleted with its paragraph break (the range runs from the end of the paragraph before it); a caption that has no paragraph of the same list before it is emptied.
@@ -442,7 +547,7 @@ internal sealed class FieldSteps
         var markers = BookmarkOperations.ParagraphsOf(_model.Body.Blocks).SelectMany(p => BookmarkOperations.InlinesOf(p.Inlines)).ToList();
         var starts = markers.OfType<BookmarkStart>().ToList();
         var ends = markers.OfType<BookmarkEnd>().ToList();
-        foreach (var made in starts.Where(s => s.Name.StartsWith("Mark", StringComparison.Ordinal)))
+        foreach (var made in starts.Where(s => s.Name.StartsWith("Mark", StringComparison.Ordinal) || s.Name.StartsWith("_Ref", StringComparison.Ordinal)))
         {
             Assert.True(ends.Count(e => e.Id == made.Id) == 1, $"{label}: the bookmark {made.Name} has {ends.Count(e => e.Id == made.Id)} ends");
             Assert.True(starts.Count(s => s.Id == made.Id) == 1, $"{label}: the id {made.Id} is used by more than one bookmark");

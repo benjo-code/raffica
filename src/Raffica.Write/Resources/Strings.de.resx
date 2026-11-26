@@ -2343,4 +2343,76 @@
   <data name="NoteCaptionChapter" xml:space="preserve">
     <value>Eine Kapitelnummer braucht nummerierte Überschriften und eine Überschrift 1 oberhalb der Beschriftung.</value>
   </data>
+  <data name="CmdCrossReference" xml:space="preserve">
+    <value>Querverweis</value>
+  </data>
+  <data name="DescCrossReference" xml:space="preserve">
+    <value>Fügt einen Link auf eine Überschrift, Beschriftung, Fußnote, Endnote oder Textmarke ein, der Nummer, Text oder Seite zeigt und jeder Änderung folgt.</value>
+  </data>
+  <data name="CrossRefTitle" xml:space="preserve">
+    <value>Querverweis einfügen</value>
+  </data>
+  <data name="CrossRefTypeLabel" xml:space="preserve">
+    <value>Verweistyp</value>
+  </data>
+  <data name="CrossRefTypeHeading" xml:space="preserve">
+    <value>Überschrift</value>
+  </data>
+  <data name="CrossRefTypeCaption" xml:space="preserve">
+    <value>Beschriftung</value>
+  </data>
+  <data name="CrossRefTypeFootnote" xml:space="preserve">
+    <value>Fußnote</value>
+  </data>
+  <data name="CrossRefTypeEndnote" xml:space="preserve">
+    <value>Endnote</value>
+  </data>
+  <data name="CrossRefTypeBookmark" xml:space="preserve">
+    <value>Textmarke</value>
+  </data>
+  <data name="CrossRefTargetLabel" xml:space="preserve">
+    <value>Verweis einfügen auf</value>
+  </data>
+  <data name="CrossRefKindLabel" xml:space="preserve">
+    <value>Anzeigen</value>
+  </data>
+  <data name="CrossRefKindLabelAndNumber" xml:space="preserve">
+    <value>Bezeichnung und Nummer</value>
+  </data>
+  <data name="CrossRefKindNumber" xml:space="preserve">
+    <value>Nummer</value>
+  </data>
+  <data name="CrossRefKindText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="CrossRefKindPage" xml:space="preserve">
+    <value>Seitenzahl</value>
+  </data>
+  <data name="CrossRefNone" xml:space="preserve">
+    <value>Von diesem Typ gibt es nichts, worauf verwiesen werden kann.</value>
+  </data>
+  <data name="CrossRefOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="ReasonCrossRefRestricted" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und kann daher keinen Querverweis aufnehmen.</value>
+  </data>
+  <data name="NoteCrossRefGone" xml:space="preserve">
+    <value>Das Ziel hat sich seit dem Erstellen der Liste geändert. Öffnen Sie den Querverweis erneut.</value>
+  </data>
+  <data name="NoteCrossRefInside" xml:space="preserve">
+    <value>Ein Verweis kann nicht in dem Text stehen, den er anzeigt.</value>
+  </data>
+  <data name="NoteCrossRefNoNumber" xml:space="preserve">
+    <value>Dieses Ziel hat keine Nummer, die angezeigt werden könnte. Nummerieren Sie zuerst die Überschriften oder wählen Sie einen anderen Verweis.</value>
+  </data>
+  <data name="NoteCrossRefSeveral" xml:space="preserve">
+    <value>Der Text einer Textmarke über mehrere Absätze kann nicht angezeigt werden. Wählen Sie die Seitenzahl.</value>
+  </data>
+  <data name="NoteCrossRefNotOffered" xml:space="preserve">
+    <value>Das Ziel bietet diese Auswahl nicht an.</value>
+  </data>
+  <data name="NoteCrossRefIds" xml:space="preserve">
+    <value>Für den Verweis ist kein Name und keine Kennung für Textmarken mehr frei.</value>
+  </data>
 </root>
