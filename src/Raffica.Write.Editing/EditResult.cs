@@ -13,7 +13,11 @@ namespace Raffica.Write.Editing;
 /// <paramref name="Sections"/> is the section properties an operation (or an undo or redo) swapped, with the flag of left and right pages; the layout is then started over (<c>DocumentLayout.Resection</c>) instead of being given the block changes.
 /// <paramref name="Objects"/> is the notes (later also the pictures) an operation, an undo or a redo added to or removed from the document, together with the block change that holds their references; it needs no attribution (the notes parts are written afresh at every save and copy). The layout is given the block change as usual (<c>DocumentLayout.ApplyEdit</c>), or starts over when the result also carries a style.
 /// <paramref name="DerivedChanges"/> are the structural changes of field refreshes that an undo or redo reverted or replayed together with its step (see <see cref="EditHistory.AttachDerived"/>), in the order they were applied;
-/// they are already told to the document as derived changes and are null for every result that carries none. A consumer that keeps block indices (the layout) must account for them.
+/// they are already told to the document as derived changes and are null for every result that carries none. A consumer that keeps block indices (the layout) must account for them. <b>Order of application:</b> on an undo the
+/// derived changes are reverted first (last record first) and the step is undone afterwards, so the indices of <paramref name="Changes"/> are those of the document after the revert and the indices of
+/// <paramref name="DerivedChanges"/> are those of the document before the step was undone; on a redo the step is redone first and then the records are replayed (first record first), so <paramref name="DerivedChanges"/>
+/// indices are those after the step. A refused undo returns null and leaves the blocks as they were (the reverted records are put back); only when that put-back cannot be applied either, the result carries
+/// every change made in <paramref name="DerivedChanges"/> and no step changes.
 /// </summary>
 public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null, StyleChange? Style = null, bool KeepSelection = false, BlockMove? Move = null, SectionChange? Sections = null, ObjectChange? Objects = null, IReadOnlyList<BlockChange>? DerivedChanges = null)
 {

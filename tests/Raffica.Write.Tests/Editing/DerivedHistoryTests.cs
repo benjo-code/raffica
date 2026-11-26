@@ -181,6 +181,68 @@ public sealed class DerivedHistoryTests
     }
 
     [Fact]
+    public void ARefusedUndoOfAStyleStepPutsTheRevertedRecordsBack()
+    {
+        var document = NewDocument();
+        var editor = EditorOf(document);
+        Assert.True(Changed(editor.SetHeadingNumbering(true, At(document, 0))));
+        Assert.Equal(AttachOutcome.Attached, editor.History.AttachDerived(TwoAbove(document)));
+        var stamp = document.Edits.Stamp;
+        var untouched = Snap(document, "typing");
+        document.Styles = null;
+
+        Assert.Null(editor.History.Undo());
+
+        Assert.Equal(untouched, Snap(document, "typing"));
+        Assert.Equal(stamp.Revision, document.Edits.Revision);
+        Assert.True(document.Edits.DerivedVersion > stamp.DerivedVersion, "consumers are told that blocks were swapped and swapped back");
+        Assert.False(editor.History.CanUndo);
+    }
+
+    [Fact]
+    public void ARefusedUndoOfAMoveStepPutsTheRevertedRecordsBack()
+    {
+        var document = NewDocument();
+        var editor = EditorOf(document);
+        Assert.True(Changed(editor.MoveBlocks(0, 2, 7)));
+        Assert.Equal(AttachOutcome.Attached, editor.History.AttachDerived(TwoAbove(document)));
+        while (document.Body.Blocks.Count > 4)
+        {
+            document.Body.Blocks.RemoveAt(document.Body.Blocks.Count - 1);
+        }
+
+        var untouched = Snap(document, "typing");
+
+        Assert.Null(editor.History.Undo());
+
+        Assert.Equal(untouched, Snap(document, "typing"));
+        Assert.False(editor.History.CanUndo);
+    }
+
+    [Fact]
+    public void ARecordThatFailsMidwayLeavesTheDocumentAsItWas()
+    {
+        var document = NewDocument();
+        var editor = EditorOf(document);
+        Assert.True(Changed(editor.InsertText(new TextRange(At(document, 3, 1), At(document, 3, 1)), "x")));
+        Assert.Equal(AttachOutcome.Attached, editor.History.AttachDerived(TwoAbove(document, "T")));
+        Assert.Equal(AttachOutcome.Attached, editor.History.AttachDerived(TwoAbove(document, "U")));
+
+        // Three blocks left: the second record (made last, reverted first) fits, the first one then does not.
+        while (document.Body.Blocks.Count > 3)
+        {
+            document.Body.Blocks.RemoveAt(document.Body.Blocks.Count - 1);
+        }
+
+        var untouched = Snap(document, "typing");
+
+        Assert.Null(editor.History.Undo());
+
+        Assert.Equal(untouched, Snap(document, "typing"));
+        Assert.False(editor.History.CanUndo);
+    }
+
+    [Fact]
     public void TwoRecordsOnOneStepAreRevertedLastToFirst()
     {
         var document = NewDocument();

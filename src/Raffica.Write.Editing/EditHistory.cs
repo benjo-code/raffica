@@ -140,17 +140,15 @@ public sealed class EditHistory
             return StepMove(step, undo: true);
         }
 
-        var derivedUndone = RevertDerived(step);
-        if (derivedUndone is null)
+        var derivedUndone = RevertDerived(step, out var complete);
+        if (!complete)
         {
-            Clear();
-            return null;
+            return RollBackDerived(step, derivedUndone);
         }
 
         if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !ObjectsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
         {
-            Clear();
-            return null;
+            return RollBackDerived(step, derivedUndone);
         }
 
         Swap(container, step.First, step.New.Length, step.Old, step.Sections?.CarriersBefore);
@@ -267,11 +265,12 @@ public sealed class EditHistory
         return AttachOutcome.Attached;
     }
 
-    // Reverts the records of a step, last to first, and returns the block changes this made (in that order), or null when a record no longer fits (the caller clears the history; the records reverted so far were
-    // exact inverses, so the document stays consistent). A step without records gives an empty list.
-    private List<BlockChange>? RevertDerived(Step step)
+    // Reverts the records of a step, last to first, and returns the block changes this made, in that order. <paramref name="complete"/> is false when a record no longer fits: the list then holds the records
+    // reverted so far (the caller rolls them back). A step without records gives an empty, complete list.
+    private List<BlockChange> RevertDerived(Step step, out bool complete)
     {
         var changes = new List<BlockChange>();
+        complete = true;
         if (step.Derived is not { } entries)
         {
             return changes;
@@ -282,7 +281,8 @@ public sealed class EditHistory
             var entry = entries[i];
             if (Root(entry.Story) is not { } root || FollowPath(root, entry.Path) is not { } container || !Fits(container, entry.First, entry.New.Length))
             {
-                return null;
+                complete = false;
+                return changes;
             }
 
             Swap(container, entry.First, entry.New.Length, entry.Old);
@@ -292,20 +292,22 @@ public sealed class EditHistory
         return changes;
     }
 
-    // Replays the records of a step, first to last (the stored blocks, never a new refresh). A record that no longer fits ends the replay and clears the history; the step itself is already redone.
-    private List<BlockChange> ReplayDerived(Step step)
+    // Replays the records of a step from <paramref name="start"/> on, in the order they were made (the stored blocks, never a new refresh), and stops at the first one that no longer fits.
+    private List<BlockChange> ReplayEntries(Step step, int start, out bool complete)
     {
         var changes = new List<BlockChange>();
+        complete = true;
         if (step.Derived is not { } entries)
         {
             return changes;
         }
 
-        foreach (var entry in entries)
+        for (var i = start; i < entries.Count; i++)
         {
+            var entry = entries[i];
             if (Root(entry.Story) is not { } root || FollowPath(root, entry.Path) is not { } container || !Fits(container, entry.First, entry.Old.Length))
             {
-                Clear();
+                complete = false;
                 return changes;
             }
 
@@ -314,6 +316,39 @@ public sealed class EditHistory
         }
 
         return changes;
+    }
+
+    // The redo of a step: its records are replayed after it. A record that no longer fits ends the replay and clears the history; the step itself is already redone and the result tells what was replayed.
+    private List<BlockChange> ReplayDerived(Step step)
+    {
+        var changes = ReplayEntries(step, 0, out var complete);
+        if (!complete)
+        {
+            Clear();
+        }
+
+        return changes;
+    }
+
+    // An undo that cannot go on after <paramref name="reverted"/> records were reverted (a later record, or the step itself, no longer fits): the reverted records are replayed in their original order so that
+    // the document is as it was before the attempt, the history is cleared and null is returned (nothing happened). The swap puts equal clones in the document, so consumers are told through the derived version.
+    // If a roll-back replay cannot be applied either, the document is as consistent as the blocks allow and the result carries every change made (no step changes), so that nobody works with stale blocks.
+    private EditResult? RollBackDerived(Step step, List<BlockChange> reverted)
+    {
+        if (reverted.Count == 0)
+        {
+            Clear();
+            return null;
+        }
+
+        var back = ReplayEntries(step, step.Derived!.Count - reverted.Count, out var complete);
+        List<BlockChange> all = [.. reverted, .. back];
+        _document.Edits.RaiseDerived();
+        _document.Edits.AttributeDerived(all);
+        var root = Root(step.Story);
+        var first = root is null ? null : TextEditor.FirstParagraph(root);
+        Clear();
+        return complete || first is null ? null : new EditResult(new TextPosition(step.Story, first, 0), [], DerivedChanges: all);
     }
 
     // What an undo or redo did to derived content is told to the document (the trackers mark the blocks dirty, the derived version rises, the revision does not) and handed on in the result for the layout.
@@ -573,17 +608,19 @@ public sealed class EditHistory
     {
         var forward = step.Move!;
         var move = undo ? forward.Inverse : forward;
-        var derivedUndone = undo ? RevertDerived(step) : null;
-        if (undo && derivedUndone is null)
+        var derivedUndone = new List<BlockChange>();
+        if (undo)
         {
-            Clear();
-            return null;
+            derivedUndone = RevertDerived(step, out var complete);
+            if (!complete)
+            {
+                return RollBackDerived(step, derivedUndone);
+            }
         }
 
         if (Resolve(step) is not { } container || !move.IsValidFor(container.Count))
         {
-            Clear();
-            return null;
+            return RollBackDerived(step, derivedUndone);
         }
 
         var old = move.ApplyTo(container);
@@ -606,7 +643,7 @@ public sealed class EditHistory
         _open = null;
         var result = move.ResultIn(container, old);
         result.Attribute(_document);
-        return WithDerived(result, undo ? derivedUndone! : ReplayDerived(step));
+        return WithDerived(result, undo ? derivedUndone : ReplayDerived(step));
     }
 
     // A style change without a block change (the paragraph held nothing to move, or a switch that touches styles only): the step has no blocks, only the caret and the style swap.
