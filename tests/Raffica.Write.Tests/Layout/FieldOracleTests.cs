@@ -111,6 +111,11 @@ public sealed class FieldOracleTests
         + P(Run("Figure ") + Field("SEQ Figure \\s 1", "5") + Run(" and table ") + Field("SEQ Table", "8"))
         + P("<w:bookmarkStart w:id=\"2\" w:name=\"Note1\"/><w:r><w:footnoteReference w:id=\"4\"/></w:r><w:bookmarkEnd w:id=\"2\"/>" + Run(" ") + Field("NOTEREF Note1", "9"))
         + P(Run("Figure ") + Field("SEQ Figure \\s 1", "5") + Run(" ") + Field("REF Cap1 \\h", "x"))
+        + "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid><w:tr><w:tc><w:tcPr/>" + P(Run("Table ") + Field("SEQ Table", "4"), "Caption") + "</w:tc></w:tr></w:tbl>"
+        + P("<w:sdt><w:sdtPr/><w:sdtContent>" + Run("Figure ") + Field("SEQ Figure \\s 1", "6") + "</w:sdtContent></w:sdt>" + Run(" ") + Field("SEQ Roman \\* roman", "x") + Run(" ") + Field("SEQ Roman \\* roman", "x"))
+        + P(Run("Again ") + Field("SEQ Figure \\c", "2") + Run(" ") + Field("DATE", "today") + Run(" ") + Field("REF Missing \\h", "kept"))
+        + "<w:sdt><w:sdtPr/><w:sdtContent>" + P(Run("Table ") + Field("SEQ Table", "3"), "Caption") + "</w:sdtContent></w:sdt>"
+        + P(Run("end"))
         + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>";
 
     private static WordDocument WithFields()

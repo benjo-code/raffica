@@ -123,10 +123,10 @@ public sealed class FieldRefreshHistoryTests
 
         var result = editor.RefreshFields(host, RefreshScope.OrderBased);
 
-        // Eight fields; the chapter reference has no label to show in a document with unnumbered headings and keeps its stored result.
-        Assert.Equal(8, expected.Count);
-        Assert.Single(expected, f => f.Text is null);
-        Assert.Equal(7, ReferenceFields.AssertStoredEqualsExpected(document, host, "every covered field"));
+        // Fifteen fields (a table cell, content controls, roman, \c, a missing bookmark included); the chapter reference has no label in a document with unnumbered headings and the reference to a missing bookmark has no target: both keep their stored result.
+        Assert.Equal(15, expected.Count);
+        Assert.Equal(2, expected.Count(f => f.Text is null));
+        Assert.Equal(13, ReferenceFields.AssertStoredEqualsExpected(document, host, "every covered field"));
         Assert.True(result.Written > 0);
         Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
     }

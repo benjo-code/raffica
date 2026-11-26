@@ -22,6 +22,9 @@ internal enum FieldStepKind
 
     /// <summary>A field refresh over the whole body (SEQ, STYLEREF, REF, NOTEREF): the layout must equal a full layout and every result must equal the independent count.</summary>
     Refresh,
+
+    /// <summary>A field refresh given only the block changes of the steps since the last refresh, as the session passes them (the whole body after a style or section step).</summary>
+    RefreshTouched,
 }
 
 /// <summary>
@@ -41,11 +44,16 @@ internal sealed class FieldSteps
         FieldStepKind.Bookmark,
         FieldStepKind.Refresh,
         FieldStepKind.DeleteRange,
-        FieldStepKind.Refresh,
+        FieldStepKind.RefreshTouched,
         FieldStepKind.Undo,
+        FieldStepKind.RefreshTouched,
         FieldStepKind.Redo,
+        FieldStepKind.RefreshTouched,
         FieldStepKind.DeleteBookmark,
+        FieldStepKind.RefreshTouched,
         FieldStepKind.Undo,
+        FieldStepKind.Undo,
+        FieldStepKind.Refresh,
         FieldStepKind.Undo,
     ];
 
@@ -54,6 +62,10 @@ internal sealed class FieldSteps
     private readonly LayoutOptions _options;
     private FieldStepKind _kind;
     private int _names;
+
+    // The block changes of the steps since the last refresh; the whole body is pending at the start (the stored results are stale) and after a step that names no blocks (style, sections).
+    private readonly List<BlockChange> _pending = [];
+    private bool _everythingPending = true;
 
     public FieldSteps(WordDocument model, DocumentLayout layout, LayoutOptions options)
     {
@@ -107,7 +119,8 @@ internal sealed class FieldSteps
             FieldStepKind.Bookmark => await AddAsync(random, label),
             FieldStepKind.DeleteRange => await DeleteRangeAsync(random, label),
             FieldStepKind.DeleteBookmark => await DeleteBookmarkAsync(random, label),
-            FieldStepKind.Refresh => await RefreshAsync(label),
+            FieldStepKind.Refresh => await RefreshAsync(label, touchedOnly: false),
+            FieldStepKind.RefreshTouched => await RefreshAsync(label, touchedOnly: true),
             FieldStepKind.Undo => Editor.History.CanUndo ? await CheckAsync(Editor.History.Undo(), label, required: true) : Refuse(),
             _ => Editor.History.CanRedo ? await CheckAsync(Editor.History.Redo(), label, required: true) : Refuse(),
         };
@@ -186,6 +199,15 @@ internal sealed class FieldSteps
 
         if (result.Style is not null || result.Sections is not null)
         {
+            _everythingPending = true;
+        }
+        else
+        {
+            _pending.AddRange(result.Changes);
+        }
+
+        if (result.Style is not null || result.Sections is not null)
+        {
             _layout.Restyle(2);
         }
         else
@@ -205,10 +227,12 @@ internal sealed class FieldSteps
     }
 
     // A refresh is brought into the layout as the session does; whether or not it wrote, the layout must equal a full layout and every result the oracle has an answer for must be stored; a second refresh finds nothing.
-    private async Task<bool> RefreshAsync(string label)
+    private async Task<bool> RefreshAsync(string label, bool touchedOnly)
     {
         var host = new FakeFieldHost(_model);
-        var result = Editor.RefreshFields(host, RefreshScope.OrderBased);
+        var result = Editor.RefreshFields(host, RefreshScope.OrderBased, touchedOnly && !_everythingPending ? [.. _pending] : null);
+        _pending.Clear();
+        _everythingPending = false;
         foreach (var change in result.Content)
         {
             _layout.ApplyEdit(change, Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1));

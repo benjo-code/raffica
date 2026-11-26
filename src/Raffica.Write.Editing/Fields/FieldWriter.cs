@@ -6,6 +6,54 @@ namespace Raffica.Write.Editing;
 /// <summary>Writes the result of a field and makes new complex fields. The instruction of an existing field is never touched.</summary>
 public static class FieldWriter
 {
+    /// <summary>True when <see cref="SetResult"/> can put a result into the field at all: it has a result position (a separate character in its own run, a closed field, begin and end in one list).</summary>
+    public static bool CanWrite(FieldSpan field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        return Locate(field, out _, out _, out _);
+    }
+
+    private static bool Locate(FieldSpan field, out IList<Inline> list, out int from, out int to)
+    {
+        list = [];
+        from = 0;
+        to = 0;
+        var info = field.Info;
+        if (info?.ResultContainer is not { } container)
+        {
+            return false;
+        }
+
+        list = container;
+        if (info.Simple is not null)
+        {
+            to = list.Count;
+            return true;
+        }
+
+        if (!info.IsComplete || info.SeparateRun is null || info.EndRun is null)
+        {
+            return false;
+        }
+
+        var separate = list.IndexOf(info.SeparateRun);
+        var end = list.IndexOf(info.EndRun);
+        if (separate < 0 || end <= separate)
+        {
+            return false;
+        }
+
+        // A separate or end character that shares its run with other content (old result text) is not split: refused, never a mix of old and new text.
+        if (info.SeparateRun.Content is not [FieldChar] || info.EndRun.Content is not [FieldChar])
+        {
+            return false;
+        }
+
+        from = separate + 1;
+        to = end;
+        return true;
+    }
+
     /// <summary>
     /// Replaces the result of the field with one run that holds <paramref name="text"/> and keeps the formatting of the first result run (a nested field's runs are replaced with the rest).
     /// False, and nothing changed, when the result already reads <paramref name="text"/> (as one plain run), or when the field has no result position
@@ -16,42 +64,9 @@ public static class FieldWriter
         ArgumentNullException.ThrowIfNull(paragraph);
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(text);
-        var info = field.Info;
-        var list = info?.ResultContainer;
-        if (info is null || list is null)
+        if (!Locate(field, out var list, out var from, out var to))
         {
             return false;
-        }
-
-        int from;
-        int to;
-        if (info.Simple is not null)
-        {
-            from = 0;
-            to = list.Count;
-        }
-        else
-        {
-            if (!info.IsComplete || info.SeparateRun is null || info.EndRun is null)
-            {
-                return false;
-            }
-
-            var separate = list.IndexOf(info.SeparateRun);
-            var end = list.IndexOf(info.EndRun);
-            if (separate < 0 || end <= separate)
-            {
-                return false;
-            }
-
-            // A separate or end character that shares its run with other content (old result text) is not split: refused, never a mix of old and new text.
-            if (info.SeparateRun.Content is not [FieldChar] || info.EndRun.Content is not [FieldChar])
-            {
-                return false;
-            }
-
-            from = separate + 1;
-            to = end;
         }
 
         // Only the inlines that carry the result are replaced; bookmark and comment markers, unknown inlines and content controls stay where they are.

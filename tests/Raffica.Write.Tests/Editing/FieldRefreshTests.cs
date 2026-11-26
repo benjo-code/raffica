@@ -297,6 +297,78 @@ public sealed class FieldRefreshTests
     }
 
     [Fact]
+    public void ANestedContainerChangeMakesEveryFieldATarget()
+    {
+        // The edit was in a table cell or a content control: its change names that nested list, not the body, so the whole body is refreshed.
+        var document = Doc(Seq("SEQ Figure"), Seq("SEQ Figure"), Seq("SEQ Figure"));
+        var nested = new BlockChange(StoryRef.Body, new List<Block>(), 0, 1, 1, [document.Body.Blocks[1]]);
+
+        var result = Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased, [nested]);
+
+        Assert.Equal(["1", "2", "3"], new[] { Stored(document, 0), Stored(document, 1), Stored(document, 2) });
+        Assert.Equal(3, result.Written);
+    }
+
+    [Fact]
+    public void AChangeOfAnotherStoryTouchesNothingInTheBody()
+    {
+        var document = Doc(Seq("SEQ Figure"));
+        var other = new BlockChange(new StoryRef(StoryKind.HeaderFooter, "h1"), new List<Block>(), 0, 1, 1, [document.Body.Blocks[0]]);
+
+        var result = Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased, [other]);
+
+        Assert.Equal(0, result.Written);
+        Assert.Equal("99", Stored(document, 0));
+    }
+
+    [Fact]
+    public void ANumberedParagraphInATouchedBlockMakesEveryReferenceATarget()
+    {
+        var item = P(Run("a"), numbered: true);
+        var document = Doc(
+            item,
+            P("<w:bookmarkStart w:id=\"1\" w:name=\"Mark\"/>" + Run("b") + "<w:bookmarkEnd w:id=\"1\"/>", numbered: true),
+            P(Run("see ") + Field("REF Mark \\n", "old")));
+        // The change names the first list item only (a bookmark and a heading are not in it), yet the label of the second item depends on it.
+        var touched = new[] { new BlockChange(StoryRef.Body, document.Body.Blocks, 0, 1, 1, [document.Body.Blocks[0]]) };
+
+        var result = Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased, touched);
+
+        Assert.Equal("2", Stored(document, 2));
+        Assert.Equal(1, result.Written);
+    }
+
+    [Fact]
+    public void ARemovedNumberedParagraphIsFoundInTheOldBlocks()
+    {
+        var document = Doc(
+            P("<w:bookmarkStart w:id=\"1\" w:name=\"Mark\"/>" + Run("b") + "<w:bookmarkEnd w:id=\"1\"/>", numbered: true),
+            P(Run("see ") + Field("REF Mark \\n", "old")),
+            P(Run("tail")));
+        var removed = (Paragraph)LayoutModel.Document(P(Run("gone"), numbered: true)).Body.Blocks[0];
+        var touched = new[] { new BlockChange(StoryRef.Body, document.Body.Blocks, 2, 0, 0, [removed]) };
+
+        Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased, touched);
+
+        Assert.Equal("1", Stored(document, 1));
+    }
+
+    [Fact]
+    public void AResultThatCannotBeWrittenIsCountedAsNotUpdated()
+    {
+        // A complex field with no separate character has no result position: Write cannot put a result there.
+        var noResult = "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> SEQ Figure </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
+        var document = Doc(P(Run("Figure ") + noResult));
+        var before = Bytes(document);
+
+        var result = Refresh(document);
+
+        Assert.Equal(1, result.NotUpdated);
+        Assert.Equal(0, result.Written);
+        Assert.Equal(before, Bytes(document));
+    }
+
+    [Fact]
     public void NoMessageHoldsDocumentText()
     {
         var document = Doc(P(Run("see ") + Field("REF SecretName \\h", "SecretStale")));

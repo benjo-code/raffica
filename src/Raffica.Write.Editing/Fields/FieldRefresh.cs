@@ -32,7 +32,7 @@ internal static class FieldRefresh
         ArgumentNullException.ThrowIfNull(host);
         _ = scope;
         var body = document.Body.Blocks;
-        var targets = Targets(body, touched);
+        var targets = Targets(document, host, touched);
         if (targets is { Count: 0 })
         {
             return new FieldRefreshResult([], null, 0, 0, true);
@@ -51,21 +51,28 @@ internal static class FieldRefresh
         return new FieldRefreshResult(changes, null, notUpdated, state.Written, true);
     }
 
-    // Null means every block. Otherwise the top-level indices of the touched blocks of the body, or every block when one of them (before or after the change) holds something other results depend on.
-    private static HashSet<int>? Targets(IList<Block> body, IReadOnlyList<BlockChange>? touched)
+    // Null means every block. Otherwise the top-level indices of the touched blocks of the body, or every block when one of them (before or after the change) holds something other results depend on,
+    // or when a change names a nested list of the body (a table cell, a content control): the enclosing block is not known there, so the whole body is walked.
+    private static HashSet<int>? Targets(WordDocument document, IFieldHost host, IReadOnlyList<BlockChange>? touched)
     {
         if (touched is null)
         {
             return null;
         }
 
+        var body = document.Body.Blocks;
         var indices = new HashSet<int>();
         var blocks = new List<Block>();
         foreach (var change in touched)
         {
-            if (!ReferenceEquals(change.Container, body))
+            if (change.Story.Kind != StoryKind.Body)
             {
                 continue;
+            }
+
+            if (!ReferenceEquals(change.Container, body))
+            {
+                return null;
             }
 
             blocks.AddRange(change.OldBlocks);
@@ -79,15 +86,15 @@ internal static class FieldRefresh
             }
         }
 
-        return blocks.Any(DependedOn) ? null : indices;
+        return blocks.Any(b => DependedOn(b, document, host)) ? null : indices;
     }
 
-    // A block that holds a heading, a bookmark marker, a note reference or a SEQ field.
-    private static bool DependedOn(Block block)
+    // A block that holds a heading, a bookmark marker, a note reference, a SEQ field or a numbered paragraph (its label can move the labels of other paragraphs).
+    private static bool DependedOn(Block block, WordDocument document, IFieldHost host)
     {
         foreach (var paragraph in BookmarkOperations.ParagraphsOf([block]))
         {
-            if (HeadingLevel(paragraph) is not null)
+            if (HeadingLevel(paragraph) is not null || IsNumbered(paragraph, document) || host.NumberLabel(paragraph) is not null)
             {
                 return true;
             }
@@ -109,6 +116,30 @@ internal static class FieldRefresh
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static readonly System.Xml.Linq.XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+    // A direct numPr, or one in the paragraph's style or the styles it is based on (a numPr with numId 0 is no list and still counts: the change may have switched it).
+    private static bool IsNumbered(Paragraph paragraph, WordDocument document)
+    {
+        if (paragraph.Properties.Get(W + "numPr") is not null)
+        {
+            return true;
+        }
+
+        var seen = 0;
+        for (var style = paragraph.Properties.StyleId is { } id ? document.Styles?.Find(id) : null; style is not null && seen < 32; seen++)
+        {
+            if (style.ParagraphProperties.Get(W + "numPr") is not null)
+            {
+                return true;
+            }
+
+            style = style.BasedOn is { } parent ? document.Styles?.Find(parent) : null;
         }
 
         return false;
@@ -279,7 +310,7 @@ internal static class FieldRefresh
                     }
                     else if (inTarget)
                     {
-                        Write(top, paragraph, span, text);
+                        Write(top, paragraph, span, text, countRefusal: true);
                     }
                 }
 
@@ -317,7 +348,7 @@ internal static class FieldRefresh
             return counter;
         }
 
-        private bool Write(int top, Paragraph paragraph, FieldSpan span, string text)
+        private bool Write(int top, Paragraph paragraph, FieldSpan span, string text, bool countRefusal)
         {
             if (!_olds.ContainsKey(top))
             {
@@ -326,6 +357,8 @@ internal static class FieldRefresh
 
             if (!FieldWriter.SetResult(paragraph, span, text))
             {
+                // False also means "already shows this text"; only a field with no place for a result is one Write could not update.
+                NotUpdated += countRefusal && !FieldWriter.CanWrite(span) ? 1 : 0;
                 return false;
             }
 
@@ -356,7 +389,7 @@ internal static class FieldRefresh
                         }
                         else
                         {
-                            wrote |= Write(top, paragraph, span, text);
+                            wrote |= Write(top, paragraph, span, text, countRefusal: pass == 0);
                         }
                     }
                 }
