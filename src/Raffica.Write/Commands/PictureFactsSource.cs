@@ -51,7 +51,7 @@ internal static class PictureWording
 
 /// <summary>
 /// Reads <see cref="PictureCommandFacts"/> for the rules of the picture commands, lazily per command like <see cref="TableFactsSource"/>: nothing exists before the first question and nothing is read for a tab
-/// without an editing session (a prefix document is answered from a flag). An answer is remembered for the model, its revision, the text selection and the object selection, so a refresh of the ribbon asks the
+/// without an editing session (a prefix document is answered from a flag). An answer is remembered for the model, its edit stamp, the text selection and the object selection, so a refresh of the ribbon asks the
 /// editor once per command and change, never per key and never per frame. A picture is selected in the page view only, so in the writing view the commands that need one say so.
 /// </summary>
 internal sealed class PictureFactsSource

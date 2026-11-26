@@ -2271,4 +2271,16 @@
   <data name="NoteBookmarkMissing" xml:space="preserve">
     <value>Diese Textmarke gibt es nicht mehr.</value>
   </data>
+  <data name="FieldsBarOne" xml:space="preserve">
+    <value>1 Feld verwendet Optionen, die Write nicht aktualisiert; es zeigt das zuletzt von Word gespeicherte Ergebnis.</value>
+  </data>
+  <data name="FieldsBarManyFormat" xml:space="preserve">
+    <value>{0} Felder verwenden Optionen, die Write nicht aktualisiert; sie zeigen das zuletzt von Word gespeicherte Ergebnis.</value>
+  </data>
+  <data name="FieldsBarDismiss" xml:space="preserve">
+    <value>Ausblenden</value>
+  </data>
+  <data name="StatusFieldNotUpdated" xml:space="preserve">
+    <value>Feld wird von Write nicht aktualisiert</value>
+  </data>
 </root>

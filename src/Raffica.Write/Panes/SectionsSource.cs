@@ -106,7 +106,7 @@ internal sealed record PartIds(string? Default, string? First, string? Even)
 internal sealed record SectionsView(IReadOnlyList<SectionRow> Rows, bool TooMany, int SectionCount, bool LeftRight);
 
 /// <summary>
-/// Reads the sections of a document for the Sections pane, the way the formatting inspector reads a selection: on the UI thread, where the model is edited, remembered for the model, its revision and the page
+/// Reads the sections of a document for the Sections pane, the way the formatting inspector reads a selection: on the UI thread, where the model is edited, remembered for the model, its edit stamp and the page
 /// list it was read with (the same question asks nothing again) and bounded (<see cref="MaximumSections"/>). Nothing exists and nothing is read before the first ask.
 /// </summary>
 internal sealed class SectionsSource

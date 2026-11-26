@@ -733,6 +733,9 @@ internal sealed class LayoutRunner : IDisposable
         }
     }
 
+    /// <summary>Tells the owners of the layout (the view, the panes that follow it) that the content changed under them without an edit (a field refresh): <see cref="Changed"/> is raised now, on the UI thread, which the caller is on.</summary>
+    internal void NotifyContentChanged() => RaiseChanged();
+
     // Always reaches the UI thread; used for the events that must not be lost (a layout replaced, the first strip, the end).
     private void PostChanged()
     {

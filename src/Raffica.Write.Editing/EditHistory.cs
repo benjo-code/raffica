@@ -162,7 +162,7 @@ public sealed class EditHistory
         _open = null;
         var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New, step.Objects?.Inverse);
         undone.Attribute(_document);
-        return WithDerived(undone, derivedUndone);
+        return WithDerived(undone, derivedUndone, derivedFirst: true);
     }
 
     /// <summary>Redoes the step that was undone last. Null when there is nothing to redo.</summary>
@@ -197,7 +197,7 @@ public sealed class EditHistory
         _open = null;
         var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old, step.Objects);
         redone.Attribute(_document);
-        return WithDerived(redone, ReplayDerived(step));
+        return WithDerived(redone, ReplayDerived(step), derivedFirst: false);
     }
 
     /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history). The pictures only these steps referred to leave the document's picture store (see <see cref="MediaStore.Remove"/>).</summary>
@@ -352,7 +352,7 @@ public sealed class EditHistory
     }
 
     // What an undo or redo did to derived content is told to the document (the trackers mark the blocks dirty, the derived version rises, the revision does not) and handed on in the result for the layout.
-    private EditResult WithDerived(EditResult result, List<BlockChange> derived)
+    private EditResult WithDerived(EditResult result, List<BlockChange> derived, bool derivedFirst)
     {
         if (derived.Count == 0)
         {
@@ -361,7 +361,7 @@ public sealed class EditHistory
 
         _document.Edits.RaiseDerived();
         _document.Edits.AttributeDerived(derived);
-        return result with { DerivedChanges = derived };
+        return result with { DerivedChanges = derived, DerivedFirst = derivedFirst };
     }
 
     private static Block[] CloneBlocks(IReadOnlyList<Block> blocks)
@@ -643,7 +643,7 @@ public sealed class EditHistory
         _open = null;
         var result = move.ResultIn(container, old);
         result.Attribute(_document);
-        return WithDerived(result, undo ? derivedUndone : ReplayDerived(step));
+        return WithDerived(result, undo ? derivedUndone : ReplayDerived(step), derivedFirst: undo);
     }
 
     // A style change without a block change (the paragraph held nothing to move, or a switch that touches styles only): the step has no blocks, only the caret and the style swap.

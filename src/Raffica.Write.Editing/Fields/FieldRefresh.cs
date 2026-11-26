@@ -183,7 +183,7 @@ internal static class FieldRefresh
         paragraph.Properties.StyleId is { Length: 8 } id && id.StartsWith("Heading", StringComparison.Ordinal) && id[7] is >= '1' and <= '9' ? id[7] - '0' : null;
 
     // True when the paragraph has an instruction or a simple field anywhere: the cheap test before the fields are parsed.
-    private static bool HasFieldMarkup(Paragraph paragraph) =>
+    internal static bool HasFieldMarkup(Paragraph paragraph) =>
         Leaves(paragraph.Inlines, false).Any(l => l.Inline is SimpleField || (l.Inline is Run run && run.Content.Any(c => c is InstructionText)));
 
     private static string TrimLabel(string label) => label.TrimEnd('.');

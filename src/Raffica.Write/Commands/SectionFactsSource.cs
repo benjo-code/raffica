@@ -59,7 +59,7 @@ internal static class SectionWording
 /// <summary>
 /// Reads <see cref="SectionCommandFacts"/> for the rules and the switches of the Layout tab, lazily per command: nothing exists before the first question, and nothing is read for a tab without an editing
 /// session (only the prefix refusal, a flag of the file, is answered without one). The read walks the top-level blocks of the body once for the section list; a body with more than
-/// <see cref="MaxSections"/> sections is not described (the commands are offered and the operation, which reads the live model, is authoritative). Answers are remembered for the model, its revision and the
+/// <see cref="MaxSections"/> sections is not described (the commands are offered and the operation, which reads the live model, is authoritative). Answers are remembered for the model, its edit stamp and the
 /// selection. The asks come from the refresh of the ribbon, never from the key path.
 /// </summary>
 internal sealed class SectionFactsSource

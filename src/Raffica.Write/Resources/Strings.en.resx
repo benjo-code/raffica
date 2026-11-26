@@ -2271,4 +2271,16 @@
   <data name="NoteBookmarkMissing" xml:space="preserve">
     <value>This bookmark does not exist any more.</value>
   </data>
+  <data name="FieldsBarOne" xml:space="preserve">
+    <value>1 field uses options Write does not update; it shows the last result Word stored.</value>
+  </data>
+  <data name="FieldsBarManyFormat" xml:space="preserve">
+    <value>{0} fields use options Write does not update; they show the last result Word stored.</value>
+  </data>
+  <data name="FieldsBarDismiss" xml:space="preserve">
+    <value>Dismiss</value>
+  </data>
+  <data name="StatusFieldNotUpdated" xml:space="preserve">
+    <value>Field not updated by Write</value>
+  </data>
 </root>

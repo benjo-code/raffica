@@ -35,4 +35,51 @@ public static class FieldView
 
         return spans;
     }
+
+    /// <summary>True when any paragraph of the body (tables and block content controls included) holds a field: a cheap scan that parses nothing. A document with none needs no refresh.</summary>
+    public static bool AnyIn(WordDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        return AnyIn(document.Body.Blocks);
+    }
+
+    /// <summary>True when any paragraph of the blocks (tables and block content controls entered) holds a field.</summary>
+    public static bool AnyIn(IEnumerable<Block> blocks)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+        return BookmarkOperations.ParagraphsOf(blocks).Any(FieldRefresh.HasFieldMarkup);
+    }
+
+    /// <summary>
+    /// True when the range <paramref name="start"/> to <paramref name="end"/> (offsets of the projection the <paramref name="host"/> makes, a caret has both equal) touches the result of a top-level field that Write does not update: a name or switch outside the
+    /// support table, or a field in a tracked change. The result of a field is atomic, so a caret is never inside one: it touches the field at either edge. False when the fields and their results cannot be paired (the number of top-level fields and
+    /// of field results differs), never a guess.
+    /// </summary>
+    public static bool IsNotUpdatedAt(Paragraph paragraph, IProjectionHost host, int start, int end)
+    {
+        ArgumentNullException.ThrowIfNull(paragraph);
+        ArgumentNullException.ThrowIfNull(host);
+        if (!FieldRefresh.HasFieldMarkup(paragraph))
+        {
+            return false;
+        }
+
+        var spans = InParagraph(paragraph).Where(s => s.Parent is null).ToList();
+        var results = ParagraphProjection.Build(paragraph, host).Pieces.OfType<AtomicPiece>().Where(p => p.Atomic == AtomicKind.FieldResult).ToList();
+        if (spans.Count != results.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < results.Count; i++)
+        {
+            var touches = start == end ? start >= results[i].Start && start <= results[i].End : start < results[i].End && end > results[i].Start;
+            if (touches)
+            {
+                return !spans[i].Support.IsSupported || spans[i].InTrackedChange;
+            }
+        }
+
+        return false;
+    }
 }

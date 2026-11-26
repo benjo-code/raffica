@@ -346,7 +346,7 @@ internal sealed partial class WriteWindow
         {
             if (ReferenceEquals(ActiveView, view))
             {
-                Status.Count = StoryStatusText(view);
+                Status.Count = StatusCountText(view);
             }
         };
         view.SelectionStateChanged += () =>
@@ -376,6 +376,7 @@ internal sealed partial class WriteWindow
             }
         };
         tab.Runner.Faulted += () => OnLayoutFaulted(tab);
+        WatchFields(tab);
 
         // The session is made by the first caret or key; the display of the formatting follows it from then on.
         tab.EditorCreated += session => FollowFormat(tab, session);
@@ -524,7 +525,7 @@ internal sealed partial class WriteWindow
     /// <summary>The cells of the status bar follow the view of the active tab: the page (with a plus while the count may still grow) and the zoom.</summary>
     private void UpdateViewStatus(bool refreshStatesNow = true)
     {
-        Status.Count = ActiveView is { } active ? StoryStatusText(active) : null;
+        Status.Count = ActiveView is { } active ? StatusCountText(active) : null;
         if (ActiveView is { PageCount: > 0 } view)
         {
             var format = view.IsLayoutComplete ? WriteStrings.StatusPositionFormat : WriteStrings.StatusPositionMoreFormat;

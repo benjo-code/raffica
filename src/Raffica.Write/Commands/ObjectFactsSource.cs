@@ -67,7 +67,7 @@ internal static class ObjectWording
 
 /// <summary>
 /// Reads <see cref="ObjectCommandFacts"/> for the rules of the note commands of the Insert tab, lazily per command: nothing exists before the first question, and nothing is read for a tab without an editing
-/// session (the prefix refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer is remembered for the model, its revision and the selection. The asks come
+/// session (the prefix refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer is remembered for the model, its edit stamp and the selection. The asks come
 /// from the refresh of the ribbon, never from the key path. The later object commands (tables, pictures) join this source.
 /// </summary>
 internal sealed class ObjectFactsSource

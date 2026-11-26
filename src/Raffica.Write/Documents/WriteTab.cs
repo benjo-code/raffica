@@ -192,6 +192,63 @@ internal sealed class WriteTab : IDisposable
         return _editor;
     }
 
+    // ---- fields (milestone 4.5b): nothing below exists before the first dirty edit, the first complete layout of a document with fields or a save of one ----
+
+    private FieldRefreshRunner? _fields;
+
+    /// <summary>The refresh of the fields of this tab; null until it was needed (<see cref="EnsureFields"/>).</summary>
+    public FieldRefreshRunner? Fields => _fields;
+
+    /// <summary>False in a measurement run: no field refresh follows the edits there. The window sets it when it makes the tab.</summary>
+    internal bool RefreshesFields { get; set; } = true;
+
+    /// <summary>The clock of the refresh timer (a test sets one that it fires by hand before the first edit); null: the dispatcher clock, made with the runner.</summary>
+    internal IFieldClock? FieldClock { get; set; }
+
+    /// <summary>How many times the wiring of the refresh threw (and was ignored): the refresh must never break an edit.</summary>
+    internal int FieldWiringFailures { get; set; }
+
+    /// <summary>Makes the refresh runner on first use (UI thread: it keeps that thread's dispatcher).</summary>
+    internal FieldRefreshRunner EnsureFields() => _fields ??= new FieldRefreshRunner(this, FieldClock ?? new DispatcherFieldClock());
+
+    /// <summary>
+    /// Raised on the UI thread after a whole-body field refresh with the number of fields Write left alone (a name or switch outside the support table, a field in a note, a header, a footer, a comment or a tracked change); the window offers its
+    /// bar from it, once per document session.
+    /// </summary>
+    public event Action<int>? FieldsNotUpdated;
+
+    internal void ReportNotUpdated(int count) => FieldsNotUpdated?.Invoke(count);
+
+    /// <summary>A refresh rewrote results: whoever shows the document or reads it through the model (the view, the outline) reads again. Not an edit: the dirty mark and the session's events are untouched.</summary>
+    internal void NotifyFieldsRefreshed()
+    {
+        _runner?.NotifyContentChanged();
+        ModelEdited?.Invoke();
+    }
+
+    /// <summary>
+    /// Brings the field results up to date before a save writes the model (see <see cref="FieldRefreshRunner.SettleAsync"/>); a tab that never had a refresh and has no field makes none. Completes at once.
+    /// </summary>
+    internal Task SettleFieldsAsync(CancellationToken token)
+    {
+        if (!RefreshesFields || IsDisposed || token.IsCancellationRequested)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (_fields is null)
+        {
+            if (Docx.IsPrefix || !FieldView.AnyIn(Docx.Model))
+            {
+                return Task.CompletedTask;
+            }
+
+            EnsureFields().Notify(null);
+        }
+
+        return _fields!.SettleAsync(token);
+    }
+
     private void OnEditorChanged()
     {
         var phases = _editor?.Phases;
@@ -257,6 +314,7 @@ internal sealed class WriteTab : IDisposable
         {
             try
             {
+                _fields?.Dispose();
                 _runner?.Dispose();
             }
             finally

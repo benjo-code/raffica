@@ -275,6 +275,10 @@ internal static class WriteStrings
     public static string ReasonSectionFirst => Table.Get("ReasonSectionFirst");
     public static string NoteSectionNoChange => Table.Get("NoteSectionNoChange");
     public static string NoteSectionBreakKey => Table.Get("NoteSectionBreakKey");
+    public static string FieldsBarOne => Table.Get("FieldsBarOne");
+    public static string FieldsBarManyFormat => Table.Get("FieldsBarManyFormat");
+    public static string FieldsBarDismiss => Table.Get("FieldsBarDismiss");
+    public static string StatusFieldNotUpdated => Table.Get("StatusFieldNotUpdated");
     public static string NoteSectionBreakNoMarker => Table.Get("NoteSectionBreakNoMarker");
     public static string PageNumberWordPage => Table.Get("PageNumberWordPage");
     public static string PageNumberWordOf => Table.Get("PageNumberWordOf");

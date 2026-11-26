@@ -78,7 +78,7 @@ internal sealed record TableTarget(TableRef Table, CellRange Range, TextPosition
 
 /// <summary>
 /// Reads <see cref="TableCommandFacts"/> for the rules of the table commands, lazily per command: nothing exists before the first question, and nothing is read for a tab without an editing session (the prefix
-/// refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer of each command is remembered for the model, its revision, the text selection and the object
+/// refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer of each command is remembered for the model, its edit stamp, the text selection and the object
 /// selection, so a refresh of the ribbon asks the editor (which works on a copy of the table) once per command and change, never per key and never per frame. The asks come from the refresh of the ribbon, the command
 /// search and the menu, never from the key path; a table command that is not on the shown tab is not asked.
 /// </summary>

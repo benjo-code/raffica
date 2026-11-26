@@ -89,8 +89,8 @@ internal static class StructureWording
 /// Reads <see cref="StructureFacts"/> for the rules and the switches of the ribbon, lazily per command: only the facts the asked command needs are read (list facts for <c>list.*</c>, the style state
 /// for the heading numbering, the headings and the outline plans for <c>outline.*</c>), the others stay permissive. Nothing exists before the first question, and nothing is read for a tab without an
 /// editing session. The headings walk is bounded like the other readers: a body of more than <see cref="TextEditor.MaxFactBlocks"/> top-level blocks is not walked and the outline commands are offered
-/// (the operation reads the live model when it runs and refuses with a note, so the answer there is authoritative). Answers are remembered for the model, its revision, the selection and the outline
-/// row in play; the headings once per revision, never per selection. The asks come from the refresh of the ribbon, never from the key path.
+/// (the operation reads the live model when it runs and refuses with a note, so the answer there is authoritative). Answers are remembered for the model, its edit stamp, the selection and the outline
+/// row in play; the headings once per edit stamp, never per selection. The asks come from the refresh of the ribbon, never from the key path.
 /// </summary>
 internal sealed class StructureFactsSource
 {
