@@ -700,6 +700,45 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void ARefreshGivesTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("fields.docx");
+        Support.DocxBuilder.WithBody(path, Layout.FieldOracleTests.FieldsBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        // The refresh writes many results without an edit: the blocks it changed must be written again, the others reused.
+        Check("before");
+        Assert.True(editor.RefreshFields(host, RefreshScope.OrderBased).Written > 0);
+        Check("refresh");
+        Assert.False(model.Edits.IsDirty);
+
+        // An edit that moves the numbers, its refresh, and the undo and redo with a refresh after each.
+        var heading = (Paragraph)model.Body.Blocks[4];
+        Assert.NotNull(editor.ApplyParagraphStyle(new TextRange(new TextPosition(StoryRef.Body, heading, 0), new TextPosition(StoryRef.Body, heading, 3)), null));
+        Check("edit");
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh after the edit");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh after the undo");
+        Assert.NotNull(editor.History.Redo());
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh after the redo");
+    }
+
+    [Fact]
     public void PictureOperationsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var folder = new Support.TempFolder();

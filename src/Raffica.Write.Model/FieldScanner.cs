@@ -44,10 +44,12 @@ public sealed class FieldInfo
 public static class FieldScanner
 {
     /// <summary>Finds the complex (begin, instruction, separate, result, end) and simple fields in document order, nested ones included. A field that is not closed is reported with <c>IsComplete == false</c>; nothing throws.</summary>
-    public static IReadOnlyList<FieldInfo> Scan(IEnumerable<Inline> inlines)
+    /// <param name="inlines">The inlines to scan.</param>
+    /// <param name="intoContentControls">True to look inside inline content controls too (their inlines are the container of a field found there); false, the default, leaves them out, as before.</param>
+    public static IReadOnlyList<FieldInfo> Scan(IEnumerable<Inline> inlines, bool intoContentControls = false)
     {
         ArgumentNullException.ThrowIfNull(inlines);
-        var state = new ScanState();
+        var state = new ScanState { IntoControls = intoContentControls };
         Walk(inlines, inlines as IList<Inline>, state);
         foreach (var open in state.Open)
         {
@@ -73,6 +75,8 @@ public static class FieldScanner
         public List<OpenField> Open { get; } = [];
 
         public int TrackedDepth { get; set; }
+
+        public bool IntoControls { get; init; }
     }
 
     private static void Walk(IEnumerable<Inline> inlines, IList<Inline>? container, ScanState state)
@@ -106,6 +110,9 @@ public static class FieldScanner
                     break;
                 case Hyperlink link:
                     Walk(link.Inlines, link.Inlines, state);
+                    break;
+                case ContentControlInline control when state.IntoControls:
+                    Walk(control.Inlines, control.Inlines, state);
                     break;
                 case TrackedChange change:
                     state.TrackedDepth++;

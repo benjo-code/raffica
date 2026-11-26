@@ -18,7 +18,7 @@ public static class FieldView
     public static IReadOnlyList<FieldSpan> InParagraph(Paragraph paragraph)
     {
         ArgumentNullException.ThrowIfNull(paragraph);
-        var infos = FieldScanner.Scan(paragraph.Inlines);
+        var infos = FieldScanner.Scan(paragraph.Inlines, intoContentControls: true);
         var spans = new List<FieldSpan>(infos.Count);
         var byInfo = new Dictionary<FieldInfo, FieldSpan>(ReferenceEqualityComparer.Instance);
         foreach (var info in infos)

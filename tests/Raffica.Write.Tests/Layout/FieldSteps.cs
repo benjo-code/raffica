@@ -1,6 +1,7 @@
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
+using Raffica.Write.Tests.Support;
 using Xunit;
 
 namespace Raffica.Write.Tests.Layout;
@@ -18,6 +19,9 @@ internal enum FieldStepKind
     DeleteBookmark,
     Undo,
     Redo,
+
+    /// <summary>A field refresh over the whole body (SEQ, STYLEREF, REF, NOTEREF): the layout must equal a full layout and every result must equal the independent count.</summary>
+    Refresh,
 }
 
 /// <summary>
@@ -35,7 +39,9 @@ internal sealed class FieldSteps
         FieldStepKind.Bookmark,
         FieldStepKind.Bookmark,
         FieldStepKind.Bookmark,
+        FieldStepKind.Refresh,
         FieldStepKind.DeleteRange,
+        FieldStepKind.Refresh,
         FieldStepKind.Undo,
         FieldStepKind.Redo,
         FieldStepKind.DeleteBookmark,
@@ -68,6 +74,9 @@ internal sealed class FieldSteps
     /// <summary>How many steps were compared.</summary>
     public int Compared { get; private set; }
 
+    /// <summary>How many field results the refresh steps wrote.</summary>
+    public int Written { get; private set; }
+
     /// <summary>How many bookmarks a whole-range delete took away with their text.</summary>
     public int RemovedByDelete { get; private set; }
 
@@ -98,6 +107,7 @@ internal sealed class FieldSteps
             FieldStepKind.Bookmark => await AddAsync(random, label),
             FieldStepKind.DeleteRange => await DeleteRangeAsync(random, label),
             FieldStepKind.DeleteBookmark => await DeleteBookmarkAsync(random, label),
+            FieldStepKind.Refresh => await RefreshAsync(label),
             FieldStepKind.Undo => Editor.History.CanUndo ? await CheckAsync(Editor.History.Undo(), label, required: true) : Refuse(),
             _ => Editor.History.CanRedo ? await CheckAsync(Editor.History.Redo(), label, required: true) : Refuse(),
         };
@@ -189,6 +199,27 @@ internal sealed class FieldSteps
         await _layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
         AssertBookmarks(label);
+        Compared++;
+        RanPerKind[(int)_kind]++;
+        return true;
+    }
+
+    // A refresh is brought into the layout as the session does; whether or not it wrote, the layout must equal a full layout and every result the oracle has an answer for must be stored; a second refresh finds nothing.
+    private async Task<bool> RefreshAsync(string label)
+    {
+        var host = new FakeFieldHost(_model);
+        var result = Editor.RefreshFields(host, RefreshScope.OrderBased);
+        foreach (var change in result.Content)
+        {
+            _layout.ApplyEdit(change, Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1));
+        }
+
+        await _layout.LayOutRestAsync(null, CancellationToken.None);
+        LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
+        AssertBookmarks(label);
+        ReferenceFields.AssertStoredEqualsExpected(_model, host, label);
+        Assert.Empty(Editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+        Written += result.Written;
         Compared++;
         RanPerKind[(int)_kind]++;
         return true;

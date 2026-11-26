@@ -2,6 +2,7 @@ using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
+using Raffica.Write.Tests.Support;
 using WriteCorpus;
 using Xunit;
 
@@ -86,5 +87,56 @@ public sealed class FieldOracleTests
         }
 
         Assert.True(removed > 0, "no delete ever took a bookmark away with its text");
+    }
+
+    private static string Run(string text) => $"<w:r><w:t xml:space=\"preserve\">{text}</w:t></w:r>";
+
+    private static string Field(string instruction, string result) =>
+        "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r>"
+        + $"<w:r><w:instrText xml:space=\"preserve\"> {instruction} </w:instrText></w:r>"
+        + "<w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>"
+        + Run(result)
+        + "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
+
+    private static string P(string inner, string? style = null) =>
+        $"<w:p><w:pPr>{(style is null ? string.Empty : $"<w:pStyle w:val=\"{style}\"/>")}</w:pPr>{inner}</w:p>";
+
+    // Headings, captions with SEQ (restarting per chapter), a chapter reference, references to a caption's bookmark and a note reference: results the refresh really writes.
+    internal static string FieldsBody() =>
+        P(Run("Chapter one"), "Heading1")
+        + P(Run("See ") + Field("REF Cap1 \\h", "Figure 9") + Run(" and ") + Field("STYLEREF 1 \\s", "7"))
+        + P("<w:bookmarkStart w:id=\"1\" w:name=\"Cap1\"/>" + Run("Figure ") + Field("SEQ Figure \\s 1", "5") + "<w:bookmarkEnd w:id=\"1\"/>" + Run(" a caption"))
+        + P(Run("Some text") + "<w:r><w:footnoteReference w:id=\"3\"/></w:r>")
+        + P(Run("Chapter two"), "Heading1")
+        + P(Run("Figure ") + Field("SEQ Figure \\s 1", "5") + Run(" and table ") + Field("SEQ Table", "8"))
+        + P("<w:bookmarkStart w:id=\"2\" w:name=\"Note1\"/><w:r><w:footnoteReference w:id=\"4\"/></w:r><w:bookmarkEnd w:id=\"2\"/>" + Run(" ") + Field("NOTEREF Note1", "9"))
+        + P(Run("Figure ") + Field("SEQ Figure \\s 1", "5") + Run(" ") + Field("REF Cap1 \\h", "x"))
+        + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>";
+
+    private static WordDocument WithFields()
+    {
+        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>";
+        for (var i = 1; i <= 3; i++)
+        {
+            styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr><w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
+        }
+
+        return LayoutModel.Document(FieldsBody(), LayoutModel.StylesPart(styles));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task RefreshStepsOnADocumentWithFieldsEqualAFullLayoutAndTheReferenceCount(int seed)
+    {
+        var model = WithFields();
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var steps = new FieldSteps(model, layout, new LayoutOptions());
+
+        await steps.RunAsync(new Random(seed), 20, "with fields " + seed);
+
+        Assert.True(steps.RanPerKind[(int)FieldStepKind.Refresh] > 0);
+        Assert.True(steps.Written > 0, "no refresh wrote a result");
     }
 }
