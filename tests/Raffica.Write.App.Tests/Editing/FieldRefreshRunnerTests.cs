@@ -399,6 +399,9 @@ public sealed class FieldRefreshRunnerTests
         // The redo is used: the next look finds nothing structural and is done; with an empty history nothing is attached.
         structural = false;
         Assert.NotNull(session.Apply(e => e.History.Redo(), 0));
+
+        // The look at the whole body waits for a complete layout: the edits above lay out in the background, so the tick that matters is the one after that has finished.
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsComplete, 30000);
         h.Clock.Fire();
         Assert.True(runner.Passes > passes);
         Assert.False(runner.IsPending);
@@ -702,4 +705,109 @@ public sealed class FieldRefreshRunnerTests
         Assert.Equal(0, runner.NotUpdated);
         Assert.Equal(0, runner.Failures);
     }
+
+    private static TocOptions TocDefaults => new(1, 3, true, true, TocLeader.Dots, null);
+
+    private static int TocParagraphs(WriteTab tab) =>
+        TocRefresh.Find(tab.Docx.Model.Body.Blocks) is [var site, ..] ? site.Last - site.First + 1 : 0;
+
+    private static TextRange HeadingRange(WriteTab tab, int block)
+    {
+        var paragraph = (Paragraph)tab.Docx.Model.Body.Blocks[block];
+        return new TextRange(new TextPosition(StoryRef.Body, paragraph, 0), new TextPosition(StoryRef.Body, paragraph, FieldTestDocument.TextOf(tab, block).Length));
+    }
+
+    [AvaloniaFact]
+    public async Task ARealStructuralTocRefreshIsAttachedByTheRunnerAndUndoTakesItWithTheStep()
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.Bytes(headings: true, onePage: true));
+        var session = h.Tab.EnsureEditor();
+        var host = h.Tab.EnsureFields().Host;
+        var runner = h.Tab.Fields!;
+        Assert.NotNull(session.Apply(e => e.InsertToc(session.Selection!.Value.Start, TocDefaults, host), 0));
+        h.Clock.Fire();
+        var inserted = TocParagraphs(h.Tab);
+        Assert.Equal(2, inserted);
+
+        // A paragraph becomes a heading: the list needs one more entry. The refresh runs 250 ms after the edit, not in it, and the newest step carries the structural change.
+        var before = h.Tab.Docx.Model.Body.Blocks.Count;
+        var endBlock = before - 1;
+        Assert.NotNull(session.Apply(e => e.ApplyParagraphStyle(HeadingRange(h.Tab, endBlock), "Heading1"), 0));
+        Assert.Equal(inserted, TocParagraphs(h.Tab));
+        var revision = h.Tab.Docx.Model.Edits.Revision;
+
+        h.Clock.Fire();
+
+        Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
+        Assert.Equal(1, runner.StructuralAttached);
+        Assert.Equal(0, runner.StructuralWaits);
+        Assert.Equal(0, runner.Failures);
+        Assert.Equal(revision, h.Tab.Docx.Model.Edits.Revision);
+
+        // Undo takes the step and the paragraph of the list together; the refresh that follows finds nothing structural to do.
+        Assert.NotNull(session.Apply(e => e.History.Undo(), 0));
+        Assert.Equal(inserted, TocParagraphs(h.Tab));
+        Assert.Equal(before, h.Tab.Docx.Model.Body.Blocks.Count);
+        h.Clock.Fire();
+        Assert.Equal(inserted, TocParagraphs(h.Tab));
+        Assert.Equal(1, runner.StructuralAttached);
+        Assert.NotNull(session.Apply(e => e.History.Redo(), 0));
+        Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
+        h.Clock.Fire();
+        Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
+        Assert.Equal(1, runner.StructuralAttached);
+        Assert.Equal(0, runner.Failures);
+    }
+
+    [AvaloniaFact]
+    public async Task ARealStructuralTocRefreshLeavesTheListAloneWhileARedoIsPendingAndRunsAfterIt()
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.Bytes(headings: true, onePage: true));
+        var session = h.Tab.EnsureEditor();
+        var host = h.Tab.EnsureFields().Host;
+        var runner = h.Tab.Fields!;
+        Assert.NotNull(session.Apply(e => e.InsertToc(session.Selection!.Value.Start, TocDefaults, host), 0));
+        h.Clock.Fire();
+        var inserted = TocParagraphs(h.Tab);
+        var endBlock = h.Tab.Docx.Model.Body.Blocks.Count - 1;
+        Assert.NotNull(session.Apply(e => e.ApplyParagraphStyle(HeadingRange(h.Tab, endBlock), "Heading1"), 0));
+
+        // The caret rests at the end of the list (an edge of the field takes no typing): the typing goes into the paragraph before the last one.
+        var typed = new TextPosition(StoryRef.Body, (Paragraph)h.Tab.Docx.Model.Body.Blocks[endBlock - 1], 0);
+        session.SetSelection(new TextRange(typed, typed));
+        Assert.NotNull(session.Apply(e => e.InsertText(new TextRange(typed, typed), "q"), 0));
+
+        // The undo of the typing leaves a redo pending while the list still lacks the new heading: the refresh does not touch the list and keeps asking.
+        Assert.NotNull(session.Apply(e => e.History.Undo(), 0));
+        Assert.True(session.CanRedo);
+        var bytes = ModelBytes(h.Tab);
+        h.Clock.Fire();
+
+        Assert.Equal(1, runner.StructuralWaits);
+        Assert.Equal(0, runner.StructuralAttached);
+        Assert.Equal(inserted, TocParagraphs(h.Tab));
+        Assert.Equal(bytes, ModelBytes(h.Tab));
+        Assert.True(runner.IsPending);
+        var passes = runner.Passes;
+        h.Clock.Fire();
+        Assert.Equal(passes, runner.Passes);
+
+        // The redo is done: the list is brought up to date and the step that was redone carries the change.
+        Assert.NotNull(session.Apply(e => e.History.Redo(), 0));
+
+        // The look at the whole body waits for a complete layout: the edits above lay out in the background, so the tick that matters is the one after that has finished.
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsComplete, 30000);
+        h.Clock.Fire();
+        Assert.True(runner.Passes > passes);
+        Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
+        Assert.Equal(1, runner.StructuralAttached);
+        Assert.False(runner.IsPending);
+        Assert.Equal(0, runner.Failures);
+    }
+
+    // What the list says: the stored text of every paragraph of the first list (enough to tell that nothing was rewritten).
+    private static string ModelBytes(WriteTab tab) =>
+        TocRefresh.Find(tab.Docx.Model.Body.Blocks) is [var site, ..]
+            ? string.Join("|", Enumerable.Range(site.First, site.Last - site.First + 1).Select(i => TocBuilder.Signature((Paragraph)site.Container[i])))
+            : string.Empty;
 }

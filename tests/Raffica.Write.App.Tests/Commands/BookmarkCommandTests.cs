@@ -72,6 +72,8 @@ public sealed class BookmarkCommandTests
 
         public Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context) => Task.FromResult<CrossRefRequest?>(null);
 
+        public Task<TocRequest?> AskTocAsync(TocContext context) => Task.FromResult<TocRequest?>(null);
+
         public Task<BookmarkRequest?> AskBookmarkAsync(BookmarkContext context)
         {
             Asked++;

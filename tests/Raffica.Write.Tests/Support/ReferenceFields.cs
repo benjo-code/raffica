@@ -137,8 +137,8 @@ internal static class ReferenceFields
         return text.ToString();
     }
 
-    /// <summary>Asserts that every field the oracle has a text for stores exactly that text. Returns how many results were compared.</summary>
-    public static int AssertStoredEqualsExpected(WordDocument document, IFieldHost host, string label)
+    /// <summary>Asserts that every field the oracle has a text for stores exactly that text, and (<paramref name="includeTocs"/>) that every table of contents lists what the oracle expects. Returns how many results were compared.</summary>
+    public static int AssertStoredEqualsExpected(WordDocument document, IFieldHost host, string label, bool includeTocs = true)
     {
         var compared = 0;
         foreach (var field in Expected(document, host).Where(f => f.Text is not null))
@@ -149,7 +149,8 @@ internal static class ReferenceFields
             compared++;
         }
 
-        return compared;
+        // The entries of the tables of contents are judged here too (their own oracle, ReferenceToc), so every test that asks for the results of the fields also asks for the lists.
+        return includeTocs ? compared + ReferenceToc.AssertEqualToExpected(document, host, label) : compared;
     }
 
     private sealed class Label

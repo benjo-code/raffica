@@ -194,7 +194,8 @@ internal sealed class FieldRefreshRunner : IDisposable
             return Hold.Never;
         }
 
-        if (_tab.Docx.IsPrefix || !_tab.Runner.FullModelReady || _tab.Editor?.IsSaving == true)
+        // A session that cannot edit now (a save runs, the model is still opening) holds the refresh: a structural result must go through the session's own history, never through the bare editor made for a tab with no session.
+        if (_tab.Docx.IsPrefix || !_tab.Runner.FullModelReady || _tab.Editor?.IsSaving == true || _tab.Editor is { CanEdit: false })
         {
             return Hold.Later;
         }
@@ -272,6 +273,12 @@ internal sealed class FieldRefreshRunner : IDisposable
                     layoutFailed = true;
                     ApplyToLayout(partial.Content);
                     layoutFailed = false;
+                    if (partial.Structural is { } done)
+                    {
+                        // The paragraphs of a table of contents were replaced before the failure: the history must carry that change even though the refresh is tried again.
+                        HandleStructural(editor, done);
+                    }
+
                     throw;
                 }
 
@@ -287,6 +294,12 @@ internal sealed class FieldRefreshRunner : IDisposable
                 if (last.Structural is { } record)
                 {
                     HandleStructural(editor, record);
+                }
+
+                if (last.StructuralDeferred)
+                {
+                    // A table of contents changes its paragraph count while a redo is pending: the refresh left it as it was and looks again, from the whole body, once the redo stack is empty.
+                    WaitForRedo();
                 }
 
                 if (_pending)
@@ -429,7 +442,8 @@ internal sealed class FieldRefreshRunner : IDisposable
         }
     }
 
-    // A structural result (the paragraph count of a list changed) belongs to the newest history step; the real producer comes with the table of contents (task 10), the paths are in place and tested with a double.
+    // A structural result (the paragraph count of a table of contents changed) belongs to the newest history step of the session's editor. The refresh itself already left a table of contents alone while a redo was pending
+    // (FieldRefreshResult.StructuralDeferred), so MustWait here is only the double check of a result made some other way.
     private void HandleStructural(TextEditor editor, DerivedRecord record)
     {
         switch (editor.History.AttachDerived(record))
@@ -438,15 +452,20 @@ internal sealed class FieldRefreshRunner : IDisposable
                 StructuralAttached++;
                 break;
             case AttachOutcome.MustWait:
-                // A redo is pending: look again from the whole body once the redo stack is empty.
-                StructuralWaits++;
-                _waitForRedo = true;
-                _all = true;
-                _pending = true;
-                _timer.Restart(Delay);
+                WaitForRedo();
                 break;
             default:
                 break;
         }
+    }
+
+    // Look again from the whole body once the redo stack is empty.
+    private void WaitForRedo()
+    {
+        StructuralWaits++;
+        _waitForRedo = true;
+        _all = true;
+        _pending = true;
+        _timer.Restart(Delay);
     }
 }

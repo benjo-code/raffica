@@ -2418,4 +2418,76 @@
   <data name="NoteCrossRefCaptionUnread" xml:space="preserve">
     <value>The number of this caption cannot be located. Refer to its text or its page instead.</value>
   </data>
+  <data name="GroupToc" xml:space="preserve">
+    <value>Table of contents</value>
+  </data>
+  <data name="CmdToc" xml:space="preserve">
+    <value>Table of contents</value>
+  </data>
+  <data name="DescToc" xml:space="preserve">
+    <value>Inserts a table of contents, a list of figures or a list of tables that follows the headings or captions.</value>
+  </data>
+  <data name="CmdTocRemove" xml:space="preserve">
+    <value>Remove table of contents</value>
+  </data>
+  <data name="DescTocRemove" xml:space="preserve">
+    <value>Removes the table of contents or list that the caret is in.</value>
+  </data>
+  <data name="TocTitle" xml:space="preserve">
+    <value>Table of contents</value>
+  </data>
+  <data name="TocKindLabel" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="TocKindContents" xml:space="preserve">
+    <value>Table of contents</value>
+  </data>
+  <data name="TocKindList" xml:space="preserve">
+    <value>List of figures or tables</value>
+  </data>
+  <data name="TocCaptionLabel" xml:space="preserve">
+    <value>Caption label</value>
+  </data>
+  <data name="TocFirstLevel" xml:space="preserve">
+    <value>First level</value>
+  </data>
+  <data name="TocLastLevel" xml:space="preserve">
+    <value>Last level</value>
+  </data>
+  <data name="TocPages" xml:space="preserve">
+    <value>Show page numbers</value>
+  </data>
+  <data name="TocRight" xml:space="preserve">
+    <value>Align page numbers right</value>
+  </data>
+  <data name="TocLeaderLabel" xml:space="preserve">
+    <value>Leader</value>
+  </data>
+  <data name="TocLeaderDots" xml:space="preserve">
+    <value>Dots</value>
+  </data>
+  <data name="TocLeaderHyphens" xml:space="preserve">
+    <value>Hyphens</value>
+  </data>
+  <data name="TocLeaderLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="TocLeaderNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="TocOk" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="TocRemoveButton" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="TocProblemLevels" xml:space="preserve">
+    <value>The first level must not be higher than the last one.</value>
+  </data>
+  <data name="ReasonTocNone" xml:space="preserve">
+    <value>The caret is not in a table of contents.</value>
+  </data>
+  <data name="NoteTocLabel" xml:space="preserve">
+    <value>That label cannot be used for a list.</value>
+  </data>
 </root>

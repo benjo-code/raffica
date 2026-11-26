@@ -433,6 +433,64 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void ATableOfContentsInsertedRefreshedRemovedAndUndoneGivesTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "thesis", "thesis.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        void Refresh(string label)
+        {
+            var result = editor.RefreshFields(host, RefreshScope.OrderBased);
+            if (result.Structural is { } record)
+            {
+                Assert.NotEqual(AttachOutcome.MustWait, editor.History.AttachDerived(record));
+            }
+
+            Check(label);
+        }
+
+        var blocks = model.Body.Blocks;
+        var plain = Enumerable.Range(0, blocks.Count).Where(i => blocks[i] is Paragraph p && p.Properties.StyleId is null && TestEdit.TextOf(p).Length > 8).Take(3).ToList();
+        Assert.Equal(3, plain.Count);
+        TextPosition At(int block, int offset) => new(StoryRef.Body, (Paragraph)blocks[block], offset);
+
+        // A list of the headings (made right at once, with the hidden bookmarks as derived changes of the step), a paragraph made a heading and a structural refresh, the list removed, every step undone and redone.
+        var inserted = editor.InsertToc(At(plain[0], 0), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host);
+        Assert.NotNull(inserted);
+        var moved = inserted.Changes[0].Added - inserted.Changes[0].Removed;
+        Check("insert");
+        Refresh("refresh after the insert");
+        Assert.NotNull(editor.ApplyParagraphStyle(new TextRange(At(plain[1] + moved, 0), At(plain[1] + moved, 4)), "Heading2"));
+        Check("a new heading");
+        Refresh("structural refresh");
+        Assert.NotNull(editor.RemoveToc(At(plain[0], 0)));
+        Check("remove");
+        var steps = 0;
+        while (editor.History.CanUndo)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + steps++);
+        }
+
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+
+        Refresh("refresh after the redos");
+    }
+
+    [Fact]
     public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));

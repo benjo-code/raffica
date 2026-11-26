@@ -25,7 +25,8 @@ public sealed record FieldRefusal(FieldRefusalKind Kind)
 /// <summary>A <c>TOC</c> field that spans more than one paragraph of one list of blocks: the begin, the instruction and the separate are in the first paragraph, the end in the last.</summary>
 /// <param name="First">The index of the first paragraph (it holds the begin).</param>
 /// <param name="Last">The index of the last paragraph (it holds the end).</param>
-internal sealed record TocRange(int First, int Last);
+/// <param name="Instruction">The instruction of the field as it stands in its instruction runs (not trimmed), which a refresh reads and never rewrites.</param>
+internal sealed record TocRange(int First, int Last, string Instruction = "");
 
 /// <summary>
 /// Finds the table of contents of a list of blocks. <see cref="FieldScanner"/> reads one paragraph at a time, so a field whose begin and end are in different paragraphs is an unclosed field there; this walk follows the
@@ -91,6 +92,8 @@ internal static class TocRanges
 
         public int TocFirst { get; set; } = -1;
 
+        public string TocInstruction { get; set; } = string.Empty;
+
         public bool Collecting { get; set; }
 
         public StringBuilder? Instruction { get; set; }
@@ -137,6 +140,7 @@ internal static class TocRanges
             case FieldChar { Kind: FieldCharKind.Separate } when state.Depth == 1 && state.Collecting:
                 state.Collecting = false;
                 state.TocFirst = state.Instruction is { } instruction && FieldInstruction.Parse(instruction.ToString()).Name == "TOC" ? state.Candidate : -1;
+                state.TocInstruction = state.TocFirst >= 0 ? state.Instruction!.ToString() : string.Empty;
                 break;
             case FieldChar { Kind: FieldCharKind.End } when state.Depth > 0:
                 state.Depth--;
@@ -144,7 +148,7 @@ internal static class TocRanges
                 {
                     if (state.TocFirst >= 0 && state.Index > state.TocFirst)
                     {
-                        state.Closed = new TocRange(state.TocFirst, state.Index);
+                        state.Closed = new TocRange(state.TocFirst, state.Index, state.TocInstruction);
                     }
 
                     state.TocFirst = -1;

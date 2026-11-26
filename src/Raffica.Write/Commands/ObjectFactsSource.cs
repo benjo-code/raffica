@@ -38,6 +38,9 @@ internal enum ObjectBlock
 
     /// <summary>Back to the text needs the caret in a note.</summary>
     NotInNote,
+
+    /// <summary>Remove table of contents needs the caret in one (an edge of the field counts).</summary>
+    NoToc,
 }
 
 /// <summary>What the rules of the object commands need to know about the caret; <paramref name="Block"/> is the reason the asked command cannot run.</summary>
@@ -63,6 +66,7 @@ internal static class ObjectWording
         ObjectBlock.InsideToc => WriteStrings.NoteTocProtected,
         ObjectBlock.CaptionRestricted => WriteStrings.ReasonCaptionRestricted,
         ObjectBlock.CrossRefRestricted => WriteStrings.ReasonCrossRefRestricted,
+        ObjectBlock.NoToc => WriteStrings.ReasonTocNone,
         _ => null,
     };
 
@@ -84,6 +88,16 @@ internal static class ObjectWording
         CrossRefRefusal.InsideToc => ObjectBlock.InsideToc,
         CrossRefRefusal.NoPosition or CrossRefRefusal.NotInBody => ObjectBlock.NoPosition,
         _ => ObjectBlock.None,
+    };
+
+    /// <summary>The block of a refusal of the editor to insert or remove a table of contents at the caret (the levels and the label are the card's: a note when the answer is run).</summary>
+    public static ObjectBlock BlockOf(TocRefusal refusal) => refusal switch
+    {
+        TocRefusal.Prefix => ObjectBlock.PrefixDocument,
+        TocRefusal.InsideToc => ObjectBlock.InsideToc,
+        TocRefusal.NothingToRemove => ObjectBlock.NoToc,
+        TocRefusal.LevelRange or TocRefusal.LabelNotAllowed => ObjectBlock.None,
+        _ => ObjectBlock.NoPosition,
     };
 
     /// <summary>The block of a refusal of the editor.</summary>

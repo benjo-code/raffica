@@ -138,6 +138,17 @@ public sealed class DerivedHistoryTests
         Assert.Equal(AttachOutcome.MustWait, history.AttachDerived(new DerivedRecord([new BlockChange(StoryRef.Body, document.Body.Blocks, 0, 0, 0, [])])));
     }
 
+    // The matrix with a real table of contents (the record is the refresh's own, not a hand-made one) is TocStructuralRefreshTests.TheHistoryMatrixWithARealToc: it must run the kinds of this matrix that a document with a list can run.
+    [Fact]
+    public void TheMatrixWithARealTocRunsKindsOfThisMatrix()
+    {
+        var real = TocStructuralRefreshTests.Kinds().Select(row => row.Data).ToList();
+        var here = Kinds().Select(row => row.Data).ToList();
+        Assert.NotEmpty(real);
+        Assert.All(real, kind => Assert.Contains(kind, here));
+        Assert.True(real.Count >= here.Count - 1, "the real-list matrix drops more than one kind of this matrix");
+    }
+
     [Theory]
     [MemberData(nameof(Kinds))]
     public void AnUndoThenAnAttachWaitsBecauseARedoIsPending(string kind)

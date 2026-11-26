@@ -4,7 +4,7 @@ namespace Raffica.Write.Editing;
 
 /// <summary>
 /// Where a position goes when a field refresh rewrote the results in its paragraph. A result is atomic, so a caret is never inside one: a position inside a replaced result goes to the start of that result, a position before it stays and a
-/// position after it moves by the change of its length (the caret stays behind the same character). Every other position is returned as it is.
+/// position after it moves by the change of its length (the caret stays behind the same character), and an offset never ends beyond the end of the rewritten paragraph (the edge of a table of contents whose last line got shorter). Every other position is returned as it is.
 /// </summary>
 public static class FieldPositions
 {
@@ -37,7 +37,7 @@ public static class FieldPositions
                 }
 
                 var old = BookmarkOperations.ParagraphsOf([change.OldBlocks[i]]).ToList();
-                return old.Count != live.Count ? position : new TextPosition(position.Story, position.Paragraph, Map(old[index], live[index], position.Offset));
+                return old.Count != live.Count ? position : new TextPosition(position.Story, position.Paragraph, Math.Clamp(Map(old[index], live[index], position.Offset), 0, ParagraphProjection.Build(live[index], ProjectionHost.Plain).Text.Length));
             }
         }
 

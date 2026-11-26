@@ -195,6 +195,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-typing", typingKeys: 3);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -262,6 +265,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-format", typingKeys: 3);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -294,6 +300,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-structure", typingKeys: 2);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -331,6 +340,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-sections", typingKeys: 2);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -420,6 +432,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-objects", typingKeys: 2);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -462,6 +477,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-gesture", typingKeys: 4);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -496,6 +514,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-typing-objects", typingKeys: 3);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -518,6 +539,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-typing-sections-pane", typingKeys: 3);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -546,6 +570,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-typing-pane", typingKeys: 3);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);
@@ -599,6 +626,9 @@ public sealed class MeasurementTests
         using var measurement = Create(f, probe, "--measure-typing-snapshot", typingKeys: 2);
 
         await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+
+        // The real measurement run has no field refresh (WriteOptions.IsMeasuring); the window of this test is not made with those options, so it is switched off here before the table of contents of the thesis can be rewritten under the run.
+        f.Window.Workspace.Active!.RefreshesFields = false;
         for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
         {
             await Task.Delay(25);

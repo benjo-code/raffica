@@ -33,6 +33,7 @@ public sealed class CardFooterTests
         yield return ("PicturePropertiesCard.Create", () => PicturePropertiesCard.Create(new PicturePropertiesContext(2000, 1000, string.Empty, "inline", false, true, false), _ => { }));
         yield return ("BookmarkCard.Create", () => BookmarkCard.Create(new BookmarkContext(["Intro", "Summary"], ["Intro", "Summary", "_Ref1"]), _ => { }));
         yield return ("CaptionCard.Create", () => CaptionCard.Create(new CaptionContext(["Figure", "Table", "Equation"], "Figure", true, label => label), _ => { }));
+        yield return ("TocCard.Create", () => TocCard.Create(new TocContext(["Figure", "Table"], true), _ => { }));
         yield return ("CrossReferenceCard.Create", () => CrossReferenceCard.Create(new CrossRefContext(_ => [new CrossRefTarget(CrossRefTargetKind.Heading, new TextPosition(StoryRef.Body, new Paragraph(), 0), "Introduction")], CrossRefTargetKind.Heading), _ => { }));
     }
 
@@ -52,6 +53,7 @@ public sealed class CardFooterTests
         ["PicturePropertiesCard.Create"] = "PART_Ok",
         ["BookmarkCard.Create"] = "PART_Ok",
         ["CaptionCard.Create"] = "PART_Ok",
+        ["TocCard.Create"] = "PART_Ok",
         ["CrossReferenceCard.Create"] = "PART_Ok",
     };
 

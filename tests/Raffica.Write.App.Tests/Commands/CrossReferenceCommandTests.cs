@@ -76,6 +76,8 @@ public sealed class CrossReferenceCommandTests
 
         public Task<CaptionRequest?> AskCaptionAsync(CaptionContext context) => Task.FromResult<CaptionRequest?>(null);
 
+        public Task<TocRequest?> AskTocAsync(TocContext context) => Task.FromResult<TocRequest?>(null);
+
         public Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context)
         {
             Asked++;

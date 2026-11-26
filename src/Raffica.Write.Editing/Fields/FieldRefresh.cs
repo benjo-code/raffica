@@ -12,10 +12,11 @@ public enum RefreshScope
 
 /// <summary>
 /// What a field refresh did. <paramref name="Content"/> are the block changes of the results it rewrote (one per changed top-level block, with clones as <see cref="BlockChange.OldBlocks"/>); a refresh has no caret and no
-/// history step. <paramref name="Structural"/> is a change of the paragraph count of a list (none for the order-based fields). <paramref name="NotUpdated"/> counts the fields Write left as they were (a field or switch outside
+/// history step. <paramref name="Structural"/> is the change of the paragraph count of a table of contents (also among <paramref name="Content"/>, which the owner tells the layout; the owner attaches the record to the newest history step). <paramref name="NotUpdated"/> counts the fields Write left as they were (a field or switch outside
 /// the support table, a missing target, a field in a tracked change, a note, a header, a footer or a comment) and <paramref name="Written"/> the results it rewrote. <paramref name="Settled"/> is false only when a page result may still change.
+/// <paramref name="StructuralDeferred"/> is true when a table of contents was left as it was because its paragraph count changes and the history had a redo pending (the refresh was asked not to make a structural change): the owner looks again once the redo stack is empty.
 /// </summary>
-public sealed record FieldRefreshResult(IReadOnlyList<BlockChange> Content, DerivedRecord? Structural, int NotUpdated, int Written, bool Settled);
+public sealed record FieldRefreshResult(IReadOnlyList<BlockChange> Content, DerivedRecord? Structural, int NotUpdated, int Written, bool Settled, bool StructuralDeferred = false);
 
 /// <summary>
 /// The order-based refresh of field results in the body: <c>SEQ</c>, <c>STYLEREF 1 \s</c>, <c>REF</c> and <c>NOTEREF</c>. It walks the body in document order, carries the counters through every paragraph and writes only the results that
@@ -26,7 +27,7 @@ internal static class FieldRefresh
 {
     private const int MaxReferencePasses = 4;
 
-    public static FieldRefreshResult Run(WordDocument document, IFieldHost host, RefreshScope scope, IReadOnlyList<BlockChange>? touched)
+    public static FieldRefreshResult Run(WordDocument document, IFieldHost host, RefreshScope scope, IReadOnlyList<BlockChange>? touched, bool allowStructural = true)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(host);
@@ -39,34 +40,51 @@ internal static class FieldRefresh
         }
 
         var state = new State(host, body, targets);
+        var tocs = new TocRefresh(document, host, allowStructural);
         List<BlockChange> changes;
+        TocPass? pass = null;
         try
         {
             state.Walk();
             changes = state.Finish();
+
+            // The tables of contents come after the results they list (a caption's number is part of its entry); a walk of only some blocks never touches one (those blocks hold nothing a table of contents lists).
+            if (targets is null)
+            {
+                pass = tocs.Run();
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // The walk writes in place: what it wrote before it failed is told to the document and handed to the owner in the exception, so no layout, tracker or retry works from a model it thinks unchanged.
             IReadOnlyList<BlockChange> partial = [];
+            DerivedRecord? partialRecord = null;
             try
             {
                 var known = state.Finish();
+                known.AddRange(tocs.Changes);
                 Announce(document, known);
                 partial = known;
+                partialRecord = tocs.Structural.Count > 0 ? new DerivedRecord([.. tocs.Structural]) : null;
             }
             catch (Exception inner) when (inner is not OutOfMemoryException)
             {
                 // The walk failed and so does the account of it: what was written is not known, and the first failure is the one to report.
             }
 
-            throw new FieldRefreshException(partial, ex);
+            throw new FieldRefreshException(partial, ex) { Structural = partialRecord };
+        }
+
+        if (pass is not null)
+        {
+            changes.AddRange(pass.Changes);
         }
 
         Announce(document, changes);
 
-        var notUpdated = state.NotUpdated + (targets is null ? OtherStories(document) : 0);
-        return new FieldRefreshResult(changes, null, notUpdated, state.Written, true);
+        var notUpdated = state.NotUpdated + (targets is null ? OtherStories(document) + (pass?.NotUpdated ?? 0) : 0);
+        var record = pass is { Structural.Count: > 0 } ? new DerivedRecord([.. pass.Structural]) : null;
+        return new FieldRefreshResult(changes, record, notUpdated, state.Written + (pass?.Written ?? 0), true, pass?.Deferred ?? false);
     }
 
     private static void Announce(WordDocument document, List<BlockChange> changes)
@@ -121,7 +139,7 @@ internal static class FieldRefresh
     {
         foreach (var paragraph in BookmarkOperations.ParagraphsOf([block]))
         {
-            if (HeadingLevel(paragraph) is not null || IsNumbered(paragraph, document) || host.NumberLabel(paragraph) is not null)
+            if (HeadingLevel(paragraph) is not null || TocBuilder.OutlineLevel(document, paragraph) is not null || IsNumbered(paragraph, document) || host.NumberLabel(paragraph) is not null)
             {
                 return true;
             }

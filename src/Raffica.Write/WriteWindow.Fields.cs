@@ -42,6 +42,9 @@ internal sealed partial class WriteWindow
         {
             _actions[command.Id] = () => _ = GuardAsync(CrossReferenceAsync);
         }
+
+        _actions[WriteCommandIds.TocInsert] = () => _ = GuardAsync(TocAsync);
+        _actions[WriteCommandIds.TocRemove] = () => RunTocFromUi(new TocRequest(TocAction.Remove, null));
     }
 
     // The Bookmarks card first (the list is read from the model when it opens), then the answer. The card is modal and its answer is run only when the document is as it was when the card opened (the same plan check as
@@ -154,6 +157,45 @@ internal sealed partial class WriteWindow
         }
 
         var taken = view.RunCrossReferenceCommand(request);
+        if (!view.IsFocused)
+        {
+            view.Focus();
+        }
+
+        return taken;
+    }
+
+    // The Table of contents card (the labels and whether the caret is in a table of contents are read from the model when it opens), then the answer under the same plan check as the other cards: an answer after the document changed is refused with a note.
+    private async Task TocAsync()
+    {
+        if (ActiveView is not { } view)
+        {
+            return;
+        }
+
+        var plan = CardPlan.Of(view);
+        if (await FieldCards.AskTocAsync(view.TocCardContext()) is not { } request)
+        {
+            return;
+        }
+
+        if (CardIsStale(view, plan))
+        {
+            return;
+        }
+
+        _ = RunTocFromUi(request);
+    }
+
+    /// <summary>Runs an answer of the Table of contents card, or the Remove command, on the active view (the view takes the focus back, a ribbon button that kept it would swallow the typing).</summary>
+    internal bool RunTocFromUi(TocRequest request)
+    {
+        if (ActiveView is not { } view)
+        {
+            return false;
+        }
+
+        var taken = view.RunTocCommand(request);
         if (!view.IsFocused)
         {
             view.Focus();

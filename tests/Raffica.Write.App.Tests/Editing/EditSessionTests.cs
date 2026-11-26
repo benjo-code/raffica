@@ -18,7 +18,8 @@ public sealed class EditSessionTests
     {
         var attempt = DocumentOpener.Open(Path.GetFullPath(path), new OpenWork(), DocumentOpener.DefaultMaxFileLength, CancellationToken.None);
         Assert.NotNull(attempt.Document);
-        return new WriteTab(path, attempt.Document!);
+        // These tests are about layouts and edits, not about fields: the thesis has a table of contents that a refresh rewrites (as it should), and a refresh that comes due in the middle of a comparison with a layout made from scratch would change the model under it.
+        return new WriteTab(path, attempt.Document!) { RefreshesFields = false };
     }
 
     private static async Task WaitAsync(Func<bool> condition, int milliseconds = 30000)

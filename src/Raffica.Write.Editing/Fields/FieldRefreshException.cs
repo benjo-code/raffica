@@ -11,4 +11,7 @@ public sealed class FieldRefreshException(IReadOnlyList<BlockChange> content, Ex
 {
     /// <summary>What was written before the failure (empty when nothing was).</summary>
     public IReadOnlyList<BlockChange> Content { get; } = content;
+
+    /// <summary>The structural change of a table of contents that was made before the failure (it is among <see cref="Content"/> too, and the owner still attaches it to the history), or null.</summary>
+    public DerivedRecord? Structural { get; init; }
 }

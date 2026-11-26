@@ -5,7 +5,7 @@ using Raffica.Write.Model;
 namespace Raffica.Write.Commands;
 
 /// <summary>
-/// Reads <see cref="ObjectCommandFacts"/> for the rules of the caption and cross-reference commands of the References tab (the later field commands join this source): lazily and per question, nothing exists before the first
+/// Reads <see cref="ObjectCommandFacts"/> for the rules of the caption, cross-reference and table of contents commands of the References tab (the later field commands join this source): lazily and per question, nothing exists before the first
 /// question and nothing is read for a tab without an editing session (a prefix document is a flag of the file and is answered without one). The answer is remembered for the command, the model, its edit stamp (a refresh of a
 /// field result moves it) and the selection. The asks come from the refresh of the ribbon, never from the key path.
 /// </summary>
@@ -21,7 +21,7 @@ internal sealed class FieldFactsSource
     {
         ArgumentNullException.ThrowIfNull(id);
         var crossReference = WriteCommandIds.IsCrossReference(id);
-        if (tab is null || !(crossReference || WriteCommandIds.IsCaption(id)))
+        if (tab is null || !(crossReference || WriteCommandIds.IsCaption(id) || WriteCommandIds.IsToc(id)))
         {
             return ObjectCommandFacts.Permissive;
         }
@@ -44,7 +44,7 @@ internal sealed class FieldFactsSource
             try
             {
                 Reads++;
-                known = (key, crossReference ? BlockOfCrossReference(session, range) : BlockOfCaption(session, range));
+                known = (key, crossReference ? BlockOfCrossReference(session, range) : WriteCommandIds.IsToc(id) ? BlockOfToc(session, range, id) : BlockOfCaption(session, range));
             }
             catch (StalePositionException)
             {
@@ -60,6 +60,14 @@ internal sealed class FieldFactsSource
 
     private static ObjectBlock BlockOfCaption(EditSession session, TextRange range) =>
         session.Editor.RefusalForCaption(range.End, chapterNumber: false) is { } refusal ? ObjectWording.BlockOf(refusal) : ObjectBlock.None;
+
+    // A table of contents goes at the start of the selection and is removed where the selection starts (an edge of the field counts); the levels and the kind are the card's.
+    private static ObjectBlock BlockOfToc(EditSession session, TextRange range, string id)
+    {
+        var start = range.Normalized().Start;
+        var refusal = id == WriteCommandIds.TocRemove ? session.Editor.RefusalForRemoveToc(start) : session.Editor.RefusalForToc(start);
+        return refusal is { } r ? ObjectWording.BlockOf(r) : ObjectBlock.None;
+    }
 
     // The reference is put at the end of the selection, as the command does.
     private static ObjectBlock BlockOfCrossReference(EditSession session, TextRange range) =>

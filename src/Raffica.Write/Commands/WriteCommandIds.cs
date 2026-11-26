@@ -110,6 +110,8 @@ internal static class WriteCommandIds
     public const string BookmarkInsert = "bookmark.insert";
     public const string CaptionInsert = "caption.insert";
     public const string CrossReferenceInsert = "xref.insert";
+    public const string TocInsert = "toc.insert";
+    public const string TocRemove = "toc.remove";
 
     /// <summary>Whether the command belongs to the text (undo, redo, the clipboard and select all): the page view owns their keys, so the window never matches them itself.</summary>
     public static bool IsEditing(string id) => id.StartsWith("edit.", StringComparison.Ordinal);
@@ -178,4 +180,10 @@ internal static class WriteCommandIds
     /// content control) are read through <see cref="FieldFactsSource"/>.
     /// </summary>
     public static bool IsCrossReference(string id) => id.StartsWith("xref.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether the command is one of the table of contents commands (<c>toc.insert</c> and <c>toc.remove</c>: the Table of contents group of the References tab). They have no keys; the facts that enable them (a prefix document, a caret in
+    /// a table of contents or a place that takes none, a caret outside one for Remove) are read through <see cref="FieldFactsSource"/>.
+    /// </summary>
+    public static bool IsToc(string id) => id.StartsWith("toc.", StringComparison.Ordinal);
 }

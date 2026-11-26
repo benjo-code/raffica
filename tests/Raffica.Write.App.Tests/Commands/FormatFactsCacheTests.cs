@@ -25,7 +25,7 @@ public sealed class FormatFactsCacheTests
     {
         var attempt = DocumentOpener.Open(Path.GetFullPath(WindowFixture.Thesis), new OpenWork(), DocumentOpener.DefaultMaxFileLength, CancellationToken.None);
         Assert.NotNull(attempt.Document);
-        var tab = new WriteTab(WindowFixture.Thesis, attempt.Document!);
+        var tab = new WriteTab(WindowFixture.Thesis, attempt.Document!) { RefreshesFields = false };
         tab.Runner.LeaseWaitTimeout = TimeSpan.FromSeconds(60);
         tab.Runner.Start();
         await ViewHarness.WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted, 30000);

@@ -436,7 +436,7 @@ public sealed class CloseGuardTests
     public void CardsAreBuiltByCardFooter()
     {
         var keys = CardFooterTests.Entries().Select(e => e.Key).ToList();
-        Assert.Equal(["ChangedOriginalCard.Create", "SaveErrorCard.Create", "UnsavedChangesCard.Create", "RecoveryCard.Create", "NumberPagesCard.Create", "PageSetupCard.Create", "TableInsertCard.Create", "TableBordersCard.Create", "TablePropertiesCard.Create", "PictureInsertCard.Create", "PicturePropertiesCard.Create", "BookmarkCard.Create", "CaptionCard.Create", "CrossReferenceCard.Create"], keys);
+        Assert.Equal(["ChangedOriginalCard.Create", "SaveErrorCard.Create", "UnsavedChangesCard.Create", "RecoveryCard.Create", "NumberPagesCard.Create", "PageSetupCard.Create", "TableInsertCard.Create", "TableBordersCard.Create", "TablePropertiesCard.Create", "PictureInsertCard.Create", "PicturePropertiesCard.Create", "BookmarkCard.Create", "CaptionCard.Create", "TocCard.Create", "CrossReferenceCard.Create"], keys);
         foreach (var (key, make) in CardFooterTests.Entries())
         {
             var dialog = make();

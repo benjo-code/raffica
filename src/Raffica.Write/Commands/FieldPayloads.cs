@@ -47,11 +47,31 @@ internal sealed record CrossRefRequest(CrossRefTarget Target, CrossRefKind Kind)
 /// <summary>What the Cross-reference card needs: the targets of a type, asked when the type is chosen (read from the model when the card opens, never earlier), and the type to start with.</summary>
 internal sealed record CrossRefContext(Func<CrossRefTargetKind, IReadOnlyList<CrossRefTarget>> TargetsOf, CrossRefTargetKind DefaultType);
 
+/// <summary>What the Table of contents card asks for.</summary>
+internal enum TocAction
+{
+    /// <summary>Insert a table of contents (or a list of figures or tables) with the options.</summary>
+    Insert,
+
+    /// <summary>Remove the table of contents the caret is in.</summary>
+    Remove,
+}
+
+/// <summary>The answer of the Table of contents card: what to do and, for Insert, the options (levels, page numbers, alignment, leader and the caption label of a list).</summary>
+internal sealed record TocRequest(TocAction Action, TocOptions? Options)
+{
+    /// <summary>Whether the request is well formed: a known action, and for Insert options with a known leader and a label (when it is a list) that can be written into an instruction. The order of the levels is the editor's to refuse.</summary>
+    public bool IsValid => Enum.IsDefined(Action) && (Action == TocAction.Remove || (Options is { } o && Enum.IsDefined(o.Leader) && (o.Label is null || CaptionLabels.IsUsable(o.Label))));
+}
+
+/// <summary>What the Table of contents card needs: the caption labels a list can be made of (the labels of the document), and whether the caret is in a table of contents (the card then offers Remove).</summary>
+internal sealed record TocContext(IReadOnlyList<string> Labels, bool CanRemove);
+
 /// <summary>What the Bookmarks card needs: the names the user may see (sorted) and every name of the document, hidden ones included, which a new name must not repeat.</summary>
 internal sealed record BookmarkContext(IReadOnlyList<string> Names, IReadOnlyList<string> AllNames);
 
 /// <summary>
-/// The cards of the References tab, which the window owns (the Bookmarks, Caption and Cross-reference cards). A command asks its card and runs the answer (null: the user cancelled). The window uses <see cref="DialogFieldCards"/>; a test puts
+/// The cards of the References tab, which the window owns (the Bookmarks, Caption, Cross-reference and Table of contents cards). A command asks its card and runs the answer (null: the user cancelled). The window uses <see cref="DialogFieldCards"/>; a test puts
 /// its own in.
 /// </summary>
 internal interface IFieldCards
@@ -64,6 +84,9 @@ internal interface IFieldCards
 
     /// <summary>Asks for a cross-reference: the type of the target, the target and what to show of it; null when closed.</summary>
     Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context);
+
+    /// <summary>Asks for a table of contents or a list: the kind, the levels, the page numbers; or Remove; null when closed.</summary>
+    Task<TocRequest?> AskTocAsync(TocContext context);
 }
 
 /// <summary>The real cards, shown one at a time through the window's <see cref="DialogQueue"/>.</summary>
@@ -80,4 +103,8 @@ internal sealed class DialogFieldCards(DialogQueue dialogs) : IFieldCards
     /// <inheritdoc/>
     public Task<CrossRefRequest?> AskCrossReferenceAsync(CrossRefContext context) =>
         dialogs.ShowAsync<CrossRefRequest?>(done => CrossReferenceCard.Create(context, done));
+
+    /// <inheritdoc/>
+    public Task<TocRequest?> AskTocAsync(TocContext context) =>
+        dialogs.ShowAsync<TocRequest?>(done => TocCard.Create(context, done));
 }

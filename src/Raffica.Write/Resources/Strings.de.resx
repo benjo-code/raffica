@@ -2418,4 +2418,76 @@
   <data name="NoteCrossRefCaptionUnread" xml:space="preserve">
     <value>Die Nummer dieser Beschriftung lässt sich nicht finden. Verweisen Sie stattdessen auf ihren Text oder ihre Seite.</value>
   </data>
+  <data name="GroupToc" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="CmdToc" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="DescToc" xml:space="preserve">
+    <value>Fügt ein Inhaltsverzeichnis, ein Abbildungsverzeichnis oder ein Tabellenverzeichnis ein, das den Überschriften oder Beschriftungen folgt.</value>
+  </data>
+  <data name="CmdTocRemove" xml:space="preserve">
+    <value>Inhaltsverzeichnis entfernen</value>
+  </data>
+  <data name="DescTocRemove" xml:space="preserve">
+    <value>Entfernt das Inhaltsverzeichnis oder Verzeichnis, in dem die Einfügemarke steht.</value>
+  </data>
+  <data name="TocTitle" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="TocKindLabel" xml:space="preserve">
+    <value>Art</value>
+  </data>
+  <data name="TocKindContents" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="TocKindList" xml:space="preserve">
+    <value>Abbildungs- oder Tabellenverzeichnis</value>
+  </data>
+  <data name="TocCaptionLabel" xml:space="preserve">
+    <value>Beschriftungsart</value>
+  </data>
+  <data name="TocFirstLevel" xml:space="preserve">
+    <value>Erste Ebene</value>
+  </data>
+  <data name="TocLastLevel" xml:space="preserve">
+    <value>Letzte Ebene</value>
+  </data>
+  <data name="TocPages" xml:space="preserve">
+    <value>Seitenzahlen anzeigen</value>
+  </data>
+  <data name="TocRight" xml:space="preserve">
+    <value>Seitenzahlen rechtsbündig</value>
+  </data>
+  <data name="TocLeaderLabel" xml:space="preserve">
+    <value>Füllzeichen</value>
+  </data>
+  <data name="TocLeaderDots" xml:space="preserve">
+    <value>Punkte</value>
+  </data>
+  <data name="TocLeaderHyphens" xml:space="preserve">
+    <value>Bindestriche</value>
+  </data>
+  <data name="TocLeaderLine" xml:space="preserve">
+    <value>Linie</value>
+  </data>
+  <data name="TocLeaderNone" xml:space="preserve">
+    <value>Keine</value>
+  </data>
+  <data name="TocOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="TocRemoveButton" xml:space="preserve">
+    <value>Entfernen</value>
+  </data>
+  <data name="TocProblemLevels" xml:space="preserve">
+    <value>Die erste Ebene darf nicht höher liegen als die letzte.</value>
+  </data>
+  <data name="ReasonTocNone" xml:space="preserve">
+    <value>Die Einfügemarke steht nicht in einem Inhaltsverzeichnis.</value>
+  </data>
+  <data name="NoteTocLabel" xml:space="preserve">
+    <value>Diese Beschriftungsart kann nicht für ein Verzeichnis verwendet werden.</value>
+  </data>
 </root>

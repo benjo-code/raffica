@@ -88,6 +88,8 @@ internal sealed class ViewHarness : IDisposable
         }
 
         Tab = new WriteTab(path, document);
+        // These tests are about layouts and edits, not about fields: the thesis has a table of contents that a refresh rewrites (as it should), and a refresh that comes due in the middle of a comparison with a layout made from scratch would change the model under it.
+        Tab.RefreshesFields = false;
         View = new PageView(Tab, mode, zoom) { Background = new SolidColorBrush(Desk) };
         View.FirstSharpPage += () =>
         {
