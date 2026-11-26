@@ -58,7 +58,7 @@ public sealed class FieldOracleTests
             Assert.True(compared > 0, $"{name}: no step changed anything");
         }
 
-        TestContext.Current.SendDiagnosticMessage($"{name}: {compared} field steps compared, refused {steps.RefusedPerKind.Sum()}, bookmarks taken by a delete {steps.RemovedByDelete}");
+        TestContext.Current.SendDiagnosticMessage($"{name}: {compared} field steps compared, {steps.PageResultsCompared} page results, refused {steps.RefusedPerKind.Sum()}, bookmarks taken by a delete {steps.RemovedByDelete}");
     }
 
     // A guard that only the per-file runs carry would stay green if a kind were skipped everywhere.
@@ -104,8 +104,8 @@ public sealed class FieldOracleTests
         + Run(result)
         + "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
 
-    private static string P(string inner, string? style = null) =>
-        $"<w:p><w:pPr>{(style is null ? string.Empty : $"<w:pStyle w:val=\"{style}\"/>")}</w:pPr>{inner}</w:p>";
+    private static string P(string inner, string? style = null, string extra = "") =>
+        $"<w:p><w:pPr>{(style is null ? string.Empty : $"<w:pStyle w:val=\"{style}\"/>")}{extra}</w:pPr>{inner}</w:p>";
 
     // Headings, captions with SEQ (restarting per chapter), a chapter reference, references to a caption's bookmark and a note reference: results the refresh really writes.
     internal static string FieldsBody() =>
@@ -195,6 +195,61 @@ public sealed class FieldOracleTests
         {
             Assert.True(steps.RanPerKind[(int)kind] > 0, $"the step kind {kind} never changed anything (ran per kind: {string.Join(", ", Enum.GetValues<FieldStepKind>().Select(k => k + " " + steps.RanPerKind[(int)k]))})");
         }
+    }
+
+    private static string SectionBreak(string numbering, string type = "nextPage") =>
+        $"<w:p><w:pPr><w:sectPr><w:type w:val=\"{type}\"/><w:pgSz w:w=\"12240\" w:h=\"15840\"/>{numbering}</w:sectPr></w:pPr></w:p>";
+
+    // Sections with their own number formats and restarts, a table of contents, headings in a table cell and in a content control, bookmarks with PAGEREF fields, notes and filler that fills several pages: every page result of every step must equal the independent count.
+    private static WordDocument WithPageResults()
+    {
+        var begin = "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-3\" \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>";
+        var end = "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
+        var filler = string.Concat(Enumerable.Range(0, 70).Select(i => P(Run("Filler line number " + i + " that takes room on the page."))));
+        var cell = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid><w:tr><w:tc><w:tcPr/>" + P(Run("Heading in a cell"), "Heading2") + "</w:tc></w:tr></w:tbl>";
+        var body = P(Run("Cover"))
+            + SectionBreak("<w:pgNumType w:fmt=\"lowerRoman\"/>")
+            + P(Run("Contents"))
+            + P(begin + Run("Entry A")) + P(Run("Entry B")) + P(Run("Entry C") + end)
+            + SectionBreak("<w:pgNumType w:fmt=\"lowerRoman\"/>")
+            + P(Run("Chapter one"), "Heading1")
+            + P("<w:bookmarkStart w:id=\"1\" w:name=\"BkOne\"/>" + Run("target one") + "<w:bookmarkEnd w:id=\"1\"/><w:r><w:footnoteReference w:id=\"3\"/></w:r>")
+            + P(Run("see ") + Field("PAGEREF BkOne \\h", "?") + Run(" and ") + Field("PAGEREF BkTwo \\h", "?"))
+            + cell
+            + filler
+            + SectionBreak("<w:pgNumType w:start=\"1\"/>")
+            + P(Run("Chapter two"), "Heading1", "<w:pageBreakBefore/>")
+            + "<w:sdt><w:sdtPr/><w:sdtContent>" + P(Run("Heading in a control"), "Heading2") + "</w:sdtContent></w:sdt>"
+            + P("<w:bookmarkStart w:id=\"2\" w:name=\"BkTwo\"/>" + Run("target two") + "<w:bookmarkEnd w:id=\"2\"/>")
+            + filler
+            + P(Run("Again ") + Field("PAGEREF BkOne \\h", "?") + Run(" ") + Field("PAGEREF BkTwo \\h", "?"))
+            + P(Run("Appendix"), "Heading1", "<w:pageBreakBefore/>")
+            + P(Run("see ") + Field("PAGEREF BkTwo \\h", "?"))
+            + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/><w:pgNumType w:fmt=\"upperLetter\" w:start=\"1\"/></w:sectPr>";
+        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>";
+        for (var i = 1; i <= 3; i++)
+        {
+            styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr><w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
+        }
+
+        return LayoutModel.Document(body, LayoutModel.StylesPart(styles));
+    }
+
+    [Theory]
+    [InlineData(31)]
+    [InlineData(32)]
+    [InlineData(33)]
+    public async Task PageResultsOfAGeneratedDocumentWithSectionsTablesAndNotesEqualTheIndependentCount(int seed)
+    {
+        var model = WithPageResults();
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var steps = new FieldSteps(model, layout, new LayoutOptions());
+
+        await steps.RunAsync(new Random(seed), 30, "page results " + seed);
+
+        Assert.True(steps.PageResultsCompared > 0, "no page result was compared with the independent count");
+        Assert.True(steps.RanPerKind[(int)FieldStepKind.Refresh] > 0);
+        TestContext.Current.SendDiagnosticMessage($"page results {seed}: {steps.PageResultsCompared} compared, {steps.SettlePasses} passes over {steps.Compared} steps");
     }
 
     [Theory]

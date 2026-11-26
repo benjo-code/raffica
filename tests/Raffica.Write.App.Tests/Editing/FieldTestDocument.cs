@@ -128,6 +128,55 @@ internal static class FieldTestDocument
         return stream.ToArray();
     }
 
+    /// <summary>
+    /// A document for the page results: an empty first paragraph (the place for a table of contents), an "intro" paragraph, three Heading1 chapters (Alpha, Beta, Gamma) with a line of text each, a paragraph that holds the bookmark <c>Target</c> and a last one with a stale
+    /// <c>PAGEREF Target</c> (stored "77"). Nothing starts a page of its own, so every block is on the first page until text is typed above them.
+    /// </summary>
+    public static byte[] TocBytes()
+    {
+        using var stream = new MemoryStream();
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            Entry(zip, "[Content_Types].xml", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+                  <Default Extension="xml" ContentType="application/xml"/>
+                  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+                  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+                </Types>
+                """);
+            Entry(zip, "_rels/.rels", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+                </Relationships>
+                """);
+            Entry(zip, "word/_rels/document.xml.rels", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+                </Relationships>
+                """);
+            Entry(zip, "word/styles.xml", Styles());
+            static string Plain(string text) => "<w:p><w:r><w:t xml:space=\"preserve\">" + text + "</w:t></w:r></w:p>";
+            static string Chapter(string text) => "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>" + text + "</w:t></w:r></w:p>";
+            var body = "<w:p/>" + Plain("intro") + Chapter("Alpha") + Plain("alpha text") + Chapter("Beta") + Plain("beta text") + Chapter("Gamma") + Plain("gamma text")
+                + "<w:p><w:bookmarkStart w:id=\"1\" w:name=\"Target\"/><w:r><w:t>the target</w:t></w:r><w:bookmarkEnd w:id=\"1\"/></w:p>"
+                + "<w:p><w:r><w:t xml:space=\"preserve\">see page </w:t></w:r>" + Field(" PAGEREF Target \\h ", Stale) + "</w:p>";
+            Entry(zip, "word/document.xml", $"""
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                  <w:body>{body}
+                    <w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>
+                  </w:body>
+                </w:document>
+                """);
+        }
+
+        return stream.ToArray();
+    }
+
     /// <summary>A document with no field at all, five pages.</summary>
     public static byte[] PlainBytes()
     {
@@ -253,6 +302,16 @@ internal sealed class FieldHarness : IDisposable
         var result = session.Apply(e => e.InsertText(session.Selection!.Value, text), 0);
         Assert.NotNull(result);
         return result;
+    }
+
+    /// <summary>
+    /// The timer tick once the layout is complete: a refresh of a document that has page results (a table of contents, a PAGEREF) waits for that, and an edit makes the layout incomplete until its background pass is over, so a test that ticks right after an edit would
+    /// otherwise race with the layout.
+    /// </summary>
+    public async Task FireAsync()
+    {
+        await ViewHarness.WaitAsync(() => Tab.Runner.IsFaulted || (Tab.Editor?.ActiveLayout ?? Tab.Runner.PageLayout) is { IsComplete: true }, 60000);
+        Clock.Fire();
     }
 
     public static void Pump() => ViewHarness.Pump();

@@ -5,13 +5,17 @@ using Raffica.Write.Model;
 namespace Raffica.Write.Editing;
 
 /// <summary>
-/// What a field refresh asks the app: the number labels and note marks of the tab's model (<see cref="FieldLabels"/>: the layout's own numbering counter and note format, worked out for a revision) and whether the layout is complete.
-/// The page of a position is not answered yet (the page-based fields come with the table of contents, milestone 4.5b task 11): <see cref="PageOf"/> says "no answer". UI thread only.
+/// What a field refresh asks the app: the number labels and note marks of the tab's model (<see cref="FieldLabels"/>: the layout's own numbering counter and note format, worked out for a revision), whether the layout is complete and the
+/// page of a position (<see cref="FieldPages"/>: the page the paragraph's block starts on and the number the footer's <c>PAGE</c> field prints there). Pages exist only in the pages view: while the session follows the writing view's strips
+/// <see cref="IsComplete"/> is false and <see cref="PageOf"/> says "no answer", so no page result is written and the stored ones stay (a named limit). UI thread only.
 /// </summary>
 internal sealed class FieldHost(WriteTab tab) : IFieldHost
 {
     private WordDocument? _model;
     private FieldLabels? _labels;
+    private DocumentLayout? _pagesLayout;
+    private FieldPages? _pages;
+    private WordDocument? _pagesModel;
 
     /// <summary>The layout the refresh follows: the one the editing session follows, or the pages layout while there is no session; null while the pages layout is stale.</summary>
     internal DocumentLayout? Layout => tab.Editor is { } session ? session.ActiveLayout : (tab.Runner.PageLayoutIsStale ? null : tab.Runner.PageLayout);
@@ -19,11 +23,31 @@ internal sealed class FieldHost(WriteTab tab) : IFieldHost
     /// <summary>How many times the labels object was made (tests; one per model).</summary>
     internal int LabelObjects { get; private set; }
 
-    public bool IsComplete => Layout?.IsComplete ?? false;
+    /// <summary>True when the followed layout has pages (not the writing view's strips) and is complete: only then is a page answer final.</summary>
+    public bool IsComplete => Layout is { Mode: LayoutMode.Pages, IsComplete: true };
+
+    /// <summary>True when the followed layout has pages, complete or not: a layout that can be completed for a page answer.</summary>
+    internal bool HasPages => Layout is { Mode: LayoutMode.Pages };
 
     public string? NumberLabel(Paragraph paragraph) => Labels().NumberLabel(paragraph);
 
-    public (int PageIndex, string PageText)? PageOf(TextPosition position) => null;
+    public (int PageIndex, string PageText)? PageOf(TextPosition position)
+    {
+        if (position.Story.Kind != StoryKind.Body || Layout is not { Mode: LayoutMode.Pages } layout)
+        {
+            return null;
+        }
+
+        var model = tab.Docx.Model;
+        if (_pages is null || !ReferenceEquals(_pagesLayout, layout) || !ReferenceEquals(_pagesModel, model))
+        {
+            _pagesLayout = layout;
+            _pagesModel = model;
+            _pages = new FieldPages(model, layout);
+        }
+
+        return _pages.PageOf(position.Paragraph);
+    }
 
     public string? NoteMarkText(int noteId, NoteType type) => Labels().NoteMarkText(noteId, type);
 

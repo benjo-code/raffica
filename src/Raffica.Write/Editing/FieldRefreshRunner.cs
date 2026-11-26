@@ -41,6 +41,7 @@ internal sealed class FieldRefreshRunner : IDisposable
     private bool _waitForRedo;
     private bool _disposed;
     private bool _running;
+    private bool _wantPages = true;
     private int _consecutiveFailures;
     private TextEditor? _bare;
     private WordDocument? _bareModel;
@@ -119,7 +120,7 @@ internal sealed class FieldRefreshRunner : IDisposable
             if (Blocked(forSettle: true) == Hold.None)
             {
                 _timer.Stop();
-                RunPasses(token);
+                RunPasses(forSettle: true, token);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -164,7 +165,7 @@ internal sealed class FieldRefreshRunner : IDisposable
                     _timer.Restart(Delay);
                     break;
                 default:
-                    RunPasses(_tab.Token);
+                    RunPasses(forSettle: false, _tab.Token);
                     break;
             }
         }
@@ -216,8 +217,9 @@ internal sealed class FieldRefreshRunner : IDisposable
             _waitForRedo = false;
         }
 
-        // The first look at the whole body waits for the layout to be complete, so that nothing is asked of a half-built layout and the page loop (which needs it) can follow; a save does not wait.
-        return !forSettle && _all && !layout.IsComplete ? Hold.Later : Hold.None;
+        // The first look at the whole body, and any look at a document that has page results (a table of contents, a PAGEREF), waits for the layout to be complete, so that nothing is asked of a half-built layout and the page loop (which needs
+        // it) can follow; a save does not wait (it completes the layout itself).
+        return !forSettle && (_all || _wantPages) && !layout.IsComplete ? Hold.Later : Hold.None;
     }
 
     private TextEditor EditorFor(WordDocument model)
@@ -236,7 +238,7 @@ internal sealed class FieldRefreshRunner : IDisposable
         return _bare;
     }
 
-    private void RunPasses(CancellationToken token)
+    private void RunPasses(bool forSettle, CancellationToken token)
     {
         var model = _tab.Docx.Model;
         if (!ScanForFields(model))
@@ -259,10 +261,30 @@ internal sealed class FieldRefreshRunner : IDisposable
             using var lease = _tab.Runner.PauseForEdit();
             var editor = EditorFor(model);
             FieldRefreshResult? last = null;
+
+            // Lays out the rest of the pages (the lease holder may; the background layout is paused) so that the next pass reads final page numbers. A fault of the layout is a fault of the edit path, like in ApplyToLayout.
+            void CompleteLayout()
+            {
+                if (_host.Layout is { Mode: LayoutMode.Pages, IsComplete: false } layout)
+                {
+                    layoutFailed = true;
+                    layout.LayOutThrough(int.MaxValue);
+                    layoutFailed = false;
+                }
+            }
+
+            // A save writes the numbers the page shows: the layout is completed first when the document has page results (or may have: nothing is known before the first pass).
+            if (forSettle && _wantPages && _host.HasPages)
+            {
+                CompleteLayout();
+            }
+
             for (var pass = 0; pass < MaxPasses && !token.IsCancellationRequested; pass++)
             {
-                var scope = _host.IsComplete ? RefreshScope.WithPages : RefreshScope.OrderBased;
-                var blocks = pass == 0 ? touched : null;
+                // Page results need every block and a complete layout: such a pass looks at the whole body; any other pass at the touched blocks of the first pass.
+                var pagesOn = _wantPages && _host.IsComplete;
+                var scope = pagesOn ? RefreshScope.WithPages : RefreshScope.OrderBased;
+                var blocks = pass == 0 && !pagesOn ? touched : null;
                 try
                 {
                     last = Refresher is { } seam ? seam(editor, _host, scope, blocks) : editor.RefreshFields(_host, scope, blocks);
@@ -292,6 +314,12 @@ internal sealed class FieldRefreshRunner : IDisposable
                 }
 
                 Passes++;
+                if (blocks is null || last.PageFields > 0)
+                {
+                    // A pass over the whole body saw every page field; one over some blocks can only find new ones.
+                    _wantPages = last.PageFields > 0;
+                }
+
                 if (last.Content.Count > 0)
                 {
                     content.AddRange(last.Content);
@@ -317,15 +345,20 @@ internal sealed class FieldRefreshRunner : IDisposable
                     break;
                 }
 
-                if (last.Settled)
+                if (last.Settled || !_host.HasPages)
                 {
+                    // Nothing page-based may still change, or there are no pages to follow (the writing view): the stored page results stay.
                     break;
                 }
 
                 if (pass == MaxPasses - 1)
                 {
                     Unsettled++;
+                    break;
                 }
+
+                // Write, apply, repeat: the layout shows what was written and is complete before the numbers are read again.
+                CompleteLayout();
             }
 
             if (wholeBody && last is not null)

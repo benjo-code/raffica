@@ -725,7 +725,7 @@ public sealed class FieldRefreshRunnerTests
         var host = h.Tab.EnsureFields().Host;
         var runner = h.Tab.Fields!;
         Assert.NotNull(session.Apply(e => e.InsertToc(session.Selection!.Value.Start, TocDefaults, host), 0));
-        h.Clock.Fire();
+        await h.FireAsync();
         var inserted = TocParagraphs(h.Tab);
         Assert.Equal(2, inserted);
 
@@ -736,7 +736,7 @@ public sealed class FieldRefreshRunnerTests
         Assert.Equal(inserted, TocParagraphs(h.Tab));
         var revision = h.Tab.Docx.Model.Edits.Revision;
 
-        h.Clock.Fire();
+        await h.FireAsync();
 
         Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
         Assert.Equal(1, runner.StructuralAttached);
@@ -748,12 +748,12 @@ public sealed class FieldRefreshRunnerTests
         Assert.NotNull(session.Apply(e => e.History.Undo(), 0));
         Assert.Equal(inserted, TocParagraphs(h.Tab));
         Assert.Equal(before, h.Tab.Docx.Model.Body.Blocks.Count);
-        h.Clock.Fire();
+        await h.FireAsync();
         Assert.Equal(inserted, TocParagraphs(h.Tab));
         Assert.Equal(1, runner.StructuralAttached);
         Assert.NotNull(session.Apply(e => e.History.Redo(), 0));
         Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
-        h.Clock.Fire();
+        await h.FireAsync();
         Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
         Assert.Equal(1, runner.StructuralAttached);
         Assert.Equal(0, runner.Failures);
@@ -767,7 +767,7 @@ public sealed class FieldRefreshRunnerTests
         var host = h.Tab.EnsureFields().Host;
         var runner = h.Tab.Fields!;
         Assert.NotNull(session.Apply(e => e.InsertToc(session.Selection!.Value.Start, TocDefaults, host), 0));
-        h.Clock.Fire();
+        await h.FireAsync();
         var inserted = TocParagraphs(h.Tab);
         var endBlock = h.Tab.Docx.Model.Body.Blocks.Count - 1;
         Assert.NotNull(session.Apply(e => e.ApplyParagraphStyle(HeadingRange(h.Tab, endBlock), "Heading1"), 0));
@@ -781,7 +781,7 @@ public sealed class FieldRefreshRunnerTests
         Assert.NotNull(session.Apply(e => e.History.Undo(), 0));
         Assert.True(session.CanRedo);
         var bytes = ModelBytes(h.Tab);
-        h.Clock.Fire();
+        await h.FireAsync();
 
         Assert.Equal(1, runner.StructuralWaits);
         Assert.Equal(0, runner.StructuralAttached);
@@ -789,7 +789,7 @@ public sealed class FieldRefreshRunnerTests
         Assert.Equal(bytes, ModelBytes(h.Tab));
         Assert.True(runner.IsPending);
         var passes = runner.Passes;
-        h.Clock.Fire();
+        await h.FireAsync();
         Assert.Equal(passes, runner.Passes);
 
         // The redo is done: the list is brought up to date and the step that was redone carries the change.
@@ -797,7 +797,7 @@ public sealed class FieldRefreshRunnerTests
 
         // The look at the whole body waits for a complete layout: the edits above lay out in the background, so the tick that matters is the one after that has finished.
         await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsComplete, 30000);
-        h.Clock.Fire();
+        await h.FireAsync();
         Assert.True(runner.Passes > passes);
         Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
         Assert.Equal(1, runner.StructuralAttached);

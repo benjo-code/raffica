@@ -169,6 +169,15 @@ internal sealed class FieldSteps
     /// <summary>How many field results the refresh steps wrote.</summary>
     public int Written { get; private set; }
 
+    /// <summary>The most passes of one refresh step (the runner stops at 3; the oracle allows more so that a document that needs them fails here with its label and not silently).</summary>
+    public const int MaxSettlePasses = 6;
+
+    /// <summary>How many refresh passes the steps ran in all.</summary>
+    public int SettlePasses { get; private set; }
+
+    /// <summary>How many page results (PAGEREF fields and table of contents entries) were compared with the independent page count.</summary>
+    public int PageResultsCompared { get; private set; }
+
     /// <summary>How many bookmarks a whole-range delete took away with their text.</summary>
     public int RemovedByDelete { get; private set; }
 
@@ -343,7 +352,7 @@ internal sealed class FieldSteps
     private async Task<bool> InsertCrossReferenceAsync(Random random, string label)
     {
         await RefreshAsync(label + " settle", touchedOnly: false);
-        var host = new FakeFieldHost(_model);
+        var host = new LayoutFieldHost(_model, _layout);
         var kinds = Enum.GetValues<CrossRefTargetKind>().Where(k => CrossReferences.Targets(_model, host, k).Count > 0).ToList();
         var paragraphs = Paragraphs();
         if (kinds.Count == 0 || paragraphs.Count == 0)
@@ -358,6 +367,7 @@ internal sealed class FieldSteps
         var paragraph = paragraphs[random.Next(paragraphs.Count)];
         var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
         var before = FieldView.InParagraph(paragraph).Count(f => f.Parent is null);
+        var targetPage = target.Position.Paragraph is { } targetParagraph ? ReferencePageResults.PageTextOf(_layout, _model)(targetParagraph) : null;
         var result = Editor.InsertCrossReference(at, target, choice, host);
         if (!await CheckAsync(result, label, required: false))
         {
@@ -379,8 +389,39 @@ internal sealed class FieldSteps
         {
             Assert.True(checkedFields > 0, $"{label}: the independent count has no answer for the new {choice} reference to a {target.Kind}");
         }
+        else if (targetPage is not null && target.Position.Paragraph is { } pageTarget)
+        {
+            // The page the insert stored is the page the independent count gives for the layout the host saw (before the refresh that follows could heal anything).
+            AssertInsertedPageIsRight(made, pageTarget, targetPage, label);
+        }
 
         return await RefreshAsync(label + " refresh", touchedOnly: true);
+    }
+
+    // Every PAGEREF of the new paragraph that points at the target stores the expected page text.
+    private void AssertInsertedPageIsRight(Paragraph made, Paragraph target, string expected, string label)
+    {
+        var starts = new Dictionary<string, Paragraph>(StringComparer.OrdinalIgnoreCase);
+        foreach (var paragraph in Paragraphs())
+        {
+            foreach (var start in ModelWalk.Inlines(paragraph.Inlines).OfType<BookmarkStart>())
+            {
+                starts.TryAdd(start.Name, paragraph);
+            }
+        }
+
+        var seen = 0;
+        var fields = FieldView.InParagraph(made);
+        for (var i = 0; i < fields.Count; i++)
+        {
+            if (fields[i].Parent is null && fields[i].Support.Kind == FieldKind.PageRef && fields[i].Instruction.Argument is { } name && starts.TryGetValue(name, out var owner) && ReferenceEquals(owner, target))
+            {
+                Assert.True(string.Equals(expected, ReferenceFields.Stored(made, i), StringComparison.Ordinal), $"{label}: a new page cross-reference stores another page than the count gives (expected \"{expected}\", stored \"{ReferenceFields.Stored(made, i)}\")");
+                seen++;
+            }
+        }
+
+        Assert.True(seen > 0, label + ": the new page cross-reference is not in the paragraph the insert returned");
     }
 
     // The text of a hidden reference bookmark is deleted whole: the bookmark goes, and the fields that pointed at it keep the result they stored (the count has no answer for them, so the refresh must leave them alone).
@@ -711,43 +752,62 @@ internal sealed class FieldSteps
         return true;
     }
 
-    // A refresh is brought into the layout as the session does; whether or not it wrote, the layout must equal a full layout and every result the oracle has an answer for must be stored; a second refresh finds nothing.
+    // A refresh is brought into the layout as the session does, and repeated while a page result may still change (at most MaxSettlePasses: the runner's loop, the pages read from the complete layout of the step before); whether or not it wrote, the
+    // layout must equal a full layout, every result the oracle has an answer for must be stored (the pages from the independent count), and one more refresh finds nothing.
     private async Task<bool> RefreshAsync(string label, bool touchedOnly, bool forbidStructural = false)
     {
-        var host = new FakeFieldHost(_model);
-        var result = Editor.RefreshFields(host, RefreshScope.OrderBased, touchedOnly && !_everythingPending ? [.. _pending] : null);
-        _lastRefreshDeferred = result.StructuralDeferred;
+        await _layout.LayOutRestAsync(null, CancellationToken.None);
+        var touched = touchedOnly && !_everythingPending ? (IReadOnlyList<BlockChange>)[.. _pending] : null;
         _pending.Clear();
         _everythingPending = false;
+        LayoutFieldHost host;
+        FieldRefreshResult result;
+        var passes = 0;
+        var written = 0;
+        do
+        {
+            host = new LayoutFieldHost(_model, _layout);
+            result = Editor.RefreshFields(host, RefreshScope.WithPages, passes == 0 ? touched : null);
+            passes++;
+            written += result.Written;
+            _lastRefreshDeferred = result.StructuralDeferred;
 
-        // A structural result is carried by the newest step, as the session does it (nothing to protect with an empty history); a refresh that waited for a pending redo changed nothing and leaves the lists as they were.
-        if (forbidStructural)
-        {
-            Assert.True(result.Structural is null, label + ": a structural refresh followed an undo or a redo that should have restored the table of contents");
-        }
+            // A structural result is carried by the newest step, as the session does it (nothing to protect with an empty history); a refresh that waited for a pending redo changed nothing and leaves the lists as they were.
+            if (forbidStructural)
+            {
+                Assert.True(result.Structural is null, label + ": a structural refresh followed an undo or a redo that should have restored the table of contents");
+            }
 
-        if (result.Structural is { } record)
-        {
-            Assert.NotEqual(AttachOutcome.MustWait, Editor.History.AttachDerived(record));
-        }
-        else
-        {
-            Assert.False(result.StructuralDeferred && !Editor.History.CanRedo, label + ": a refresh waited for a redo that is not pending");
-        }
-        foreach (var change in result.Content)
-        {
-            _layout.ApplyEdit(change, Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1));
-        }
+            if (result.Structural is { } record)
+            {
+                Assert.NotEqual(AttachOutcome.MustWait, Editor.History.AttachDerived(record));
+            }
+            else
+            {
+                Assert.False(result.StructuralDeferred && !Editor.History.CanRedo, label + ": a refresh waited for a redo that is not pending");
+            }
 
-        await _layout.LayOutRestAsync(null, CancellationToken.None);
+            foreach (var change in result.Content)
+            {
+                _layout.ApplyEdit(change, Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1));
+            }
+
+            await _layout.LayOutRestAsync(null, CancellationToken.None);
+        }
+        while (!result.Settled && !result.StructuralDeferred && passes < MaxSettlePasses);
+
+        Assert.True(result.Settled || result.StructuralDeferred, $"{label}: the page results did not settle in {MaxSettlePasses} passes");
+        SettlePasses += passes;
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
         AssertBookmarks(label);
         AssertTocMemo(label);
-        ReferenceFields.AssertStoredEqualsExpected(_model, host, label, includeTocs: !result.StructuralDeferred);
-        var again = Editor.RefreshFields(host, RefreshScope.OrderBased);
+        host = new LayoutFieldHost(_model, _layout);
+        ReferenceFields.AssertStoredEqualsExpected(_model, host, label, includeTocs: false);
+        PageResultsCompared += ReferencePageResults.AssertPageResults(_layout, _model, host, label, includeTocs: !result.StructuralDeferred);
+        var again = Editor.RefreshFields(host, RefreshScope.WithPages);
         Assert.Empty(again.Content);
         Assert.Null(again.Structural);
-        Written += result.Written;
+        Written += written;
         Compared++;
         RanPerKind[(int)_kind]++;
         return true;

@@ -20,7 +20,7 @@ internal sealed record TocPass(List<BlockChange> Changes, List<BlockChange> Stru
 /// stays the same the paragraphs are changed in place (a content change, never recorded); when it changes the paragraphs are replaced (a structural change, which the caller records on the newest history step) unless
 /// <c>allowStructural</c> is false, when the table of contents is left as it is and the pass says so. Every heading an entry points at gets a hidden <c>_Toc</c> bookmark (an existing one is reused).
 /// </summary>
-internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool allowStructural)
+internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool allowStructural, bool pagesOn = true)
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
@@ -36,9 +36,32 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
     /// <summary>The structural changes made so far.</summary>
     public IReadOnlyList<BlockChange> Structural => _structural;
 
+    // The tables of contents of the body, found once (before this pass changes anything).
+    private List<TocSite>? _sites;
+
+    private List<TocSite> Sites => _sites ??= Find(document.Body.Blocks);
+
+    /// <summary>The paragraphs of every table of contents of the body, first to last (the PAGEREF fields in them are the list's own entries).</summary>
+    public HashSet<Paragraph> ParagraphsOfLists()
+    {
+        var paragraphs = new HashSet<Paragraph>(ReferenceEqualityComparer.Instance);
+        foreach (var site in Sites)
+        {
+            for (var i = site.First; i <= site.Last; i++)
+            {
+                if (site.Container[i] is Paragraph paragraph)
+                {
+                    paragraphs.Add(paragraph);
+                }
+            }
+        }
+
+        return paragraphs;
+    }
+
     public TocPass Run()
     {
-        var sites = Find(document.Body.Blocks);
+        var sites = Sites;
         if (sites.Count == 0)
         {
             return new TocPass([], [], 0, 0, false);
@@ -139,7 +162,7 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
             spec,
             entries,
             entry => _bookmarks.NameFor(entry.Source),
-            (entry, bookmark) => host.PageOf(new TextPosition(StoryRef.Body, entry.Source, 0))?.PageText ?? (bookmark is not null && pages.TryGetValue(bookmark, out var stored) ? stored : "?"),
+            (entry, bookmark) => (pagesOn ? host.PageOf(new TextPosition(StoryRef.Body, entry.Source, 0))?.PageText : null) ?? (bookmark is not null && pages.TryGetValue(bookmark, out var stored) ? stored : "?"),
             tabs);
         for (var i = head.Count - 1; i >= 0; i--)
         {

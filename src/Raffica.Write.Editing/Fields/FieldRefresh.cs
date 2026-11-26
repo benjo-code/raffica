@@ -13,10 +13,10 @@ public enum RefreshScope
 /// <summary>
 /// What a field refresh did. <paramref name="Content"/> are the block changes of the results it rewrote (one per changed top-level block, with clones as <see cref="BlockChange.OldBlocks"/>); a refresh has no caret and no
 /// history step. <paramref name="Structural"/> is the change of the paragraph count of a table of contents (also among <paramref name="Content"/>, which the owner tells the layout; the owner attaches the record to the newest history step). <paramref name="NotUpdated"/> counts the fields Write left as they were (a field or switch outside
-/// the support table, a missing target, a field in a tracked change, a note, a header, a footer or a comment) and <paramref name="Written"/> the results it rewrote. <paramref name="Settled"/> is false only when a page result may still change.
+/// the support table, a missing target, a field in a tracked change, a note, a header, a footer or a comment) and <paramref name="Written"/> the results it rewrote. <paramref name="Settled"/> is false only when a page result may still change: the document has page-based fields (<paramref name="PageFields"/>: top-level <c>PAGEREF</c> fields and tables of contents) and this pass either wrote something (the layout may flow differently now) or could not use the pages (<see cref="RefreshScope.OrderBased"/> or an incomplete layout).
 /// <paramref name="StructuralDeferred"/> is true when a table of contents was left as it was because its paragraph count changes and the history had a redo pending (the refresh was asked not to make a structural change): the owner looks again once the redo stack is empty.
 /// </summary>
-public sealed record FieldRefreshResult(IReadOnlyList<BlockChange> Content, DerivedRecord? Structural, int NotUpdated, int Written, bool Settled, bool StructuralDeferred = false);
+public sealed record FieldRefreshResult(IReadOnlyList<BlockChange> Content, DerivedRecord? Structural, int NotUpdated, int Written, bool Settled, bool StructuralDeferred = false, int PageFields = 0);
 
 /// <summary>
 /// The order-based refresh of field results in the body: <c>SEQ</c>, <c>STYLEREF 1 \s</c>, <c>REF</c> and <c>NOTEREF</c>. It walks the body in document order, carries the counters through every paragraph and writes only the results that
@@ -31,16 +31,17 @@ internal static class FieldRefresh
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(host);
-        _ = scope;
         var body = document.Body.Blocks;
-        var targets = Targets(document, host, touched);
+        // Page results are given only for the scope that asks for them and only from a complete layout; they depend on every block, so such a pass walks the whole body.
+        var pagesOn = scope == RefreshScope.WithPages && host.IsComplete;
+        var targets = pagesOn ? null : Targets(document, host, touched);
         if (targets is { Count: 0 })
         {
             return new FieldRefreshResult([], null, 0, 0, true);
         }
 
-        var state = new State(host, body, targets);
-        var tocs = new TocRefresh(document, host, allowStructural);
+        var tocs = new TocRefresh(document, host, allowStructural, pagesOn);
+        var state = new State(host, body, targets, pagesOn, tocs.ParagraphsOfLists);
         List<BlockChange> changes;
         TocPass? pass = null;
         try
@@ -84,7 +85,10 @@ internal static class FieldRefresh
 
         var notUpdated = state.NotUpdated + (targets is null ? OtherStories(document) + (pass?.NotUpdated ?? 0) : 0);
         var record = pass is { Structural.Count: > 0 } ? new DerivedRecord([.. pass.Structural]) : null;
-        return new FieldRefreshResult(changes, record, notUpdated, state.Written + (pass?.Written ?? 0), true, pass?.Deferred ?? false);
+        var written = state.Written + (pass?.Written ?? 0);
+        var pageFields = state.PageFields;
+        var settled = pageFields == 0 || (pagesOn && written == 0 && !(pass?.Deferred ?? false));
+        return new FieldRefreshResult(changes, record, notUpdated, written, settled, pass?.Deferred ?? false, pageFields);
     }
 
     private static void Announce(WordDocument document, List<BlockChange> changes)
@@ -370,18 +374,22 @@ internal static class FieldRefresh
         return false;
     }
 
-    private sealed class State(IFieldHost host, IList<Block> body, HashSet<int>? targets)
+    private sealed class State(IFieldHost host, IList<Block> body, HashSet<int>? targets, bool pagesOn, Func<HashSet<Paragraph>> tocParagraphs)
     {
         private readonly Dictionary<int, Block> _olds = [];
         private readonly HashSet<int> _changed = [];
         private readonly Dictionary<string, SeqCounter> _counters = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<(int Top, Paragraph Paragraph)> _references = [];
         private Dictionary<string, (Paragraph Start, int Id)>? _bookmarks;
+        private HashSet<Paragraph>? _tocParagraphs;
         private List<(int Top, Paragraph Paragraph)>? _paragraphs;
 
         public int NotUpdated { get; private set; }
 
         public int Written { get; private set; }
+
+        // The top-level PAGEREF fields and TOC fields seen in the whole body (a table of contents wraps its own PAGEREF fields, which the scanner shows as top-level in their paragraphs: they count as page fields too).
+        public int PageFields { get; private set; }
 
         // Keep in step with CaptionBuilder.Results: it counts a new caption's SEQ number and chapter label with the same walk (headings restart, usable SEQ fields count); a change here needs the same change there and a case in CaptionEditingTests.
         public void Walk()
@@ -420,8 +428,24 @@ internal static class FieldRefresh
                 var wantsReferences = false;
                 foreach (var span in FieldView.InParagraph(paragraph))
                 {
-                    if (span.Parent is not null || span.Support.Kind is FieldKind.Toc or FieldKind.PageRef)
+                    if (span.Parent is null && span.Support.Kind is FieldKind.Toc or FieldKind.PageRef)
                     {
+                        PageFields++;
+                    }
+
+                    if (span.Parent is not null || span.Support.Kind is FieldKind.Toc)
+                    {
+                        continue;
+                    }
+
+                    if (span.Support.Kind == FieldKind.PageRef)
+                    {
+                        // A PAGEREF outside every table of contents is a result of its own, given only when the pages are (the entries of a list are the table of contents' own).
+                        if (pagesOn && inTarget && Usable(span) && !(_tocParagraphs ??= tocParagraphs()).Contains(paragraph))
+                        {
+                            wantsReferences = true;
+                        }
+
                         continue;
                     }
 
@@ -529,12 +553,17 @@ internal static class FieldRefresh
                 {
                     foreach (var span in FieldView.InParagraph(paragraph))
                     {
-                        if (span.Parent is not null || !Usable(span) || span.Support.Kind is not (FieldKind.Ref or FieldKind.NoteRef))
+                        if (span.Parent is not null || !Usable(span) || span.Support.Kind is not (FieldKind.Ref or FieldKind.NoteRef or FieldKind.PageRef) || (span.Support.Kind == FieldKind.PageRef && (!pagesOn || (_tocParagraphs ??= tocParagraphs()).Contains(paragraph))))
                         {
                             continue;
                         }
 
-                        var text = span.Support.Kind == FieldKind.Ref ? RefText(span.Instruction) : NoteText(span.Instruction);
+                        var text = span.Support.Kind switch
+                        {
+                            FieldKind.Ref => RefText(span.Instruction),
+                            FieldKind.PageRef => PageText(span.Instruction),
+                            _ => NoteText(span.Instruction),
+                        };
                         if (text is null)
                         {
                             NotUpdated += pass == 0 ? 1 : 0;
@@ -575,6 +604,10 @@ internal static class FieldRefresh
 
         private string? RefText(FieldInstruction instruction) =>
             Find(instruction.Argument!) is { } mark ? ReferenceText(mark.Start, mark.Id, instruction.Has("n") || instruction.Has("r"), host) : null;
+
+        // The printed number of the page the bookmark's paragraph starts on; null (counted as not updated) when the bookmark is gone or the layout has no answer.
+        private string? PageText(FieldInstruction instruction) =>
+            Find(instruction.Argument!) is { } mark ? host.PageOf(new TextPosition(StoryRef.Body, mark.Start, 0))?.PageText : null;
 
         private string? NoteText(FieldInstruction instruction) =>
             Find(instruction.Argument!) is { } mark ? NoteMark(mark.Start, mark.Id, host) : null;

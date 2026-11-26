@@ -330,9 +330,9 @@ internal static class ReferenceToc
 
     /// <summary>
     /// Asserts that every table of contents of the body says what the oracle expects: as many entry paragraphs as entries (the sentence of an empty one), each in the style of its level with its line, a link to a hidden bookmark that
-    /// starts in the heading, and a page number where one is due (not its value). Returns how many entries were compared.
+    /// starts in the heading, and a page number where one is due (its value too when <paramref name="pageTextOf"/> gives the expected page text of a heading; a heading it gives null for is not judged for its value). Returns how many entries were compared.
     /// </summary>
-    public static int AssertEqualToExpected(WordDocument document, IFieldHost host, string label)
+    public static int AssertEqualToExpected(WordDocument document, IFieldHost host, string label, Func<Paragraph, string?>? pageTextOf = null)
     {
         var compared = 0;
         var german = CaptionLabels.DocumentLanguage(document) == "de";
@@ -353,8 +353,9 @@ internal static class ReferenceToc
                 var entry = toc.Entries[k];
                 var paragraph = (Paragraph)toc.Container[toc.First + k];
                 var line = Stored(paragraph);
+                var page = entry.Page ? pageTextOf?.Invoke(entry.Heading) : null;
                 Assert.True(
-                    entry.Page ? line.StartsWith(entry.Line + "\t", StringComparison.Ordinal) && line.Length > entry.Line.Length + 1 : line == entry.Line,
+                    entry.Page ? (page is null ? line.StartsWith(entry.Line + "\t", StringComparison.Ordinal) && line.Length > entry.Line.Length + 1 : line == entry.Line + "\t" + page) : line == entry.Line,
                     $"{label}: entry {k} of a table of contents reads another line than the heading (expected length {entry.Line.Length}, stored length {line.Length}, page {entry.Page})");
                 var style = toc.Figures ? "TableofFigures" : "TOC" + entry.Level.ToString(CultureInfo.InvariantCulture);
                 Assert.True(paragraph.Properties.StyleId == style, $"{label}: entry {k} of a table of contents has the style {paragraph.Properties.StyleId}, not {style}");
