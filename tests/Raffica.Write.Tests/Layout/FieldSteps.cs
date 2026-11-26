@@ -425,7 +425,7 @@ internal sealed class FieldSteps
         }
         else
         {
-            _pending.AddRange(result.Changes);
+            _pending.AddRange(result.ChangesInApplyOrder());
         }
 
         if (result.Style is not null || result.Sections is not null)
@@ -434,7 +434,7 @@ internal sealed class FieldSteps
         }
         else
         {
-            foreach (var change in result.Changes)
+            foreach (var change in result.ChangesInApplyOrder())
             {
                 _layout.ApplyEdit(change, change.Container == _model.Body.Blocks ? Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1) : 2);
             }

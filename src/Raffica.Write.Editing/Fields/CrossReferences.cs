@@ -69,6 +69,9 @@ public enum CrossRefRefusal
     /// <summary>The text of a bookmark that spans paragraphs cannot be shown in one reference (its page can).</summary>
     SeveralParagraphs,
 
+    /// <summary>The number of a caption cannot be located (its fields and their results cannot be paired): its text and its page can still be referred to.</summary>
+    CaptionNumberNotRead,
+
     /// <summary>No free name or id for the hidden bookmark.</summary>
     IdsUsedUp,
 }
@@ -125,7 +128,12 @@ public static class CrossReferences
 
                     break;
                 case CrossRefTargetKind.Caption when HasCaptionNumber(paragraph):
-                    found.Add(new CrossRefTarget(kind, new TextPosition(StoryRef.Body, paragraph, 0), Line(ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text)));
+                    var caption = Line(ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text);
+                    if (caption.Length > 0)
+                    {
+                        found.Add(new CrossRefTarget(kind, new TextPosition(StoryRef.Body, paragraph, 0), caption));
+                    }
+
                     break;
                 case CrossRefTargetKind.Footnote or CrossRefTargetKind.Endnote:
                     AddNotes(document, host, paragraph, kind, found);
@@ -199,7 +207,7 @@ public static class CrossReferences
         var type = kind == CrossRefTargetKind.Footnote ? NoteType.Footnote : NoteType.Endnote;
         foreach (var piece in ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Pieces.OfType<AtomicPiece>())
         {
-            if (piece.Atomic != AtomicKind.NoteReference || found.Count >= MaxTargets)
+            if (piece.Atomic != AtomicKind.NoteReference || piece.Length == 0 || found.Count >= MaxTargets)
             {
                 continue;
             }

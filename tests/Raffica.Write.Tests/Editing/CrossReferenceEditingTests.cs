@@ -46,7 +46,7 @@ public sealed class CrossReferenceEditingTests
 
     private static IReadOnlyList<string> RefNames(WordDocument document) => [.. BookmarkOperations.AllNames(document).Where(n => n.StartsWith("_Ref", StringComparison.Ordinal))];
 
-    private static CrossRefTarget Target(WordDocument document, FakeFieldHost host, CrossRefTargetKind kind, int index = 0) => CrossReferences.Targets(document, host, kind)[index];
+    private static CrossRefTarget Target(WordDocument document, IFieldHost host, CrossRefTargetKind kind, int index = 0) => CrossReferences.Targets(document, host, kind)[index];
 
     // Three figure captions (stored numbers right), a numbered heading before them and the text to refer from at the end.
     private static (WordDocument Document, TextEditor Editor, FakeFieldHost Host) ThreeFigures()
@@ -423,6 +423,245 @@ public sealed class CrossReferenceEditingTests
 
         Assert.Equal(CrossRefRefusal.RestrictedControl, controlEditor.LastCrossRefRefusal);
         Assert.Equal(before, Bytes(control));
+    }
+
+    private static string Field(string instruction, string result) =>
+        "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r>"
+        + $"<w:r><w:instrText xml:space=\"preserve\"> {instruction} </w:instrText></w:r>"
+        + "<w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>"
+        + (result.Length == 0 ? string.Empty : Run(result))
+        + "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
+
+    [Fact]
+    public void AFarTargetChangesOnlyTheTwoParagraphsAndTheHistoryKeepsOnlyThose()
+    {
+        var body = Text("Introduction", "Heading1");
+        for (var i = 0; i < 300; i++)
+        {
+            body += Text("filler paragraph number " + i);
+        }
+
+        body += Text("see ");
+        var document = Doc(body);
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+        var blocks = document.Body.Blocks.ToList();
+        var last = blocks.Count - 1;
+        var before = Bytes(document);
+
+        var result = editor.InsertCrossReference(At(document, last, 4), Target(document, host, CrossRefTargetKind.Heading), CrossRefKind.Text, host);
+
+        // The step is the paragraph with the caret; the heading that got the markers is a derived change of it; nothing between them was replaced or cloned into the history.
+        Assert.NotNull(result);
+        var change = Assert.Single(result.Changes);
+        Assert.Equal((last, 1, 1), (change.First, change.Removed, change.Added));
+        var derived = Assert.Single(result.DerivedChanges!);
+        Assert.Equal((0, 1, 1), (derived.First, derived.Removed, derived.Added));
+        for (var i = 1; i < last; i++)
+        {
+            Assert.Same(blocks[i], document.Body.Blocks[i]);
+        }
+
+        Assert.True(editor.History.UndoBytes < 40_000, "the history holds " + editor.History.UndoBytes + " bytes");
+
+        // Undo and redo restore the bytes of both paragraphs and leave everything between them alone.
+        var after = Bytes(document);
+        var undone = editor.History.Undo();
+        Assert.NotNull(undone);
+        Assert.Equal(before, Bytes(document));
+        Assert.Single(undone.DerivedChanges!);
+        for (var i = 1; i < last; i++)
+        {
+            Assert.Same(blocks[i], document.Body.Blocks[i]);
+        }
+
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(after, Bytes(document));
+        for (var i = 1; i < last; i++)
+        {
+            Assert.Same(blocks[i], document.Body.Blocks[i]);
+        }
+    }
+
+    [Fact]
+    public void ABookmarkTargetSpanningParagraphsGetsItsMarkersAsDerivedChangesToo()
+    {
+        var document = Doc(Text("first part") + Text("middle") + Text("second part") + Text("see "));
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+        host.Pages[Para(document, 0)] = (0, "7");
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(document, 0, 6), At(document, 2, 6)), "Span"));
+        var middle = Para(document, 1);
+        var before = Bytes(document);
+
+        var result = editor.InsertCrossReference(At(document, 3, 4), Target(document, host, CrossRefTargetKind.Bookmark), CrossRefKind.Page, host);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.DerivedChanges!.Count);
+        Assert.Same(middle, document.Body.Blocks[1]);
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(before, Bytes(document));
+        Assert.Same(middle, document.Body.Blocks[1]);
+    }
+
+
+    // A host that has a mark for every note id, as the layout does for a reference the text does not show (the fake host counts only the references it can see).
+    private sealed class MarksEverythingHost(FakeFieldHost inner) : IFieldHost
+    {
+        public bool IsComplete => inner.IsComplete;
+
+        public string? NumberLabel(Paragraph paragraph) => inner.NumberLabel(paragraph);
+
+        public (int PageIndex, string PageText)? PageOf(TextPosition position) => inner.PageOf(position);
+
+        public string? NoteMarkText(int noteId, NoteType type) => "1";
+    }
+
+    // A projection host that hides the runs it was told to hide (what the layout does for a tracked deletion): the piece of a hidden note reference stays in the projection with length 0.
+    private sealed class HidingHost(HashSet<Run> hidden) : IProjectionHost
+    {
+        public string? FieldValue(string instruction) => null;
+
+        public string? NoteMarkText(RunContent reference) => null;
+
+        public bool IsHidden(Run run) => hidden.Contains(run);
+    }
+
+    [Fact]
+    public void AHiddenNoteReferenceIsNeverATargetAndAStaleOneIsRefusedWithoutAChange()
+    {
+        var document = Doc(Text("first sentence") + Text("see "));
+        var hidden = new HashSet<Run>(ReferenceEqualityComparer.Instance);
+        var editor = new TextEditor(document, (_, _) => new HidingHost(hidden));
+        var host = new MarksEverythingHost(new FakeFieldHost(document));
+        Assert.NotNull(editor.InsertNote(At(document, 0, 5), NoteType.Footnote));
+        var listed = Target(document, host, CrossRefTargetKind.Footnote);
+
+        // The layout now hides the reference (a tracked deletion): the plain list still holds it, but the editor sees no text for it and refuses before anything changes, whatever the host says of its mark.
+        hidden.Add(Para(document, 0).Inlines.OfType<Run>().Single(r => r.Content.Any(c => c is FootnoteReference)));
+        document.Edits.Raise();
+        var start = Bytes(document);
+        var revision = document.Edits.Revision;
+        editor.History.Clear();
+
+        foreach (var kind in new[] { CrossRefKind.NumberOnly, CrossRefKind.Page })
+        {
+            Assert.Null(editor.InsertCrossReference(At(document, 1, 4), listed, kind, host));
+            Assert.Equal(CrossRefRefusal.TargetGone, editor.LastCrossRefRefusal);
+            Assert.Equal(start, Bytes(document));
+            Assert.Equal(revision, document.Edits.Revision);
+            Assert.False(editor.History.CanUndo);
+        }
+    }
+
+    [Fact]
+    public void ATrackedDeletedNoteReferenceIsNotListed()
+    {
+        var document = Doc(Text("first sentence") + Text("see "));
+        var editor = Editor(document);
+        var host = new MarksEverythingHost(new FakeFieldHost(document));
+        Assert.NotNull(editor.InsertNote(At(document, 0, 5), NoteType.Footnote));
+        var paragraph = Para(document, 0);
+        var run = paragraph.Inlines.OfType<Run>().Single(r => r.Content.Any(c => c is FootnoteReference));
+        var deletion = new TrackedChange(TrackedChangeKind.Delete, new RevisionInfo(7, "A", null));
+        deletion.Inlines.Add(run);
+        paragraph.Inlines[paragraph.Inlines.IndexOf(run)] = deletion;
+        document.Edits.Raise();
+
+        Assert.Empty(CrossReferences.Targets(document, host, CrossRefTargetKind.Footnote));
+    }
+
+    [Fact]
+    public void TheBookmarkOfACaptionReferenceEnclosesTheFieldsWholeAndNeverSplitsOne()
+    {
+        var document = Doc(Text("Chapter one", "Heading1") + Text("pic") + Text("see "), numberedHeadings: true);
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+        Assert.NotNull(editor.InsertCaption(At(document, 1), "Figure", ": a", CaptionPlace.Below, chapterNumber: true, "Figure", host));
+        var caption = Target(document, host, CrossRefTargetKind.Caption);
+        var captionParagraph = Para(document, 2);
+
+        Assert.NotNull(editor.InsertCrossReference(At(document, 3, 4), caption, CrossRefKind.LabelAndNumber, host));
+        Assert.NotNull(editor.InsertCrossReference(At(document, 3, 4), caption, CrossRefKind.NumberOnly, host));
+
+        // A marker is never between a field begin and its end; the start stands directly before the first run of the range and the end directly after the last field end run.
+        AssertMarkersOutsideFields(captionParagraph);
+        var inlines = captionParagraph.Inlines.ToList();
+        var starts = inlines.Select((inline, index) => (inline, index)).Where(x => x.inline is BookmarkStart).Select(x => x.index).ToList();
+        var ends = inlines.Select((inline, index) => (inline, index)).Where(x => x.inline is BookmarkEnd).Select(x => x.index).ToList();
+        Assert.Equal(2, starts.Count);
+        Assert.Equal(2, ends.Count);
+
+        // The label and number: from the first run of the paragraph (the word) to the end of the SEQ field.
+        var labelStart = starts.Min();
+        Assert.Equal(0, labelStart);
+        Assert.Equal("Figure ", TextOfRun(inlines[labelStart + 1]));
+        Assert.Equal(1, ends.Max() - ends.Min());
+        Assert.True(IsFieldEnd(inlines[ends.Min() - 1]), "both ranges end directly after the end run of the sequence field");
+
+        // The number alone (chapter number included): from the begin run of the STYLEREF field to the same end.
+        var numberStart = starts.Max();
+        Assert.True(IsFieldBegin(inlines[numberStart + 1]), "the number starts at the begin run of the chapter field");
+        Assert.True(IsFieldEnd(inlines[ends.Min() - 1]));
+    }
+
+    [Fact]
+    public void ACaptionWhoseFieldsCannotBePairedStillOffersItsTextAndPageButRefusesItsNumber()
+    {
+        var odd = P(Run("Figure ") + Field("SEQ Figure", "1") + Run(" and ") + Field("DATE", string.Empty));
+        var document = Doc(odd + Text("see "));
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+        var caption = Target(document, host, CrossRefTargetKind.Caption);
+        var start = Bytes(document);
+
+        Assert.Null(editor.InsertCrossReference(At(document, 1, 4), caption, CrossRefKind.LabelAndNumber, host));
+        Assert.Equal(CrossRefRefusal.CaptionNumberNotRead, editor.LastCrossRefRefusal);
+        Assert.Null(editor.InsertCrossReference(At(document, 1, 4), caption, CrossRefKind.NumberOnly, host));
+        Assert.Equal(CrossRefRefusal.CaptionNumberNotRead, editor.LastCrossRefRefusal);
+        Assert.Equal(start, Bytes(document));
+
+        Assert.NotNull(editor.InsertCrossReference(At(document, 1, 4), caption, CrossRefKind.Text, host));
+        Assert.NotNull(editor.InsertCrossReference(At(document, 1, 0), caption, CrossRefKind.Page, host));
+        Assert.Single(RefNames(document));
+    }
+
+    [Fact]
+    public void AHeadingOrCaptionWithNothingToShowIsNotListed()
+    {
+        var document = Doc(Text(string.Empty, "Heading1") + Text("Real", "Heading1") + P(Field("SEQ Figure", string.Empty)) + P(Run("Figure ") + Field("SEQ Figure", "1")));
+        var host = new FakeFieldHost(document);
+
+        Assert.Equal(["Real"], CrossReferences.Targets(document, host, CrossRefTargetKind.Heading).Select(t => t.Display).ToArray());
+        Assert.Equal(["Figure 1"], CrossReferences.Targets(document, host, CrossRefTargetKind.Caption).Select(t => t.Display).ToArray());
+    }
+
+    private static bool IsFieldBegin(Inline inline) => inline is Run { Content: [FieldChar { Kind: FieldCharKind.Begin }] };
+
+    private static bool IsFieldEnd(Inline inline) => inline is Run { Content: [FieldChar { Kind: FieldCharKind.End }] };
+
+    private static string TextOfRun(Inline inline) => inline is Run run ? string.Concat(run.Content.OfType<TextContent>().Select(t => t.Text)) : string.Empty;
+
+    private static void AssertMarkersOutsideFields(Paragraph paragraph)
+    {
+        var depth = 0;
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (IsFieldBegin(inline))
+            {
+                depth++;
+            }
+            else if (IsFieldEnd(inline))
+            {
+                depth--;
+            }
+            else if (inline is BookmarkStart or BookmarkEnd)
+            {
+                Assert.Equal(0, depth);
+            }
+        }
+
+        Assert.Equal(0, depth);
     }
     [Fact]
     public void ASpanningBookmarkOffersItsPageButNotItsText()

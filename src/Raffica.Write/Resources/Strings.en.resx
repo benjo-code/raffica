@@ -2415,4 +2415,7 @@
   <data name="NoteCrossRefIds" xml:space="preserve">
     <value>No bookmark name or id is free for the reference.</value>
   </data>
+  <data name="NoteCrossRefCaptionUnread" xml:space="preserve">
+    <value>The number of this caption cannot be located. Refer to its text or its page instead.</value>
+  </data>
 </root>

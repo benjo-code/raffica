@@ -70,9 +70,9 @@ public sealed partial class TextEditor
             return null;
         }
 
-        if (ExtentOf(target, kind) is not { } extent)
+        if (ExtentOf(target, kind, out var gone) is not { } extent)
         {
-            LastCrossRefRefusal = CrossRefRefusal.TargetGone;
+            LastCrossRefRefusal = gone;
             return null;
         }
 
@@ -100,19 +100,24 @@ public sealed partial class TextEditor
             }
         }
 
-        if (RangeOf(extent, at.Paragraph) is not { } range)
-        {
-            LastCrossRefRefusal = CrossRefRefusal.TargetGone;
-            return null;
-        }
-
         var revision = History.BeginOperation();
-        var old = new List<Block>(range.Last - range.First + 1);
-        for (var i = range.First; i <= range.Last; i++)
+
+        // The paragraphs the step changes and nothing between them: the caret's (the field goes in) and, for a bookmark made now, the one or two that get its markers. The caret's is the step's block change; the others
+        // are derived changes of the step (the markers are zero-width, so no block moves): undo and redo swap them with the step, in the layout, the snapshot tracker and the history, and the history keeps clones of
+        // these few paragraphs only, never of the blocks that lie between them.
+        var marked = new List<(Paragraph Paragraph, IList<Block> Container, int Index, Block Old)>();
+        if (reused is null)
         {
-            old.Add(range.Container[i].Clone());
+            foreach (var paragraph in ReferenceEquals(extent.First, extent.Last) ? [extent.First] : new[] { extent.First, extent.Last })
+            {
+                if (!ReferenceEquals(paragraph, at.Paragraph) && FindIn(_document.Body.Blocks, paragraph) is { } place)
+                {
+                    marked.Add((paragraph, place.Container, place.Index, paragraph.Clone()));
+                }
+            }
         }
 
+        var old = at.Paragraph.Clone();
         if (reused is null)
         {
             PlaceBookmarkMarkers(StoryRef.Body, extent.First, extent.FirstOffset, extent.Last, extent.LastOffset, id!.Value, name!);
@@ -121,7 +126,8 @@ public sealed partial class TextEditor
         var text = ResultOf(form, extent, id!.Value, host);
         if (text is null)
         {
-            // A reused bookmark that no longer reads as a reference does: nothing has changed yet. A bookmark made just now always does (both markers stand in the paragraph, start first).
+            // A reused bookmark that no longer reads as a reference does: nothing has changed yet. A bookmark made just now always does (both markers stand in the paragraph, start first, and a note
+            // reference of the target is visible: see ExtentOf).
             LastCrossRefRefusal = reused is null ? throw new InvalidOperationException("The cross-reference has no result.") : CrossRefRefusal.TargetGone;
             return null;
         }
@@ -141,13 +147,19 @@ public sealed partial class TextEditor
         _document.Edits.Raise();
         var behind = Map(story, at.Paragraph).Projection.Pieces.FirstOrDefault(p => ReferenceEquals(p.Run, inlines[3]))?.End ?? offset + text.Length;
         var caret = new TextPosition(story, at.Paragraph, behind);
-        var result = new EditResult(caret, [new BlockChange(StoryRef.Body, range.Container, range.First, old.Count, old.Count, old)]);
-        result.Attribute(_document);
+        var change = new BlockChange(story, atContainer, atIndex, 1, 1, [old]);
+        var derived = marked.Select(m => new BlockChange(StoryRef.Body, m.Container, m.Index, 1, 1, [m.Old])).ToList();
+        var result = new EditResult(caret, [change], DerivedChanges: derived.Count > 0 ? derived : null);
 
-        // Where the caret is before and after: in the list of the change, the block of the paragraph (a table's caret goes to its first cell, as for every step across blocks).
-        var here = ReferenceEquals(range.Container, atContainer) ? atIndex : range.TopIndexOf(at.Paragraph);
-        var nested = range.Container[here] is not Paragraph;
-        History.Record(result, new EditHistory.Point(here, nested ? 0 : offset), revision, null, after: new EditHistory.Point(here, nested ? 0 : behind));
+        // One attribution call per raise: the caret's block and the paragraphs that got markers.
+        _document.Edits.Attribute([change, .. derived]);
+        History.Record(result, new EditHistory.Point(atIndex, offset), revision, null, after: new EditHistory.Point(atIndex, behind));
+        if (derived.Count > 0)
+        {
+            // Attached to the step just recorded: a history that cannot place the record clears itself (nothing can then be undone across it), never a half step.
+            History.AttachDerived(new DerivedRecord(derived));
+        }
+
         return result;
     }
 
@@ -230,9 +242,10 @@ public sealed partial class TextEditor
         _ => FieldRefresh.ReferenceText(extent.First, id, number: false, host),
     };
 
-    // The extent of the target for the choice, or null when the target is not there as the card listed it.
-    private Extent? ExtentOf(CrossRefTarget target, CrossRefKind kind)
+    // The extent of the target for the choice, or null with the reason: the target is not there as the card listed it (TargetGone), or it is a caption whose number cannot be located (CaptionNumberNotRead).
+    private Extent? ExtentOf(CrossRefTarget target, CrossRefKind kind, out CrossRefRefusal refusal)
     {
+        refusal = CrossRefRefusal.TargetGone;
         var paragraph = target.Position.Paragraph;
         if (paragraph is null || target.Position.Story.Kind != StoryKind.Body || FindIn(_document.Body.Blocks, paragraph) is not { } place || _tocs.Around(place.Container, place.Index) is not null)
         {
@@ -246,12 +259,14 @@ public sealed partial class TextEditor
             case CrossRefTargetKind.Heading:
                 return FieldRefresh.HeadingLevel(paragraph) is null ? null : new Extent(paragraph, 0, paragraph, length, null);
             case CrossRefTargetKind.Caption:
-                return CaptionExtent(paragraph, map, kind);
+                return CaptionExtent(paragraph, map, kind, out refusal);
             case CrossRefTargetKind.Footnote or CrossRefTargetKind.Endnote:
                 var plain = ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Pieces.OfType<AtomicPiece>()
-                    .FirstOrDefault(p => p.Atomic == AtomicKind.NoteReference && p.Start == target.Position.Offset);
+                    .FirstOrDefault(p => p.Atomic == AtomicKind.NoteReference && p.Length > 0 && p.Start == target.Position.Offset);
                 var wanted = target.Kind == CrossRefTargetKind.Footnote ? plain?.Content as FootnoteReference : (RunContent?)(plain?.Content as EndnoteReference);
-                var piece = wanted is null ? null : map.Projection.Pieces.OfType<AtomicPiece>().FirstOrDefault(p => ReferenceEquals(p.Content, wanted));
+
+                // A reference that is not visible (a tracked deletion) has no length: it is no target, so the markers always enclose a reference that the refresh finds.
+                var piece = wanted is null ? null : map.Projection.Pieces.OfType<AtomicPiece>().FirstOrDefault(p => ReferenceEquals(p.Content, wanted) && p.Length > 0);
                 return piece is null ? null : new Extent(paragraph, piece.Start, paragraph, piece.End, wanted);
             default:
                 var found = BookmarkOperations.Scan(_document, _hosts).FirstOrDefault(f => !BookmarkNames.IsHidden(f.Name) && string.Equals(f.Name, target.Display, StringComparison.OrdinalIgnoreCase));
@@ -260,13 +275,20 @@ public sealed partial class TextEditor
     }
 
     // A caption: its label and number (from the start to the end of the sequence number), its number alone (the chapter number in front of it included) or all of it. The fields and their results are paired by their order,
-    // as the status text pairs them; a paragraph where they cannot be paired is not a target.
-    private static Extent? CaptionExtent(Paragraph paragraph, ParagraphMap map, CrossRefKind kind)
+    // as the status text pairs them. Where they cannot be paired the text (the whole caption) is still a target, and so is the page (of the whole caption); the label and number and the number alone are refused with their own reason.
+    private static Extent? CaptionExtent(Paragraph paragraph, ParagraphMap map, CrossRefKind kind, out CrossRefRefusal refusal)
     {
+        refusal = CrossRefRefusal.TargetGone;
         var length = map.Projection.Text.Length;
+        if (!CrossReferences.HasCaptionNumber(paragraph))
+        {
+            return null;
+        }
+
+        var whole = new Extent(paragraph, 0, paragraph, length, null);
         if (kind == CrossRefKind.Text)
         {
-            return CrossReferences.HasCaptionNumber(paragraph) ? new Extent(paragraph, 0, paragraph, length, null) : null;
+            return whole;
         }
 
         var spans = FieldView.InParagraph(paragraph).Where(s => s.Parent is null).ToList();
@@ -274,6 +296,12 @@ public sealed partial class TextEditor
         var seq = spans.FindIndex(s => s.Support.Kind == FieldKind.Seq && FieldRefresh.IsUsable(s));
         if (spans.Count != results.Count || seq < 0)
         {
+            if (kind == CrossRefKind.Page)
+            {
+                return whole;
+            }
+
+            refusal = CrossRefRefusal.CaptionNumberNotRead;
             return null;
         }
 
@@ -285,29 +313,5 @@ public sealed partial class TextEditor
         }
 
         return new Extent(paragraph, 0, paragraph, end, null);
-    }
-
-    // The list of blocks one history step replaces: the blocks of the paragraphs involved when they stand in one list, else the top-level blocks of the body from the first to the last of them.
-    private sealed record BlockRange(IList<Block> Container, int First, int Last, IList<Block> Body)
-    {
-        public int TopIndexOf(Paragraph paragraph) => ReferenceEquals(Container, Body) ? TextEditor.TopLevelIndexOf(Body, paragraph) : -1;
-    }
-
-    private BlockRange? RangeOf(Extent extent, Paragraph at)
-    {
-        var body = _document.Body.Blocks;
-        var places = new[] { at, extent.First, extent.Last }.Select(p => FindIn(body, p)).ToList();
-        if (places.Any(p => p is null))
-        {
-            return null;
-        }
-
-        if (places.All(p => ReferenceEquals(p!.Value.Container, places[0]!.Value.Container)))
-        {
-            return new BlockRange(places[0]!.Value.Container, places.Min(p => p!.Value.Index), places.Max(p => p!.Value.Index), body);
-        }
-
-        var tops = new[] { at, extent.First, extent.Last }.Select(p => TopLevelIndexOf(body, p)).ToList();
-        return tops.Any(t => t < 0) ? null : new BlockRange(body, tops.Min(), tops.Max(), body);
     }
 }

@@ -172,7 +172,7 @@ public sealed class CrossReferenceCommandTests
         [
             Of(Id).NameKey, Of(Id).DescriptionKey!, "CrossRefTitle", "CrossRefTypeLabel", "CrossRefTypeHeading", "CrossRefTypeCaption", "CrossRefTypeFootnote", "CrossRefTypeEndnote", "CrossRefTypeBookmark", "CrossRefTargetLabel",
             "CrossRefKindLabel", "CrossRefKindLabelAndNumber", "CrossRefKindNumber", "CrossRefKindText", "CrossRefKindPage", "CrossRefNone", "CrossRefOk", "ReasonCrossRefRestricted", "NoteCrossRefGone", "NoteCrossRefInside",
-            "NoteCrossRefNoNumber", "NoteCrossRefSeveral", "NoteCrossRefNotOffered", "NoteCrossRefIds",
+            "NoteCrossRefNoNumber", "NoteCrossRefSeveral", "NoteCrossRefNotOffered", "NoteCrossRefIds", "NoteCrossRefCaptionUnread",
         ];
         foreach (var key in fresh)
         {

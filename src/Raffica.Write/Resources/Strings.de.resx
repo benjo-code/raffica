@@ -2415,4 +2415,7 @@
   <data name="NoteCrossRefIds" xml:space="preserve">
     <value>Für den Verweis ist kein Name und keine Kennung für Textmarken mehr frei.</value>
   </data>
+  <data name="NoteCrossRefCaptionUnread" xml:space="preserve">
+    <value>Die Nummer dieser Beschriftung lässt sich nicht finden. Verweisen Sie stattdessen auf ihren Text oder ihre Seite.</value>
+  </data>
 </root>

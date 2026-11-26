@@ -288,6 +288,7 @@ internal static class WriteStrings
     public static string NoteCrossRefSeveral => Table.Get("NoteCrossRefSeveral");
     public static string NoteCrossRefNotOffered => Table.Get("NoteCrossRefNotOffered");
     public static string NoteCrossRefIds => Table.Get("NoteCrossRefIds");
+    public static string NoteCrossRefCaptionUnread => Table.Get("NoteCrossRefCaptionUnread");
     public static string TabLayout => Table.Get("TabLayout");
     public static string MenuLayout => Table.Get("MenuLayout");
     public static string ReasonSectionNotInBody => Table.Get("ReasonSectionNotInBody");

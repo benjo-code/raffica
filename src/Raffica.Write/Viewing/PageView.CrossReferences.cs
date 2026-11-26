@@ -77,6 +77,7 @@ internal sealed partial class PageView
         CrossRefRefusal.NoNumber => WriteStrings.NoteCrossRefNoNumber,
         CrossRefRefusal.SeveralParagraphs => WriteStrings.NoteCrossRefSeveral,
         CrossRefRefusal.KindNotOffered => WriteStrings.NoteCrossRefNotOffered,
+        CrossRefRefusal.CaptionNumberNotRead => WriteStrings.NoteCrossRefCaptionUnread,
         CrossRefRefusal.IdsUsedUp => WriteStrings.NoteCrossRefIds,
         _ => null,
     };
