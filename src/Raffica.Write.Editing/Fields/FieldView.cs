@@ -36,6 +36,13 @@ public static class FieldView
         return spans;
     }
 
+    /// <summary>True when the block at <paramref name="index"/> of <paramref name="container"/> lies in a table of contents (a <c>TOC</c> field that spans paragraphs of that one list, the paragraphs of its first and last mark included): an edit there is refused (<see cref="TextEditor.LastFieldRefusal"/>).</summary>
+    public static bool IsInTableOfContents(IList<Block> container, int index)
+    {
+        ArgumentNullException.ThrowIfNull(container);
+        return TocRanges.Around(container, index) is not null;
+    }
+
     /// <summary>True when any paragraph of the body (tables and block content controls included) holds a field: a cheap scan that parses nothing. A document with none needs no refresh.</summary>
     public static bool AnyIn(WordDocument document)
     {

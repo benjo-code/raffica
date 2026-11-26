@@ -68,11 +68,17 @@ public sealed partial class TextEditor
     private EditResult InsertCore(TextRange selection, string text, IReadOnlyList<PropertyChange>? typingFormat)
     {
         ArgumentNullException.ThrowIfNull(text);
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         var lines = TextBoundaries.Lines(text);
         if (Resolve(selection) is not { } span)
         {
             return NoChange(selection.Start);
+        }
+
+        if (TocRefusalOf(span) is { } tocRefusal)
+        {
+            return RefuseToc(span, tocRefusal);
         }
 
         // In a text, combo box, drop-down list or date control a line break is a w:br or nothing, never a new paragraph.
@@ -155,6 +161,7 @@ public sealed partial class TextEditor
     /// <summary>Removes the selection. Paragraphs it spans are merged: the first paragraph's properties win unless it is left empty, then the last one's.</summary>
     public EditResult Delete(TextRange selection)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         if (Resolve(selection) is not { } span)
         {
@@ -180,11 +187,17 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? Backspace(TextPosition caret, DeleteUnit unit)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
         var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
+        if (SelectTocNextTo(caret, story, container, index, offset, text.Length, forward: false) is { } tocSelected)
+        {
+            return tocSelected;
+        }
+
         if (offset == 0)
         {
             if (RemoveListAtStart(story, container, index, caret.Paragraph, revision) is { } unlisted)
@@ -219,11 +232,17 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? DeleteForward(TextPosition caret, DeleteUnit unit)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
         var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
+        if (SelectTocNextTo(caret, story, container, index, offset, text.Length, forward: true) is { } tocSelected)
+        {
+            return tocSelected;
+        }
+
         if (offset == text.Length)
         {
             if (index + 1 < container.Count && container[index + 1] is Paragraph next)
@@ -842,6 +861,12 @@ public sealed partial class TextEditor
             return null;
         }
 
+        if (TocRefusalOf(span) is { } tocRefusal)
+        {
+            LastFieldRefusal = tocRefusal;
+            return null;
+        }
+
         var old = CloneBlocks(span);
         var references = ReferencesIn(span);
         var deleted = DeleteSpan(span);
@@ -886,7 +911,7 @@ public sealed partial class TextEditor
     private Deleted DeleteSpan(Span span)
     {
         var inside = EditRules.BookmarksInside(span.Container, span.FirstIndex, span.LastIndex);
-        var deleted = DeleteSpanCore(span);
+        var deleted = DeleteSpanCore(UnwrapWholeTocs(span));
         if (inside is not null && deleted.Changed)
         {
             EditRules.RemoveEmptiedBookmarks(deleted.Survivor, inside);

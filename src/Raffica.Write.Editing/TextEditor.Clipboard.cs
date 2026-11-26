@@ -79,6 +79,7 @@ public sealed partial class TextEditor
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(styleExists);
         LastPasteDroppedPictures = 0;
+        LastFieldRefusal = null;
         var paragraphs = ReadFragment(content);
         if (paragraphs is null || InSingleParagraphControl(selection.Start))
         {
@@ -142,10 +143,16 @@ public sealed partial class TextEditor
 
     private EditResult PasteParagraphs(TextRange selection, List<Paragraph> paragraphs)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         if (Resolve(selection) is not { } span)
         {
             return NoChange(selection.Start);
+        }
+
+        if (TocRefusalOf(span) is { } tocRefusal)
+        {
+            return RefuseToc(span, tocRefusal);
         }
 
         if (!span.IsCollapsed && RemovesSectionBreak(span))

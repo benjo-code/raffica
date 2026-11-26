@@ -1236,6 +1236,9 @@
   <data name="NoteSectionBreakNoMarker" xml:space="preserve">
     <value>Ein Abschnittswechsel lässt sich nicht mit der Tastatur löschen. Verwenden Sie „Abschnitt entfernen“ auf der Registerkarte „Layout“ oder im Bereich „Abschnitte“.</value>
   </data>
+  <data name="NoteTocProtected" xml:space="preserve">
+    <value>Dieses Inhaltsverzeichnis aktualisiert sich selbst. Ändern Sie die Überschriften oder entfernen Sie es.</value>
+  </data>
   <data name="MarginNormal" xml:space="preserve">
     <value>Normal</value>
   </data>

@@ -346,7 +346,24 @@ internal sealed partial class PageView
         SyncActiveMode();
         ResetAffinity();
         _goalFor = null;
-        ApplyGuarded(session, operation(session), typing);
+        var run = operation(session);
+        var tocRefused = false;
+        ApplyGuarded(
+            session,
+            ed =>
+            {
+                ed.ClearFieldRefusal();
+                var result = run(ed);
+                tocRefused = ed.LastFieldRefusal is not null && result is (null or { Changes.Count: 0, Selected: null });
+                return result;
+            },
+            typing);
+
+        // A table of contents updates itself: an edit inside it or over part of it changes nothing and says why (a save that queued the key says nothing now, as for every refusal).
+        if (tocRefused && session.BlockedReason is null)
+        {
+            StructureNote?.Invoke(WriteStrings.NoteTocProtected);
+        }
     }
 
     /// <summary>

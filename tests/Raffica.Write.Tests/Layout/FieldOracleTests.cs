@@ -83,6 +83,12 @@ public sealed class FieldOracleTests
 
         foreach (var kind in Enum.GetValues<FieldStepKind>())
         {
+            // A refusal kind: it never changes anything, so it is counted as refused (the unit tests of the protection run it on a table of contents).
+            if (kind == FieldStepKind.TypeInToc)
+            {
+                continue;
+            }
+
             Assert.True(totals[(int)kind] > 0, $"the step kind {kind} never ran a step that changed something in the corpus (ran per kind: {string.Join(", ", Enum.GetValues<FieldStepKind>().Select(k => k + " " + totals[(int)k]))})");
         }
 

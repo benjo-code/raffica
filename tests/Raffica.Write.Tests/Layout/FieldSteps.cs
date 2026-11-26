@@ -25,6 +25,9 @@ internal enum FieldStepKind
 
     /// <summary>A field refresh given only the block changes of the steps since the last refresh, as the session passes them (the whole body after a style or section step).</summary>
     RefreshTouched,
+
+    /// <summary>Typing at a random place inside a table of contents (the multi-paragraph field of a document that has one): the editor must refuse with its reason and change nothing. Always a counted refusal; a document with no table of contents has nothing for it.</summary>
+    TypeInToc,
 }
 
 /// <summary>
@@ -55,6 +58,7 @@ internal sealed class FieldSteps
         FieldStepKind.Undo,
         FieldStepKind.Refresh,
         FieldStepKind.Undo,
+        FieldStepKind.TypeInToc,
     ];
 
     private readonly WordDocument _model;
@@ -121,6 +125,7 @@ internal sealed class FieldSteps
             FieldStepKind.DeleteBookmark => await DeleteBookmarkAsync(random, label),
             FieldStepKind.Refresh => await RefreshAsync(label, touchedOnly: false),
             FieldStepKind.RefreshTouched => await RefreshAsync(label, touchedOnly: true),
+            FieldStepKind.TypeInToc => TypeInToc(random),
             FieldStepKind.Undo => Editor.History.CanUndo ? await CheckAsync(Editor.History.Undo(), label, required: true) : Refuse(),
             _ => Editor.History.CanRedo ? await CheckAsync(Editor.History.Redo(), label, required: true) : Refuse(),
         };
@@ -247,6 +252,25 @@ internal sealed class FieldSteps
         Compared++;
         RanPerKind[(int)_kind]++;
         return true;
+    }
+
+    // A refused edit inside a table of contents is a counted refusal like any other, and it must have left the document alone and named its reason.
+    private bool TypeInToc(Random random)
+    {
+        if (TocRanges.In(_model.Body.Blocks) is not { } ranges)
+        {
+            return Refuse();
+        }
+
+        var toc = ranges[random.Next(ranges.Count)];
+        var paragraph = (Paragraph)_model.Body.Blocks[random.Next(toc.First, toc.Last + 1)];
+        var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
+        var revision = _model.Edits.Revision;
+        var result = Editor.InsertText(new TextRange(at, at), "x");
+        Assert.Empty(result.Changes);
+        Assert.Equal(revision, _model.Edits.Revision);
+        Assert.Equal(FieldRefusalKind.InsideToc, Editor.LastFieldRefusal?.Kind);
+        return Refuse();
     }
 
     private bool Refuse()

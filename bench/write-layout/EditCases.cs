@@ -1,4 +1,5 @@
 using System.Globalization;
+using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
 
@@ -66,7 +67,7 @@ internal static class EditCases
         }
 
         // The paragraph before a paragraph that ends a section.
-        foreach (var i in Enumerable.Range(1, Math.Max(0, blocks.Count - 1)).Where(i => blocks[i] is Paragraph { SectionBreak: not null }).OrderBy(i => Math.Abs(i - middleIndex)))
+        foreach (var i in Enumerable.Range(1, Math.Max(0, blocks.Count - 1)).Where(i => blocks[i] is Paragraph { SectionBreak: not null }).Where(i => !FieldView.IsInTableOfContents(blocks, i - 1)).OrderBy(i => Math.Abs(i - middleIndex)))
         {
             if (blocks[i - 1] is Paragraph before && before.SectionBreak is null && Length(StoryRef.Body, before) > 0)
             {

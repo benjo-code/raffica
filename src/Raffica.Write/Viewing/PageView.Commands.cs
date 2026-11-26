@@ -241,6 +241,7 @@ internal sealed partial class PageView
         var picture = ImageOnly(content) ? content.Image : null;
         PictureRefusal? refusal = null;
         var leftOut = 0;
+        var tocRefused = false;
         var prefix = IsPrefixDocument;
         var result = ApplyOperation(ed =>
         {
@@ -257,6 +258,7 @@ internal sealed partial class PageView
             var styles = _tab.Docx.Model.Styles;
             var pasted = ed.Paste(selection, content, id => styles?.Find(id) is not null);
             leftOut = ed.LastPasteDroppedPictures;
+            tocRefused = pasted.Changes.Count == 0 && ed.LastFieldRefusal is not null;
             return pasted;
         });
 
@@ -264,6 +266,12 @@ internal sealed partial class PageView
         if (result is null && refusal is { } reason && session.BlockedReason is null)
         {
             StructureNote?.Invoke(PictureWording.ReasonText(reason));
+        }
+
+        // A table of contents updates itself: a paste into it, or over part of it, changes nothing and says why.
+        if (tocRefused && session.BlockedReason is null)
+        {
+            StructureNote?.Invoke(WriteStrings.NoteTocProtected);
         }
 
         // A fragment that held pictures or drawings pastes without them (also when nothing else was left): the user is told, never left to wonder where the picture went. A paste that a save queued says nothing now.
