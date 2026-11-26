@@ -206,14 +206,18 @@ internal static class FieldRefresh
         return count;
     }
 
-    private static int? HeadingLevel(Paragraph paragraph) =>
+    /// <summary>True when a refresh may write the field: a field of a supported name and switches that is closed and not in a tracked change.</summary>
+    internal static bool IsUsable(FieldSpan span) =>
+        span.Support.Kind != FieldKind.None && span.Support.IsSupported && span.IsComplete && !span.InTrackedChange;
+
+    internal static int? HeadingLevel(Paragraph paragraph) =>
         paragraph.Properties.StyleId is { Length: 8 } id && id.StartsWith("Heading", StringComparison.Ordinal) && id[7] is >= '1' and <= '9' ? id[7] - '0' : null;
 
     // True when the paragraph has an instruction or a simple field anywhere: the cheap test before the fields are parsed.
     internal static bool HasFieldMarkup(Paragraph paragraph) =>
         Leaves(paragraph.Inlines, false).Any(l => l.Inline is SimpleField || (l.Inline is Run run && run.Content.Any(c => c is InstructionText)));
 
-    private static string TrimLabel(string label) => label.TrimEnd('.');
+    internal static string TrimLabel(string label) => label.TrimEnd('.');
 
     /// <summary>The inlines in reading order, containers entered; a simple field is yielded itself before its content. <c>Deleted</c> is true inside a tracked deletion or a moved-from range.</summary>
     private static IEnumerable<(Inline Inline, bool Deleted)> Leaves(IEnumerable<Inline> inlines, bool deleted)
@@ -361,8 +365,7 @@ internal static class FieldRefresh
             return changes;
         }
 
-        private static bool Usable(FieldSpan span) =>
-            span.Support.Kind != FieldKind.None && span.Support.IsSupported && span.IsComplete && !span.InTrackedChange;
+        private static bool Usable(FieldSpan span) => IsUsable(span);
 
         private SeqCounter Counter(string label)
         {

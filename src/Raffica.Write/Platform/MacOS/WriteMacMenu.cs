@@ -233,9 +233,10 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(layoutMenu);
             _headers.Add((layoutMenu, () => WriteStrings.MenuLayout));
 
-            // References: the bookmarks (no keys).
+            // References: the caption and the bookmarks (no keys).
             var referencesMenu = new NativeMenuItem(WriteStrings.MenuReferences) { Menu = new NativeMenu() };
             referencesMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            referencesMenu.Menu.Items.Add(CommandItem(WriteCommandIds.CaptionInsert, () => WriteCatalogName(WriteCommandIds.CaptionInsert), null));
             referencesMenu.Menu.Items.Add(CommandItem(WriteCommandIds.BookmarkInsert, () => WriteCatalogName(WriteCommandIds.BookmarkInsert), null));
             Menu.Items.Add(referencesMenu);
             _headers.Add((referencesMenu, () => WriteStrings.MenuReferences));

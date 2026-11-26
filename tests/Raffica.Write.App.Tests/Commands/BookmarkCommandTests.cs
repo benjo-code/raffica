@@ -68,6 +68,8 @@ public sealed class BookmarkCommandTests
 
         public Action? WhileOpen { get; set; }
 
+        public Task<CaptionRequest?> AskCaptionAsync(CaptionContext context) => Task.FromResult<CaptionRequest?>(null);
+
         public Task<BookmarkRequest?> AskBookmarkAsync(BookmarkContext context)
         {
             Asked++;

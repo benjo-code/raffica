@@ -19,9 +19,19 @@ internal sealed partial class WriteWindow
     /// <summary>How many times the caret's place was worked out for the facts of the object commands (tests; 0 before the first ask).</summary>
     internal int ObjectFactReads => _objects?.Reads ?? 0;
 
-    // The facts of the rules; the source is made on the first question. Nothing is read before the active tab has an editing session.
+    private FieldFactsSource? _fieldFacts;
+
+    /// <summary>Whether the facts source of the field commands exists (tests; false before the first question of the caption command).</summary>
+    internal bool FieldFactsExist => _fieldFacts is not null;
+
+    /// <summary>How many times the caret's place was worked out for the facts of the caption command (tests; 0 before the first ask).</summary>
+    internal int FieldFactReads => _fieldFacts?.Reads ?? 0;
+
+    // The facts of the rules; the sources are made on the first question. Nothing is read before the active tab has an editing session.
     private ObjectCommandFacts ReadObjectFacts(string id) =>
-        (_objects ??= new ObjectFactsSource()).Read(Workspace.Active, id, ActiveView?.Mode == WriteView.Writing);
+        WriteCommandIds.IsCaption(id)
+            ? (_fieldFacts ??= new FieldFactsSource()).Read(Workspace.Active, id)
+            : (_objects ??= new ObjectFactsSource()).Read(Workspace.Active, id, ActiveView?.Mode == WriteView.Writing);
 
     // The ribbon actions of the note commands: the buttons run by id.
     private void AddObjectActions()

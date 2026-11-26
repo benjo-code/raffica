@@ -84,7 +84,7 @@ public sealed class FieldOracleTests
         foreach (var kind in Enum.GetValues<FieldStepKind>())
         {
             // A refusal kind: it never changes anything, so it is counted as refused (the unit tests of the protection run it on a table of contents).
-            if (kind == FieldStepKind.TypeInToc)
+            if (kind is FieldStepKind.TypeInToc or FieldStepKind.InsertChapterCaption)
             {
                 continue;
             }
@@ -163,6 +163,38 @@ public sealed class FieldOracleTests
         await steps.RunAsync(new Random(seed), 60, "toc " + seed);
 
         Assert.True(steps.RefusedPerKind[(int)FieldStepKind.TypeInToc] > 0, "no step typed into a table of contents");
+    }
+
+    // Numbered headings (the style carries the list): the chapter caption is possible here, and every caption step ends in an exact layout and the independent count.
+    private static WordDocument WithNumberedHeadings()
+    {
+        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style><w:style w:type=\"paragraph\" w:styleId=\"Caption\"><w:name w:val=\"caption\"/></w:style>";
+        for (var i = 1; i <= 3; i++)
+        {
+            var number = i == 1 ? "<w:numPr><w:numId w:val=\"1\"/></w:numPr>" : string.Empty;
+            styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{number}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
+        }
+
+        var numbering = "<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
+        return LayoutModel.Document(FieldsBody(), LayoutModel.StylesPart(styles), LayoutModel.NumberingPart(numbering));
+    }
+
+    [Theory]
+    [InlineData(21)]
+    [InlineData(22)]
+    [InlineData(23)]
+    public async Task CaptionStepsOnADocumentWithNumberedHeadingsEqualAFullLayoutAndTheReferenceCount(int seed)
+    {
+        var model = WithNumberedHeadings();
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var steps = new FieldSteps(model, layout, new LayoutOptions());
+
+        await steps.RunAsync(new Random(seed), 40, "captions " + seed);
+
+        foreach (var kind in new[] { FieldStepKind.InsertCaption, FieldStepKind.InsertChapterCaption, FieldStepKind.MoveCaption, FieldStepKind.DeleteCaption })
+        {
+            Assert.True(steps.RanPerKind[(int)kind] > 0, $"the step kind {kind} never changed anything (ran per kind: {string.Join(", ", Enum.GetValues<FieldStepKind>().Select(k => k + " " + steps.RanPerKind[(int)k]))})");
+        }
     }
 
     [Theory]

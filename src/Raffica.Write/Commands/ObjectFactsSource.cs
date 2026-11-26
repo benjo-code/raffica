@@ -27,6 +27,12 @@ internal enum ObjectBlock
     /// <summary>There is no paragraph at the caret.</summary>
     NoPosition,
 
+    /// <summary>The caret is in a table of contents, which updates itself: nothing is inserted into it.</summary>
+    InsideToc,
+
+    /// <summary>The caret is in a content control that holds one line, which takes no caption.</summary>
+    CaptionRestricted,
+
     /// <summary>Back to the text needs the caret in a note.</summary>
     NotInNote,
 }
@@ -51,7 +57,19 @@ internal static class ObjectWording
         ObjectBlock.RestrictedControl => WriteStrings.ReasonNoteRestricted,
         ObjectBlock.NoPosition => WriteStrings.ReasonSectionNotInBody,
         ObjectBlock.NotInNote => WriteStrings.ReasonNoteNotInNote,
+        ObjectBlock.InsideToc => WriteStrings.NoteTocProtected,
+        ObjectBlock.CaptionRestricted => WriteStrings.ReasonCaptionRestricted,
         _ => null,
+    };
+
+    /// <summary>The block of a refusal of the editor to insert a caption (the chapter number and the end of a section depend on the choice of the card and are worded as notes when the caption is made).</summary>
+    public static ObjectBlock BlockOf(CaptionRefusal refusal) => refusal switch
+    {
+        CaptionRefusal.Prefix => ObjectBlock.PrefixDocument,
+        CaptionRefusal.RestrictedControl => ObjectBlock.CaptionRestricted,
+        CaptionRefusal.InsideToc => ObjectBlock.InsideToc,
+        CaptionRefusal.SectionEnd or CaptionRefusal.ChapterNeedsNumberedHeadings => ObjectBlock.None,
+        _ => ObjectBlock.NoPosition,
     };
 
     /// <summary>The block of a refusal of the editor.</summary>

@@ -2286,4 +2286,61 @@
   <data name="StatusFieldNotUpdated" xml:space="preserve">
     <value>Field not updated by Write</value>
   </data>
+  <data name="GroupCaptions" xml:space="preserve">
+    <value>Captions</value>
+  </data>
+  <data name="CmdCaption" xml:space="preserve">
+    <value>Caption</value>
+  </data>
+  <data name="DescCaption" xml:space="preserve">
+    <value>Adds a numbered label such as "Figure 1" above or below the selected picture, table or paragraph. The numbers follow every change.</value>
+  </data>
+  <data name="CaptionTitle" xml:space="preserve">
+    <value>Insert caption</value>
+  </data>
+  <data name="CaptionLabelLabel" xml:space="preserve">
+    <value>Label</value>
+  </data>
+  <data name="CaptionNewLabelLabel" xml:space="preserve">
+    <value>Or a new label</value>
+  </data>
+  <data name="CaptionTextLabel" xml:space="preserve">
+    <value>Text after the number</value>
+  </data>
+  <data name="CaptionPlaceLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="CaptionPlaceAbove" xml:space="preserve">
+    <value>Above</value>
+  </data>
+  <data name="CaptionPlaceBelow" xml:space="preserve">
+    <value>Below</value>
+  </data>
+  <data name="CaptionChapter" xml:space="preserve">
+    <value>Include the chapter number</value>
+  </data>
+  <data name="CaptionChapterUnavailable" xml:space="preserve">
+    <value>A chapter number needs numbered headings. Switch them on first.</value>
+  </data>
+  <data name="CaptionPreviewLabel" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="CaptionOk" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="CaptionProblemLabel" xml:space="preserve">
+    <value>A label starts with a letter and holds letters, digits and underscores only, 40 at most.</value>
+  </data>
+  <data name="CaptionProblemText" xml:space="preserve">
+    <value>The text must be one line of 1000 characters at most.</value>
+  </data>
+  <data name="ReasonCaptionRestricted" xml:space="preserve">
+    <value>This content control holds a single line, so it cannot hold a caption.</value>
+  </data>
+  <data name="NoteCaptionSectionEnd" xml:space="preserve">
+    <value>This paragraph ends its section, so a caption below it would stand in the next section. Choose above.</value>
+  </data>
+  <data name="NoteCaptionChapter" xml:space="preserve">
+    <value>A chapter number needs numbered headings and a Heading 1 above the caption.</value>
+  </data>
 </root>

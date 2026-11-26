@@ -108,6 +108,7 @@ internal static class WriteCommandIds
     public const string PictureReset = "picture.reset";
     public const string PictureDelete = "picture.delete";
     public const string BookmarkInsert = "bookmark.insert";
+    public const string CaptionInsert = "caption.insert";
 
     /// <summary>Whether the command belongs to the text (undo, redo, the clipboard and select all): the page view owns their keys, so the window never matches them itself.</summary>
     public static bool IsEditing(string id) => id.StartsWith("edit.", StringComparison.Ordinal);
@@ -164,4 +165,10 @@ internal static class WriteCommandIds
     /// (a prefix document is the only place that refuses, the card says the rest).
     /// </summary>
     public static bool IsBookmark(string id) => id.StartsWith("bookmark.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether the command is the caption command (<c>caption.insert</c>: the Captions group of the References tab). It has no key; the facts that enable it (a prefix document, a caret in a table of contents or a place that takes no
+    /// caption) are read through <see cref="FieldFactsSource"/>.
+    /// </summary>
+    public static bool IsCaption(string id) => id.StartsWith("caption.", StringComparison.Ordinal);
 }

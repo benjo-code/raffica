@@ -8,7 +8,7 @@ using Raffica.Write.Viewing;
 namespace Raffica.Write;
 
 /// <summary>
-/// The commands of the References tab (today the Bookmarks card): what the ribbon, the command search and the macOS menu run; the object facts source answers the prefix refusal. Nothing exists before the first use: the
+/// The commands of the References tab (the Bookmarks card and the Caption card): what the ribbon, the command search and the macOS menu run; the object facts source answers the prefix refusal. Nothing exists before the first use: the
 /// cards object and the bookmark list are made when the command first runs.
 /// </summary>
 internal sealed partial class WriteWindow
@@ -25,12 +25,17 @@ internal sealed partial class WriteWindow
     /// <summary>Whether the cards object of the References tab exists (tests; false before the first run of a command of the tab).</summary>
     internal bool FieldCardsExist => _fieldCards is not null;
 
-    // The ribbon actions of the References tab: the bookmark command opens its card.
+    // The ribbon actions of the References tab: the bookmark and the caption command open their cards.
     private void AddFieldActions()
     {
         foreach (var command in WriteCommandCatalog.Commands.Where(c => WriteCommandIds.IsBookmark(c.Id)))
         {
             _actions[command.Id] = () => _ = GuardAsync(BookmarksAsync);
+        }
+
+        foreach (var command in WriteCommandCatalog.Commands.Where(c => WriteCommandIds.IsCaption(c.Id)))
+        {
+            _actions[command.Id] = () => _ = GuardAsync(CaptionAsync);
         }
     }
 
@@ -66,6 +71,45 @@ internal sealed partial class WriteWindow
         }
 
         var taken = view.RunBookmarkCommand(request);
+        if (!view.IsFocused)
+        {
+            view.Focus();
+        }
+
+        return taken;
+    }
+
+    // The Caption card (the labels and the chapter possibility are read from the model when it opens), then the answer under the same plan check as the other cards: an answer after the document changed is refused with a note.
+    private async Task CaptionAsync()
+    {
+        if (ActiveView is not { } view)
+        {
+            return;
+        }
+
+        var plan = CardPlan.Of(view);
+        if (await FieldCards.AskCaptionAsync(view.CaptionCardContext()) is not { } request)
+        {
+            return;
+        }
+
+        if (CardIsStale(view, plan))
+        {
+            return;
+        }
+
+        _ = RunCaptionFromUi(request);
+    }
+
+    /// <summary>Runs an answer of the Caption card on the active view (the view takes the focus back, a ribbon button that kept it would swallow the typing).</summary>
+    internal bool RunCaptionFromUi(CaptionRequest request)
+    {
+        if (ActiveView is not { } view)
+        {
+            return false;
+        }
+
+        var taken = view.RunCaptionCommand(request);
         if (!view.IsFocused)
         {
             view.Focus();

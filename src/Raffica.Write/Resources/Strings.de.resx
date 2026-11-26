@@ -2286,4 +2286,61 @@
   <data name="StatusFieldNotUpdated" xml:space="preserve">
     <value>Feld wird von Write nicht aktualisiert</value>
   </data>
+  <data name="GroupCaptions" xml:space="preserve">
+    <value>Beschriftungen</value>
+  </data>
+  <data name="CmdCaption" xml:space="preserve">
+    <value>Beschriftung</value>
+  </data>
+  <data name="DescCaption" xml:space="preserve">
+    <value>Fügt eine nummerierte Beschriftung wie „Abbildung 1“ über oder unter dem gewählten Bild, der Tabelle oder dem Absatz ein. Die Nummern folgen jeder Änderung.</value>
+  </data>
+  <data name="CaptionTitle" xml:space="preserve">
+    <value>Beschriftung einfügen</value>
+  </data>
+  <data name="CaptionLabelLabel" xml:space="preserve">
+    <value>Bezeichnung</value>
+  </data>
+  <data name="CaptionNewLabelLabel" xml:space="preserve">
+    <value>Oder eine neue Bezeichnung</value>
+  </data>
+  <data name="CaptionTextLabel" xml:space="preserve">
+    <value>Text nach der Nummer</value>
+  </data>
+  <data name="CaptionPlaceLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="CaptionPlaceAbove" xml:space="preserve">
+    <value>Oberhalb</value>
+  </data>
+  <data name="CaptionPlaceBelow" xml:space="preserve">
+    <value>Unterhalb</value>
+  </data>
+  <data name="CaptionChapter" xml:space="preserve">
+    <value>Kapitelnummer einbeziehen</value>
+  </data>
+  <data name="CaptionChapterUnavailable" xml:space="preserve">
+    <value>Eine Kapitelnummer braucht nummerierte Überschriften. Schalten Sie diese zuerst ein.</value>
+  </data>
+  <data name="CaptionPreviewLabel" xml:space="preserve">
+    <value>Vorschau</value>
+  </data>
+  <data name="CaptionOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="CaptionProblemLabel" xml:space="preserve">
+    <value>Eine Bezeichnung beginnt mit einem Buchstaben und besteht nur aus Buchstaben, Ziffern und Unterstrichen, höchstens 40.</value>
+  </data>
+  <data name="CaptionProblemText" xml:space="preserve">
+    <value>Der Text muss eine einzelne Zeile mit höchstens 1000 Zeichen sein.</value>
+  </data>
+  <data name="ReasonCaptionRestricted" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur eine Zeile und kann daher keine Beschriftung aufnehmen.</value>
+  </data>
+  <data name="NoteCaptionSectionEnd" xml:space="preserve">
+    <value>Dieser Absatz beendet seinen Abschnitt, daher stünde eine Beschriftung darunter im nächsten Abschnitt. Wählen Sie oberhalb.</value>
+  </data>
+  <data name="NoteCaptionChapter" xml:space="preserve">
+    <value>Eine Kapitelnummer braucht nummerierte Überschriften und eine Überschrift 1 oberhalb der Beschriftung.</value>
+  </data>
 </root>

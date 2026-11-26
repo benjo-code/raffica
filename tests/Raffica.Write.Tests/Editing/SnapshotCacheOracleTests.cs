@@ -341,6 +341,52 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void ACaptionInsertedMovedAndDeletedWithItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => TestEdit.TextOf(p).Length >= 6).Take(2).ToList();
+        Assert.Equal(2, paragraphs.Count);
+        TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
+
+        // Two captions (the first may make the style as a companion), the refresh that renumbers, a move, a delete, and every step undone and redone.
+        Assert.NotNull(editor.InsertCaption(At(paragraphs[1], 0), "Figure", ": b", CaptionPlace.Below, false, "Figure", host));
+        Check("insert below");
+        Assert.NotNull(editor.InsertCaption(At(paragraphs[0], 0), "Figure", ": a", CaptionPlace.Above, false, "Figure", host));
+        Check("insert above");
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh");
+        var index = model.Body.Blocks.IndexOf(paragraphs[0]) - 1;
+        Assert.NotNull(editor.MoveBlocks(index, 1, index + 3));
+        Check("move");
+        var caption = model.Body.Blocks.OfType<Paragraph>().First(p => TestEdit.TextOf(p).StartsWith("Figure", StringComparison.Ordinal));
+        Assert.NotNull(editor.Delete(new TextRange(At(caption, 0), At(caption, TestEdit.TextOf(caption).Length))));
+        Check("delete");
+        var steps = 0;
+        while (editor.History.CanUndo)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + steps++);
+        }
+
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));

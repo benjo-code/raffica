@@ -28,6 +28,18 @@ internal enum FieldStepKind
 
     /// <summary>Typing at a random place inside a table of contents (the multi-paragraph field of a document that has one): the editor must refuse with its reason and change nothing. Always a counted refusal; a document with no table of contents has nothing for it.</summary>
     TypeInToc,
+
+    /// <summary>A caption (Figure or Table, above or below) at a random paragraph, followed by a refresh: the layout must equal a full layout and every number must equal the independent count.</summary>
+    InsertCaption,
+
+    /// <summary>A caption with a chapter number (STYLEREF and SEQ with a restart per chapter); refused by a document with no numbered headings.</summary>
+    InsertChapterCaption,
+
+    /// <summary>The paragraph of a caption deleted (with its paragraph break), followed by a refresh.</summary>
+    DeleteCaption,
+
+    /// <summary>The paragraph of a caption moved to another place of the body, followed by a refresh.</summary>
+    MoveCaption,
 }
 
 /// <summary>
@@ -58,6 +70,14 @@ internal sealed class FieldSteps
         FieldStepKind.Undo,
         FieldStepKind.Refresh,
         FieldStepKind.Undo,
+        FieldStepKind.InsertCaption,
+        FieldStepKind.InsertCaption,
+        FieldStepKind.InsertChapterCaption,
+        FieldStepKind.MoveCaption,
+        FieldStepKind.DeleteCaption,
+        FieldStepKind.Undo,
+        FieldStepKind.Redo,
+        FieldStepKind.InsertCaption,
         FieldStepKind.TypeInToc,
     ];
 
@@ -126,6 +146,10 @@ internal sealed class FieldSteps
             FieldStepKind.Refresh => await RefreshAsync(label, touchedOnly: false),
             FieldStepKind.RefreshTouched => await RefreshAsync(label, touchedOnly: true),
             FieldStepKind.TypeInToc => TypeInToc(random),
+            FieldStepKind.InsertCaption => await InsertCaptionAsync(random, chapter: false, label),
+            FieldStepKind.InsertChapterCaption => await InsertCaptionAsync(random, chapter: true, label),
+            FieldStepKind.DeleteCaption => await DeleteCaptionAsync(random, label),
+            FieldStepKind.MoveCaption => await MoveCaptionAsync(random, label),
             FieldStepKind.Undo => Editor.History.CanUndo ? await CheckAsync(Editor.History.Undo(), label, required: true) : Refuse(),
             _ => Editor.History.CanRedo ? await CheckAsync(Editor.History.Redo(), label, required: true) : Refuse(),
         };
@@ -188,6 +212,73 @@ internal sealed class FieldSteps
     {
         var shown = Editor.VisibleBookmarks();
         return shown.Count == 0 ? Refuse() : await CheckAsync(Editor.DeleteBookmark(shown[random.Next(shown.Count)].Name), label, required: false);
+    }
+
+    // A caption at a random place: the number it carries must already be the one a refresh gives (the refresh that follows must find nothing wrong with it), and the layout must equal a full layout.
+    private async Task<bool> InsertCaptionAsync(Random random, bool chapter, string label)
+    {
+        var paragraphs = Paragraphs();
+        if (paragraphs.Count == 0)
+        {
+            return Refuse();
+        }
+
+        var paragraph = paragraphs[random.Next(paragraphs.Count)];
+        var word = random.Next(3) == 0 ? "Table" : "Figure";
+        var place = random.Next(2) == 0 ? CaptionPlace.Above : CaptionPlace.Below;
+        var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
+        var result = Editor.InsertCaption(at, word, ": caption " + _names++, place, chapter, word, new FakeFieldHost(_model));
+        return await CheckAsync(result, label, required: false) && await RefreshAsync(label + " refresh", touchedOnly: true);
+    }
+
+    // The paragraphs that hold a SEQ field of their own (a caption), with the list of blocks that holds each.
+    private List<(Paragraph Paragraph, IList<Block> Container, int Index)> Captions()
+    {
+        var found = new List<(Paragraph, IList<Block>, int)>();
+        foreach (var paragraph in Paragraphs())
+        {
+            if (FieldRefresh.HasFieldMarkup(paragraph) && FieldView.InParagraph(paragraph).Any(f => f.Parent is null && f.Support.Kind == FieldKind.Seq) && TextEditor.FindIn(_model.Body.Blocks, paragraph) is { } place)
+            {
+                found.Add((paragraph, place.Container, place.Index));
+            }
+        }
+
+        return found;
+    }
+
+    // A caption's paragraph deleted with its paragraph break (the range runs from the end of the paragraph before it); a caption that has no paragraph of the same list before it is emptied.
+    private async Task<bool> DeleteCaptionAsync(Random random, string label)
+    {
+        var captions = Captions();
+        if (captions.Count == 0)
+        {
+            return Refuse();
+        }
+
+        var (caption, container, index) = captions[random.Next(captions.Count)];
+        var end = new TextPosition(StoryRef.Body, caption, TextLength(caption));
+        var start = index > 0 && container[index - 1] is Paragraph before ? new TextPosition(StoryRef.Body, before, TextLength(before)) : new TextPosition(StoryRef.Body, caption, 0);
+        return await CheckAsync(Editor.Delete(new TextRange(start, end)), label, required: false) && await RefreshAsync(label + " refresh", touchedOnly: true);
+    }
+
+    // A caption of the top level of the body moved to another place of it.
+    private async Task<bool> MoveCaptionAsync(Random random, string label)
+    {
+        var body = _model.Body.Blocks;
+        var captions = Captions().Where(c => ReferenceEquals(c.Container, body)).ToList();
+        if (captions.Count == 0 || body.Count < 2)
+        {
+            return Refuse();
+        }
+
+        var (_, _, index) = captions[random.Next(captions.Count)];
+        var target = random.Next(body.Count + 1);
+        if (target == index || target == index + 1)
+        {
+            return Refuse();
+        }
+
+        return await CheckAsync(Editor.MoveBlocks(index, 1, target), label, required: false) && await RefreshAsync(label + " refresh", touchedOnly: true);
     }
 
     private async Task<bool> CheckAsync(EditResult? result, string label, bool required)
