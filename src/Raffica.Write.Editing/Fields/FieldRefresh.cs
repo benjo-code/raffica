@@ -39,16 +39,33 @@ internal static class FieldRefresh
         }
 
         var state = new State(host, body, targets);
-        state.Walk();
-        var changes = state.Finish();
+        List<BlockChange> changes;
+        try
+        {
+            state.Walk();
+            changes = state.Finish();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The walk writes in place: what it wrote before it failed is told to the document and handed to the owner in the exception, so no layout, tracker or retry works from a model it thinks unchanged.
+            var partial = state.Finish();
+            Announce(document, partial);
+            throw new FieldRefreshException(partial, ex);
+        }
+
+        Announce(document, changes);
+
+        var notUpdated = state.NotUpdated + (targets is null ? OtherStories(document) : 0);
+        return new FieldRefreshResult(changes, null, notUpdated, state.Written, true);
+    }
+
+    private static void Announce(WordDocument document, List<BlockChange> changes)
+    {
         if (changes.Count > 0)
         {
             document.Edits.RaiseDerived();
             document.Edits.AttributeDerived(changes);
         }
-
-        var notUpdated = state.NotUpdated + (targets is null ? OtherStories(document) : 0);
-        return new FieldRefreshResult(changes, null, notUpdated, state.Written, true);
     }
 
     // Null means every block. Otherwise the top-level indices of the touched blocks of the body, or every block when one of them (before or after the change) holds something other results depend on,
@@ -355,7 +372,19 @@ internal static class FieldRefresh
                 _olds[top] = body[top].Clone();
             }
 
-            if (!FieldWriter.SetResult(paragraph, span, text))
+            bool written;
+            try
+            {
+                written = FieldWriter.SetResult(paragraph, span, text);
+            }
+            catch
+            {
+                // A write that failed half-way may have changed the paragraph.
+                _changed.Add(top);
+                throw;
+            }
+
+            if (!written)
             {
                 // False also means "already shows this text"; only a field with no place for a result is one Write could not update.
                 NotUpdated += countRefusal && !FieldWriter.CanWrite(span) ? 1 : 0;

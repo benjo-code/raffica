@@ -67,8 +67,9 @@ internal static class FieldTestDocument
 {
     public const string Stale = "77";
 
+    /// <param name="styleRef">Adds a paragraph with a <c>STYLEREF 1 s</c> field behind the two captions (it needs the chapter label of the host).</param>
     /// <param name="headings">Makes the first paragraph a Heading1 (a style step, the heading numbering switch, needs it; the style sheet with the nine heading styles is always there).</param>
-    public static byte[] Bytes(bool headings = false)
+    public static byte[] Bytes(bool headings = false, bool styleRef = false)
     {
         using var stream = new MemoryStream();
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -99,6 +100,11 @@ internal static class FieldTestDocument
             body.Append(headings ? "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Intro</w:t></w:r></w:p>" : "<w:p><w:r><w:t>Intro</w:t></w:r></w:p>");
             body.Append(Caption());
             body.Append(Caption());
+            if (styleRef)
+            {
+                body.Append(Paragraph("<w:r><w:t xml:space=\"preserve\">Chapter </w:t></w:r>" + Field(" STYLEREF 1 \\s ", "9")));
+            }
+
             body.Append(Paragraph("<w:r><w:t xml:space=\"preserve\">Index </w:t></w:r>" + Field(" INDEX \\h ", "idx")));
             body.Append(Paragraph("<w:r><w:t>End</w:t></w:r>"));
             Entry(zip, "word/document.xml", $"""

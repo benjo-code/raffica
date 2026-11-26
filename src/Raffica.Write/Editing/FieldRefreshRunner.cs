@@ -114,10 +114,18 @@ internal sealed class FieldRefreshRunner : IDisposable
             return Task.CompletedTask;
         }
 
-        if (Blocked(forSettle: true) == Hold.None)
+        try
         {
-            _timer.Stop();
-            RunPasses(token);
+            if (Blocked(forSettle: true) == Hold.None)
+            {
+                _timer.Stop();
+                RunPasses(token);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A save must never fail or wait because the refresh did: the failure is counted and the timer looks again later.
+            Failed();
         }
 
         return Task.CompletedTask;
@@ -144,18 +152,37 @@ internal sealed class FieldRefreshRunner : IDisposable
             return;
         }
 
-        switch (Blocked(forSettle: false))
+        try
         {
-            case Hold.Never:
-                _pending = false;
-                _touched.Clear();
-                break;
-            case Hold.Later:
-                _timer.Restart(Delay);
-                break;
-            default:
-                RunPasses(_tab.Token);
-                break;
+            switch (Blocked(forSettle: false))
+            {
+                case Hold.Never:
+                    _pending = false;
+                    _touched.Clear();
+                    break;
+                case Hold.Later:
+                    _timer.Restart(Delay);
+                    break;
+                default:
+                    RunPasses(_tab.Token);
+                    break;
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The timer runs on the dispatcher and Write has no crash guard here: nothing may escape.
+            Failed();
+        }
+    }
+
+    // A failure outside the passes (the scan, the checks): counted, and looked at again after the delay, a few times in a row.
+    private void Failed()
+    {
+        Failures++;
+        if (!_disposed && ++_consecutiveFailures <= MaxConsecutiveFailures)
+        {
+            _pending = true;
+            _timer.Restart(Delay);
         }
     }
 
@@ -234,7 +261,20 @@ internal sealed class FieldRefreshRunner : IDisposable
             {
                 var scope = _host.IsComplete ? RefreshScope.WithPages : RefreshScope.OrderBased;
                 var blocks = pass == 0 ? touched : null;
-                last = Refresher is { } seam ? seam(editor, _host, scope, blocks) : editor.RefreshFields(_host, scope, blocks);
+                try
+                {
+                    last = Refresher is { } seam ? seam(editor, _host, scope, blocks) : editor.RefreshFields(_host, scope, blocks);
+                }
+                catch (FieldRefreshException partial) when (partial.Content.Count > 0)
+                {
+                    // The walk wrote part of the results before it failed: the layout is told of them now (under the lease), then the failure is handled like any other and the refresh is tried again.
+                    content.AddRange(partial.Content);
+                    layoutFailed = true;
+                    ApplyToLayout(partial.Content);
+                    layoutFailed = false;
+                    throw;
+                }
+
                 Passes++;
                 if (last.Content.Count > 0)
                 {
@@ -297,15 +337,28 @@ internal sealed class FieldRefreshRunner : IDisposable
             _running = false;
         }
 
+        // What the owners of the document do with the news is theirs: a subscriber that throws is counted and does not stop the others, the save or the timer.
         if (content.Count > 0 && !_disposed && !_tab.IsDisposed)
         {
-            _tab.Editor?.FollowDerivedContent(content);
-            _tab.NotifyFieldsRefreshed();
+            Guarded(() => _tab.Editor?.FollowDerivedContent(content));
+            Guarded(_tab.NotifyFieldsRefreshed);
         }
 
         if (reported && !_disposed && !_tab.IsDisposed)
         {
-            _tab.ReportNotUpdated(NotUpdated);
+            Guarded(() => _tab.ReportNotUpdated(NotUpdated));
+        }
+    }
+
+    private void Guarded(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Failures++;
         }
     }
 
@@ -315,11 +368,11 @@ internal sealed class FieldRefreshRunner : IDisposable
         if (!_fieldsKnown)
         {
             _fieldsKnown = true;
-            _hasFields = FieldView.AnyIn(model);
+            _hasFields = _tab.AnyFields();
         }
-
-        if (!_hasFields && !_all && (_touched.Any(TouchesFields)))
+        else if (!_hasFields && (_all ? _tab.AnyFields() : _touched.Any(TouchesFields)))
         {
+            // A field that arrived after the first look: found in the touched blocks, or, when the whole body is asked for (a style or section change drops the list of touched blocks), by a new scan.
             _hasFields = true;
         }
 

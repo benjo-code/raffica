@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using Raffica.Write.Documents;
+using Raffica.Write.Editing;
 using Xunit;
 
 namespace Raffica.WriteApp.Tests.Editing;
@@ -96,5 +97,55 @@ public sealed class StartupCreatesNoFieldWorkTests
             Assert.False(tab.IsDirty);
             Assert.NotNull(window.ShownFieldsBar);
         }
+    }
+
+    [AvaloniaFact]
+    public async Task AThrowingScanInTheWatchNeverEscapes()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+
+        // The scan is set before the layout can report (the first sharp page is drawn before the layout is started).
+        window.FirstSharpPageDrawn += shown => shown.FieldScan = _ => throw new InvalidOperationException("test");
+        var path = fixture.Write("doc.docx", FieldTestDocument.Bytes());
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(path)).Tab;
+        tab.FieldClock = new ManualFieldClock();
+        WindowFixture.Pump();
+        await WindowFixture.WaitAsync(() => tab.FieldWiringFailures > 0);
+        WindowFixture.Pump();
+
+        Assert.Null(tab.Fields);
+    }
+
+    [AvaloniaFact]
+    public async Task TheWatchIsArmedOnlyAfterTheFirstSharpPageAndNothingIsScannedBefore()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var scans = 0;
+        var armedAtTheFirstSharpPage = true;
+        var scansAtTheFirstSharpPage = -1;
+        window.FirstSharpPageDrawn += shown =>
+        {
+            armedAtTheFirstSharpPage = window.IsWatchingFields(shown);
+            scansAtTheFirstSharpPage = scans;
+        };
+        var path = fixture.Write("doc.docx", FieldTestDocument.Bytes());
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(path)).Tab;
+        tab.FieldClock = new ManualFieldClock();
+        tab.FieldScan = m =>
+        {
+            scans++;
+            return FieldView.AnyIn(m);
+        };
+        WindowFixture.Pump();
+        await WindowFixture.WaitAsync(() => scansAtTheFirstSharpPage >= 0);
+
+        Assert.False(armedAtTheFirstSharpPage);
+        Assert.Equal(0, scansAtTheFirstSharpPage);
+
+        await WindowFixture.WaitAsync(() => tab.Fields is not null);
+        Assert.True(window.IsWatchingFields(tab));
+        Assert.True(scans > 0);
     }
 }

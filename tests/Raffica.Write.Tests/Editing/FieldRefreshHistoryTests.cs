@@ -130,4 +130,66 @@ public sealed class FieldRefreshHistoryTests
         Assert.True(result.Written > 0);
         Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
     }
+
+    private sealed class ThrowingHost(IFieldHost inner) : IFieldHost
+    {
+        public bool IsComplete => inner.IsComplete;
+
+        public string? NumberLabel(Paragraph paragraph) => throw new InvalidOperationException("test");
+
+        public (int PageIndex, string PageText)? PageOf(TextPosition position) => inner.PageOf(position);
+
+        public string? NoteMarkText(int noteId, NoteType type) => inner.NoteMarkText(noteId, type);
+    }
+
+    [Fact]
+    public async Task AFailureHalfwayThroughTheWalkReportsWhatWasWrittenAndTheLayoutAndTheBytesFollow()
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("half.docx");
+        DocxBuilder.WithBody(
+            path,
+            P(Run("Chapter"), "Heading1")
+                + P(Run("Figure ") + Field("SEQ Figure", "5"))
+                + P(Run("In ") + Field("STYLEREF 1 \\s", "7"))
+                + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>");
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        var host = new FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        var failure = Assert.Throws<FieldRefreshException>(() => editor.RefreshFields(new ThrowingHost(host), RefreshScope.OrderBased));
+
+        // The caption was written before the walk failed: the exception carries that change, the derived version rose and the block was attributed.
+        Assert.IsType<InvalidOperationException>(failure.InnerException);
+        var change = Assert.Single(failure.Content);
+        Assert.True(model.Edits.DerivedVersion > 0);
+        Assert.False(model.Edits.IsDirty);
+        foreach (var c in failure.Content)
+        {
+            layout.ApplyEdit(c, 2);
+        }
+
+        LayoutOracle.AssertEqualToFull(layout, model, label: "after the failed walk");
+        Check("after the failed walk");
+
+        // The retry has nothing left to report for the caption.
+        var retried = editor.RefreshFields(host, RefreshScope.OrderBased);
+        Assert.DoesNotContain(retried.Content, c => c.First == change.First);
+        foreach (var c in retried.Content)
+        {
+            layout.ApplyEdit(c, 2);
+        }
+
+        LayoutOracle.AssertEqualToFull(layout, model, label: "after the retry");
+        Check("after the retry");
+    }
 }

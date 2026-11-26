@@ -77,9 +77,14 @@ internal sealed partial class WriteWindow
     // ---- the refresh of field results: the first look, the bar and the status text (nothing below runs or exists before the layout of a document with fields is complete) ----
 
     private readonly Dictionary<WriteTab, (FieldsBar Bar, Control Control)> _fieldBars = [];
+    private readonly HashSet<WriteTab> _fieldWatch = [];
 
-    // Called when the tab's view is made: a measurement run follows no refresh, any other tab asks for its first whole-body look when its layout is complete (once), and offers the bar from the first count.
-    private void WatchFields(WriteTab tab)
+    /// <summary>Whether the window watches the tab for the completion of its layout (tests).</summary>
+    internal bool IsWatchingFields(WriteTab tab) => _fieldWatch.Contains(tab);
+
+    // Called when the tab's view is made: a measurement run follows no refresh. Any other tab starts to watch its layout only after its first sharp page (nothing of the refresh exists, and nothing is scanned, before it),
+    // asks for its first whole-body look when the layout is complete (once), and offers the bar from the first count. Nothing here may break the layout's event, so every failure is counted and ignored.
+    private void WatchFields(WriteTab tab, PageView view)
     {
         tab.RefreshesFields = !_options.IsMeasuring;
         if (!tab.RefreshesFields)
@@ -88,24 +93,41 @@ internal sealed partial class WriteWindow
         }
 
         tab.FieldsNotUpdated += count => OfferFieldsBar(tab, count);
+        view.FirstSharpPage += () => ArmFieldWatch(tab);
+    }
+
+    private void ArmFieldWatch(WriteTab tab)
+    {
+        if (tab.IsDisposed || !_fieldWatch.Add(tab))
+        {
+            return;
+        }
+
         Action? onChanged = null;
         onChanged = () =>
         {
-            if (tab.IsDisposed)
+            try
             {
+                if (tab.IsDisposed)
+                {
+                    tab.Runner.Changed -= onChanged;
+                    return;
+                }
+
+                if (tab.Docx.IsPrefix || !tab.Runner.FullModelReady || !tab.Runner.PageLayout.IsComplete)
+                {
+                    return;
+                }
+
                 tab.Runner.Changed -= onChanged;
-                return;
+                if (tab.Fields is null && tab.AnyFields())
+                {
+                    tab.EnsureFields().Notify(null);
+                }
             }
-
-            if (tab.Docx.IsPrefix || !tab.Runner.FullModelReady || !tab.Runner.PageLayout.IsComplete)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                return;
-            }
-
-            tab.Runner.Changed -= onChanged;
-            if (tab.Fields is null && FieldView.AnyIn(tab.Docx.Model))
-            {
-                tab.EnsureFields().Notify(null);
+                tab.FieldWiringFailures++;
             }
         };
         tab.Runner.Changed += onChanged;
@@ -152,6 +174,7 @@ internal sealed partial class WriteWindow
 
     private void ForgetFields(WriteTab tab)
     {
+        _fieldWatch.Remove(tab);
         _fieldBars.Remove(tab);
         SyncFieldsBar();
     }

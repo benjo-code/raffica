@@ -85,4 +85,41 @@ public sealed class SaveSettleTests
             Assert.Equal(0, tab.Docx.Model.Edits.DerivedVersion);
         }
     }
+
+    [AvaloniaFact]
+    public async Task AThrowingScanBeforeTheSettleStillLetsTheSaveWrite()
+    {
+        var (fixture, window, tab, _) = await OpenAsync(FieldTestDocument.Bytes());
+        using (fixture)
+        {
+            tab.FieldScan = _ => throw new InvalidOperationException("test");
+            var target = Path.Combine(fixture.Folder, "saved.docx");
+            window.SavePicker = _ => Task.FromResult<SavePick?>(new SavePick(target, Existed: false));
+
+            var outcome = await SaveHarness.AwaitAsync(window.SaveAsActiveAsync());
+
+            Assert.Equal(new SavedAs(target), outcome);
+            Assert.True(File.Exists(target));
+            Assert.True(tab.FieldWiringFailures > 0);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AThrowingSubscriberDuringTheSettleStillLetsTheSaveWrite()
+    {
+        var (fixture, window, tab, path) = await OpenAsync(FieldTestDocument.Bytes());
+        using (fixture)
+        {
+            SaveHarness.Edit(tab, "typed ");
+            tab.ModelEdited += () => throw new InvalidOperationException("test");
+
+            var outcome = await SaveHarness.AwaitAsync(window.SaveActiveAsync());
+
+            Assert.Equal(new Saved(path), outcome);
+            var written = SaveHarness.TextOf(path);
+            Assert.Contains("typed ", written, StringComparison.Ordinal);
+            Assert.Contains("Figure 1", written, StringComparison.Ordinal);
+            Assert.True(tab.Fields!.Failures >= 1);
+        }
+    }
 }

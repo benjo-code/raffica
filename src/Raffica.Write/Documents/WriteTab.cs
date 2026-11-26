@@ -2,6 +2,7 @@ using Raffica.Shell.Frame;
 using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
+using Raffica.Write.Model;
 using Raffica.Write.Viewing;
 
 namespace Raffica.Write.Documents;
@@ -205,6 +206,12 @@ internal sealed class WriteTab : IDisposable
     /// <summary>The clock of the refresh timer (a test sets one that it fires by hand before the first edit); null: the dispatcher clock, made with the runner.</summary>
     internal IFieldClock? FieldClock { get; set; }
 
+    /// <summary>Test seam: replaces the scan for a field in the whole body (<see cref="AnyFields"/>).</summary>
+    internal Func<WordDocument, bool>? FieldScan { get; set; }
+
+    /// <summary>Whether any paragraph of the body holds a field (a scan that parses nothing).</summary>
+    internal bool AnyFields() => (FieldScan ?? (model => FieldView.AnyIn(model)))(Docx.Model);
+
     /// <summary>How many times the wiring of the refresh threw (and was ignored): the refresh must never break an edit.</summary>
     internal int FieldWiringFailures { get; set; }
 
@@ -236,17 +243,26 @@ internal sealed class WriteTab : IDisposable
             return Task.CompletedTask;
         }
 
-        if (_fields is null)
+        try
         {
-            if (Docx.IsPrefix || !FieldView.AnyIn(Docx.Model))
+            if (_fields is null)
             {
-                return Task.CompletedTask;
+                if (Docx.IsPrefix || !AnyFields())
+                {
+                    return Task.CompletedTask;
+                }
+
+                EnsureFields().Notify(null);
             }
 
-            EnsureFields().Notify(null);
+            return _fields!.SettleAsync(token);
         }
-
-        return _fields!.SettleAsync(token);
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The refresh is a convenience: a save goes on without it.
+            FieldWiringFailures++;
+            return Task.CompletedTask;
+        }
     }
 
     private void OnEditorChanged()

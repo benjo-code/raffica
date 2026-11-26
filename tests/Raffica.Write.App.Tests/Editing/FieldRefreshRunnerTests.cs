@@ -573,4 +573,93 @@ public sealed class FieldRefreshRunnerTests
         Assert.Null(window.Autosave);
         Assert.Null(tab.Editor);
     }
+
+    private sealed class ThrowingHost(IFieldHost inner) : IFieldHost
+    {
+        public bool IsComplete => inner.IsComplete;
+
+        public string? NumberLabel(Paragraph paragraph) => throw new InvalidOperationException("test");
+
+        public (int PageIndex, string PageText)? PageOf(TextPosition position) => inner.PageOf(position);
+
+        public string? NoteMarkText(int noteId, NoteType type) => inner.NoteMarkText(noteId, type);
+    }
+
+    [AvaloniaFact]
+    public async Task AThrowingSubscriberNeverEscapesTheTick()
+    {
+        using var h = await FieldHarness.OpenAsync();
+        h.Type("a");
+        h.Tab.ModelEdited += () => throw new InvalidOperationException("test");
+        var runner = h.Tab.Fields!;
+
+        h.Clock.Fire();
+
+        Assert.Equal("Figure 1", Caption(h.Tab, 1));
+        Assert.True(runner.Failures >= 1, "the failure is counted");
+        Assert.False(runner.IsPending, "the results were written: nothing to retry");
+        Assert.True(h.Tab.Editor!.CanEdit);
+        Assert.False(h.Tab.Runner.IsFaulted);
+    }
+
+    [AvaloniaFact]
+    public async Task AThrowingScanNeverEscapesTheTick()
+    {
+        using var h = await FieldHarness.OpenAsync();
+        h.Tab.FieldScan = _ => throw new InvalidOperationException("test");
+        h.Type("a");
+        var runner = h.Tab.Fields!;
+
+        h.Clock.Fire();
+
+        Assert.True(runner.Failures >= 1);
+        Assert.Equal("Figure 77", Caption(h.Tab, 1));
+        Assert.True(h.Tab.Editor!.CanEdit);
+    }
+
+    [AvaloniaFact]
+    public async Task AFailureHalfwayThroughTheWalkStillTellsTheLayoutAndTheRetryLeavesNothingUnreported()
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.Bytes(headings: true, styleRef: true));
+        h.Type("a");
+        var runner = h.Tab.Fields!;
+        var calls = 0;
+        runner.Refresher = (editor, host, scope, touched) => editor.RefreshFields(++calls == 1 ? new ThrowingHost(host) : host, scope, touched);
+        var model = h.Tab.Docx.Model;
+
+        // The walk writes the two captions and then fails at the STYLEREF: the model is changed, so the layout, the derived version and the snapshot tracker must know it.
+        h.Clock.Fire();
+
+        Assert.Equal(1, runner.Failures);
+        Assert.Equal("Figure 1", Caption(h.Tab, 1));
+        Assert.True(model.Edits.DerivedVersion > 0);
+        AssertLayoutEqualsFull(h.Tab, "after the failed walk");
+        Assert.True(runner.IsPending);
+
+        // The retry finds the captions as they are (nothing is left unreported) and ends.
+        h.Clock.Fire();
+
+        Assert.Equal(1, runner.Passes);
+        Assert.Equal(1, runner.Failures);
+        AssertLayoutEqualsFull(h.Tab, "after the retry");
+        Assert.False(runner.IsPending);
+    }
+
+    [AvaloniaFact]
+    public async Task AFieldThatAppearsInTheWindowOfAWholeBodyChangeIsNotLost()
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.PlainBytes());
+        var scans = 0;
+        h.Tab.FieldScan = _ => ++scans > 1;
+        h.Type("a");
+        var runner = h.Tab.Fields!;
+        h.Clock.Fire();
+        Assert.Equal(0, runner.Passes);
+
+        // A style or section change (everything) arrives together with an edit that brought the first field: the second scan finds it.
+        runner.Notify(null);
+        h.Clock.Fire();
+
+        Assert.Equal(1, runner.Passes);
+    }
 }

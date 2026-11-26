@@ -19,6 +19,7 @@ public sealed class FieldLabels(WordDocument document)
     private LayoutEffectiveFormat? _format;
     private Dictionary<Paragraph, string>? _labels;
     private Dictionary<(NoteType Type, int Id), string>? _marks;
+    private readonly HashSet<Paragraph> _missed = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>How many times the labels of the whole body were worked out (tests: a paragraph without a list never earns one).</summary>
     internal int LabelBuilds { get; private set; }
@@ -36,6 +37,20 @@ public sealed class FieldLabels(WordDocument document)
         }
 
         _labels ??= BuildLabels(format);
+        if (_labels.TryGetValue(paragraph, out var label))
+        {
+            return label;
+        }
+
+        // A numbered paragraph the counting did not see: the paragraph is not one of the objects the labels were worked out for (an undo within the debounce put a clone back and the revision is the one the labels were made at), or it has no label
+        // (a list that does not exist). The first time a paragraph is missing everything is worked out again, on a fresh format; a second miss for the same paragraph is an answer.
+        if (!_missed.Add(paragraph))
+        {
+            return null;
+        }
+
+        _format = new LayoutEffectiveFormat(_document);
+        _labels = BuildLabels(_format);
         return _labels.GetValueOrDefault(paragraph);
     }
 
@@ -56,6 +71,7 @@ public sealed class FieldLabels(WordDocument document)
             _format = new LayoutEffectiveFormat(_document);
             _labels = null;
             _marks = null;
+            _missed.Clear();
         }
 
         return _format;

@@ -376,7 +376,7 @@ internal sealed partial class WriteWindow
             }
         };
         tab.Runner.Faulted += () => OnLayoutFaulted(tab);
-        WatchFields(tab);
+        WatchFields(tab, view);
 
         // The session is made by the first caret or key; the display of the formatting follows it from then on.
         tab.EditorCreated += session => FollowFormat(tab, session);
