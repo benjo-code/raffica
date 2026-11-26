@@ -28,7 +28,7 @@ internal sealed record SectionMarker(int Section, SectionProperties Identity, in
 /// </summary>
 internal sealed class SectionMarkers
 {
-    private (WordDocument Model, int Revision, IReadOnlyList<SectionInfo> Sections)? _memo;
+    private (WordDocument Model, EditStamp Stamp, IReadOnlyList<SectionInfo> Sections)? _memo;
 
     /// <summary>How many times the sections of the document were read (tests: typing and scrolling ask for few).</summary>
     internal int Reads { get; private set; }
@@ -40,7 +40,7 @@ internal sealed class SectionMarkers
     public bool IsCurrent(WordDocument model)
     {
         ArgumentNullException.ThrowIfNull(model);
-        return _memo is { } memo && ReferenceEquals(memo.Model, model) && memo.Revision == model.Edits.Revision;
+        return _memo is { } memo && ReferenceEquals(memo.Model, model) && memo.Stamp == model.Edits.Stamp;
     }
 
     /// <summary>The sections of the model, read again only when the model or its revision is not the one last read.</summary>
@@ -53,7 +53,7 @@ internal sealed class SectionMarkers
 
         Reads++;
         var sections = SectionList.Of(model);
-        _memo = (model, model.Edits.Revision, sections);
+        _memo = (model, model.Edits.Stamp, sections);
         return sections;
     }
 

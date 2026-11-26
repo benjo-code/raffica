@@ -61,11 +61,11 @@ internal sealed partial class EditSession
     private readonly Dispatcher _ui;
     private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key, bool Typing)> _queue = [];
     private readonly RefreshableFormat _format = new();
-    private ((WordDocument Model, int Revision, TextRange Range) Key, FormatFacts Facts)? _facts;
-    private ((WordDocument Model, int Revision, TextRange Range) Key, InspectorView? View)? _inspected;
-    private ((WordDocument Model, int Revision, TextRange Range) Key, ListFacts Facts)? _listed;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, FormatFacts Facts)? _facts;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, InspectorView? View)? _inspected;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, ListFacts Facts)? _listed;
     private object? _numberingSeen;
-    private ((WordDocument Model, int Revision, TextRange Range) Key, SelectionFormat Format)? _shown;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, SelectionFormat Format)? _shown;
     private (SelectionFormat Base, IReadOnlyList<PropertyChange> Pending, SelectionFormat Result)? _overlay;
     private bool _selectionDirty;
     private TextEditor? _editor;
@@ -263,7 +263,7 @@ internal sealed partial class EditSession
     public FormatFacts ReadFormatFacts(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_facts is { } known && known.Key.Equals(key))
         {
             return known.Facts;
@@ -282,7 +282,7 @@ internal sealed partial class EditSession
     public InspectorView? ReadInspector(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_inspected is { } known && known.Key.Equals(key))
         {
             return known.View;
@@ -308,7 +308,7 @@ internal sealed partial class EditSession
     public ListFacts ReadListFacts(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_listed is { } known && known.Key.Equals(key))
         {
             return known.Facts;
@@ -331,7 +331,7 @@ internal sealed partial class EditSession
     public SelectionFormat ReadSelectionFormat(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_shown is not { } known || !known.Key.Equals(key))
         {
             var covered = Editor.ReadCovered(range);

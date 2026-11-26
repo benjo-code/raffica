@@ -40,6 +40,13 @@ public sealed class EditTracker
     internal void Attributed(IReadOnlyList<BlockChange> changes)
     {
         _attributed++;
+        MarkDirty(changes);
+    }
+
+    internal void AttributedDerived(IReadOnlyList<BlockChange> changes) => MarkDirty(changes);
+
+    private void MarkDirty(IReadOnlyList<BlockChange> changes)
+    {
         foreach (var change in changes)
         {
             if (ReferenceEquals(change.Container, _body))

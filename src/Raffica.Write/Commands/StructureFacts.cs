@@ -94,8 +94,8 @@ internal static class StructureWording
 /// </summary>
 internal sealed class StructureFactsSource
 {
-    private ((WordDocument Model, int Revision, TextRange Range, Paragraph? Row) Key, (OutlineReason Up, OutlineReason Down, OutlineReason Promote, OutlineReason Demote) Outline)? _outline;
-    private ((WordDocument Model, int Revision) Key, IReadOnlyList<OutlineHeading> Headings)? _headings;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range, Paragraph? Row) Key, (OutlineReason Up, OutlineReason Down, OutlineReason Promote, OutlineReason Demote) Outline)? _outline;
+    private ((WordDocument Model, EditStamp Stamp) Key, IReadOnlyList<OutlineHeading> Headings)? _headings;
 
     /// <summary>How many times the headings of the body were walked (tests).</summary>
     public int HeadingReads { get; private set; }
@@ -146,7 +146,7 @@ internal sealed class StructureFactsSource
             return (Offered, Offered, Offered, Offered);
         }
 
-        var key = (model, model.Edits.Revision, range, row);
+        var key = (model, model.Edits.Stamp, range, row);
         if (_outline is { } known && known.Key.Equals(key))
         {
             return known.Outline;
@@ -175,7 +175,7 @@ internal sealed class StructureFactsSource
 
     private IReadOnlyList<OutlineHeading> HeadingsOf(WordDocument model)
     {
-        var key = (model, model.Edits.Revision);
+        var key = (model, model.Edits.Stamp);
         if (_headings is { } known && known.Key.Equals(key))
         {
             return known.Headings;

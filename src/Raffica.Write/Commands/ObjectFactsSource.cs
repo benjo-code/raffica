@@ -72,7 +72,7 @@ internal static class ObjectWording
 /// </summary>
 internal sealed class ObjectFactsSource
 {
-    private ((WordDocument Model, int Revision, TextRange Range) Key, Computed Value)? _known;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, Computed Value)? _known;
 
     /// <summary>How many times the place of the caret was worked out for the facts (tests; 0 before the first ask of an object command).</summary>
     public int Reads { get; private set; }
@@ -114,7 +114,7 @@ internal sealed class ObjectFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_known is not { } known || !known.Key.Equals(key))
         {
             try

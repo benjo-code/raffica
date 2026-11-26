@@ -69,7 +69,7 @@ internal sealed class SectionFactsSource
 
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-    private ((WordDocument Model, int Revision, TextRange Range) Key, Computed Value)? _known;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, Computed Value)? _known;
 
     /// <summary>How many times the section list of the body was read for the facts (tests; 0 before the first ask of a section command).</summary>
     public int Reads { get; private set; }
@@ -94,7 +94,7 @@ internal sealed class SectionFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_known is not { } known || !known.Key.Equals(key))
         {
             try

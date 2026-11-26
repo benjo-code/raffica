@@ -56,7 +56,7 @@ internal static class PictureWording
 /// </summary>
 internal sealed class PictureFactsSource
 {
-    private (WordDocument Model, int Revision, TextRange Range, ObjectSelection? Objects)? _key;
+    private (WordDocument Model, EditStamp Stamp, TextRange Range, ObjectSelection? Objects)? _key;
     private readonly Dictionary<string, PictureCommandFacts> _known = [];
 
     /// <summary>How many times the editor was asked for the facts (tests; 0 before the first ask of a picture command).</summary>
@@ -82,7 +82,7 @@ internal sealed class PictureFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range, session.ObjectSelection);
+        var key = (model, model.Edits.Stamp, range, session.ObjectSelection);
         if (_key is not { } known || !known.Equals(key))
         {
             _key = key;

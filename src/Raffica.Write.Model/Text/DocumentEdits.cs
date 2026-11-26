@@ -14,6 +14,18 @@ public sealed class DocumentEdits
     private int _highest;
 
     /// <summary>
+    /// Counts the derived changes (a field refresh): text the editor did not type. It never falls, not even in <see cref="Restore"/>, so a stamp names one state of the content.
+    /// A derived change is not an edit: it moves neither <see cref="Revision"/> nor <see cref="IsDirty"/>.
+    /// </summary>
+    public int DerivedVersion { get; private set; }
+
+    /// <summary>The revision and the derived version together: what a reader of text, runs or paragraph identity keys on (the history, the dirty mark and the save stay on <see cref="Revision"/>).</summary>
+    public EditStamp Stamp => new(Revision, DerivedVersion);
+
+    /// <summary>Notes a derived change: the content changed, the history did not.</summary>
+    public void RaiseDerived() => DerivedVersion++;
+
+    /// <summary>
     /// Notes one more edit. The new revision is one that was never current before, also after an undo: a revision number names one
     /// state of the content, so a new edit after an undo cannot look like the saved state it replaced.
     /// </summary>
@@ -63,6 +75,21 @@ public sealed class DocumentEdits
             if (weak.TryGetTarget(out var tracker))
             {
                 tracker.Attributed(changes);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Says which block ranges a derived change touched. The trackers mark those blocks dirty, but the call counts as neither a raise nor an attribution, so it never makes a tracker complete or incomplete.
+    /// </summary>
+    public void AttributeDerived(IReadOnlyList<BlockChange> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+        foreach (var weak in _trackers)
+        {
+            if (weak.TryGetTarget(out var tracker))
+            {
+                tracker.AttributedDerived(changes);
             }
         }
     }
