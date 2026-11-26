@@ -662,4 +662,40 @@ public sealed class FieldRefreshRunnerTests
 
         Assert.Equal(1, runner.Passes);
     }
+
+    [AvaloniaFact]
+    public async Task ARefusedUndoThatSwappedTheNumberedHeadingStillGivesTheRightChapterLabelAndTheEditorFormatResolvesTheClone()
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.Bytes(headings: true, styleRef: true, numbered: true));
+        h.Type("a");
+        var runner = h.Tab.Fields!;
+        h.Clock.Fire();
+        Assert.Equal("Chapter 1", Caption(h.Tab, 3));
+        var session = h.Tab.Editor!;
+        var model = h.Tab.Docx.Model;
+
+        // A step whose undo will be refused, a record on the heading block, and then the undo: the roll-back puts equal clones in the document, the heading is another object now.
+        Assert.NotNull(session.Apply(e => e.MoveBlocks(5, 1, 4), 0));
+        var heading = model.Body.Blocks[0];
+        var change = new BlockChange(StoryRef.Body, model.Body.Blocks, 0, 1, 1, [heading.Clone()]);
+        Assert.Equal(AttachOutcome.Attached, session.Editor.History.AttachDerived(new DerivedRecord([change])));
+        model.Body.Blocks.RemoveAt(model.Body.Blocks.Count - 1);
+        var derived = model.Edits.DerivedVersion;
+        Assert.Null(session.Apply(e => e.History.Undo(), 0));
+        Assert.True(model.Edits.DerivedVersion > derived);
+        Assert.NotSame(heading, model.Body.Blocks[0]);
+
+        // The editor's own format still resolves the numbering of the clone, and a refresh that needs the label of the swapped heading gets it.
+        Assert.True(session.ResolveParagraph(StoryRef.Body, (Paragraph)model.Body.Blocks[0]).NumberingId > 0);
+        var styleRef = (Paragraph)model.Body.Blocks[3];
+        var field = FieldView.InParagraph(styleRef).Single();
+        Assert.True(FieldWriter.SetResult(styleRef, field, "9"));
+        model.Edits.RaiseDerived();
+        runner.Notify(null);
+        h.Clock.Fire();
+
+        Assert.Equal("Chapter 1", Caption(h.Tab, 3));
+        Assert.Equal(0, runner.NotUpdated);
+        Assert.Equal(0, runner.Failures);
+    }
 }

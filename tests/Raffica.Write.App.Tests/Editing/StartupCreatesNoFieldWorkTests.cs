@@ -148,4 +148,63 @@ public sealed class StartupCreatesNoFieldWorkTests
         Assert.True(window.IsWatchingFields(tab));
         Assert.True(scans > 0);
     }
+
+    [AvaloniaFact]
+    public async Task AWatchArmedForALayoutThatIsAlreadyCompleteChecksAtOnceWithoutWaitingForAnEvent()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        using var h = await FieldHarness.OpenAsync();
+        FieldHarness.Pump();
+        Assert.True(h.Tab.Runner.PageLayout.IsComplete);
+        Assert.Null(h.Tab.Fields);
+
+        // Nothing changes in the layout any more, so no event will come: the check is made when the watch is armed.
+        window.ArmFieldWatch(h.Tab);
+
+        Assert.NotNull(h.Tab.Fields);
+        Assert.True(h.Clock.IsArmed);
+        h.Clock.Fire();
+        Assert.Equal("Figure 1", FieldTestDocument.TextOf(h.Tab, 1));
+    }
+
+    [AvaloniaFact]
+    public async Task AOnePageDocumentIsRefreshedShortlyAfterItsFirstSharpPageAndNothingIsMadeBefore()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var drawn = false;
+        var madeBefore = true;
+        var armedBefore = true;
+        var scansBefore = -1;
+        var scans = 0;
+        window.FirstSharpPageDrawn += shown =>
+        {
+            drawn = true;
+            madeBefore = shown.Fields is not null;
+            armedBefore = window.IsWatchingFields(shown);
+            scansBefore = scans;
+        };
+        var path = fixture.Write("doc.docx", FieldTestDocument.Bytes(onePage: true));
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(path)).Tab;
+        var clock = new ManualFieldClock();
+        tab.FieldClock = clock;
+        tab.FieldScan = m =>
+        {
+            scans++;
+            return FieldView.AnyIn(m);
+        };
+        WindowFixture.Pump();
+        await WindowFixture.WaitAsync(() => drawn);
+
+        Assert.False(madeBefore);
+        Assert.False(armedBefore);
+        Assert.Equal(0, scansBefore);
+
+        await WindowFixture.WaitAsync(() => tab.Fields is not null);
+        clock.Fire();
+        WindowFixture.Pump();
+        Assert.Equal("Figure 1", FieldTestDocument.TextOf(tab, 1));
+        Assert.False(tab.IsDirty);
+    }
 }

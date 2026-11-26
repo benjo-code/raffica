@@ -48,8 +48,18 @@ internal static class FieldRefresh
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // The walk writes in place: what it wrote before it failed is told to the document and handed to the owner in the exception, so no layout, tracker or retry works from a model it thinks unchanged.
-            var partial = state.Finish();
-            Announce(document, partial);
+            IReadOnlyList<BlockChange> partial = [];
+            try
+            {
+                var known = state.Finish();
+                Announce(document, known);
+                partial = known;
+            }
+            catch (Exception inner) when (inner is not OutOfMemoryException)
+            {
+                // The walk failed and so does the account of it: what was written is not known, and the first failure is the one to report.
+            }
+
             throw new FieldRefreshException(partial, ex);
         }
 

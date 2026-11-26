@@ -96,9 +96,44 @@ internal sealed partial class WriteWindow
         view.FirstSharpPage += () => ArmFieldWatch(tab);
     }
 
-    private void ArmFieldWatch(WriteTab tab)
+    internal void ArmFieldWatch(WriteTab tab)
     {
         if (tab.IsDisposed || !_fieldWatch.Add(tab))
+        {
+            return;
+        }
+
+        // True when the watch is over: the tab is gone, or its layout is complete and the first look was asked for (if the document has a field).
+        bool Check()
+        {
+            try
+            {
+                if (tab.IsDisposed)
+                {
+                    return true;
+                }
+
+                if (tab.Docx.IsPrefix || !tab.Runner.FullModelReady || !tab.Runner.PageLayout.IsComplete)
+                {
+                    return false;
+                }
+
+                if (tab.Fields is null && tab.AnyFields())
+                {
+                    tab.EnsureFields().Notify(null);
+                }
+
+                return true;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                tab.FieldWiringFailures++;
+                return true;
+            }
+        }
+
+        // A layout that is complete already (a short document, or a fast machine) reports nothing more, so the check is made once now and the event is waited for only when it is not complete.
+        if (Check())
         {
             return;
         }
@@ -106,28 +141,9 @@ internal sealed partial class WriteWindow
         Action? onChanged = null;
         onChanged = () =>
         {
-            try
+            if (Check())
             {
-                if (tab.IsDisposed)
-                {
-                    tab.Runner.Changed -= onChanged;
-                    return;
-                }
-
-                if (tab.Docx.IsPrefix || !tab.Runner.FullModelReady || !tab.Runner.PageLayout.IsComplete)
-                {
-                    return;
-                }
-
                 tab.Runner.Changed -= onChanged;
-                if (tab.Fields is null && tab.AnyFields())
-                {
-                    tab.EnsureFields().Notify(null);
-                }
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
-            {
-                tab.FieldWiringFailures++;
             }
         };
         tab.Runner.Changed += onChanged;

@@ -67,9 +67,11 @@ internal static class FieldTestDocument
 {
     public const string Stale = "77";
 
+    /// <param name="numbered">Gives Heading1 a numbering (decimal, "1.") through a numbering part: the label of the first heading is "1.".</param>
+    /// <param name="onePage">Leaves out the page breaks: the whole document is one page, so its layout is complete when it opens.</param>
     /// <param name="styleRef">Adds a paragraph with a <c>STYLEREF 1 s</c> field behind the two captions (it needs the chapter label of the host).</param>
     /// <param name="headings">Makes the first paragraph a Heading1 (a style step, the heading numbering switch, needs it; the style sheet with the nine heading styles is always there).</param>
-    public static byte[] Bytes(bool headings = false, bool styleRef = false)
+    public static byte[] Bytes(bool headings = false, bool styleRef = false, bool numbered = false, bool onePage = false)
     {
         using var stream = new MemoryStream();
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -82,7 +84,7 @@ internal static class FieldTestDocument
                   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
                   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
                 </Types>
-                """);
+                """.Replace("</Types>", numbered ? "<Override PartName=\"/word/numbering.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml\"/></Types>" : "</Types>", StringComparison.Ordinal));
             Entry(zip, "_rels/.rels", """
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -94,8 +96,13 @@ internal static class FieldTestDocument
                 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
                   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
                 </Relationships>
-                """);
-            Entry(zip, "word/styles.xml", Styles());
+                """.Replace("</Relationships>", numbered ? "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering\" Target=\"numbering.xml\"/></Relationships>" : "</Relationships>", StringComparison.Ordinal));
+            Entry(zip, "word/styles.xml", Styles(numbered));
+            if (numbered)
+            {
+                Entry(zip, "word/numbering.xml", "<w:numbering xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num></w:numbering>");
+            }
+
             var body = new StringBuilder();
             body.Append(headings ? "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Intro</w:t></w:r></w:p>" : "<w:p><w:r><w:t>Intro</w:t></w:r></w:p>");
             body.Append(Caption());
@@ -107,10 +114,11 @@ internal static class FieldTestDocument
 
             body.Append(Paragraph("<w:r><w:t xml:space=\"preserve\">Index </w:t></w:r>" + Field(" INDEX \\h ", "idx")));
             body.Append(Paragraph("<w:r><w:t>End</w:t></w:r>"));
+            var bodyText = onePage ? body.ToString().Replace("<w:pPr><w:pageBreakBefore/></w:pPr>", string.Empty, StringComparison.Ordinal) : body.ToString();
             Entry(zip, "word/document.xml", $"""
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-                  <w:body>{body}
+                  <w:body>{bodyText}
                     <w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>
                   </w:body>
                 </w:document>
@@ -159,12 +167,12 @@ internal static class FieldTestDocument
         return stream.ToArray();
     }
 
-    private static string Styles()
+    private static string Styles(bool numbered = false)
     {
         var text = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>");
         for (var i = 1; i <= 9; i++)
         {
-            text.Append(System.Globalization.CultureInfo.InvariantCulture, $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr><w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>");
+            text.Append(System.Globalization.CultureInfo.InvariantCulture, $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{(numbered && i == 1 ? "<w:numPr><w:numId w:val=\"1\"/></w:numPr>" : string.Empty)}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>");
         }
 
         return text.Append("</w:styles>").ToString();
