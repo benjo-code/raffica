@@ -29,6 +29,7 @@ public sealed partial class TextEditor
     private readonly WordDocument _document;
     private readonly Func<StoryRef, Paragraph, IProjectionHost> _hosts;
     private readonly IEffectiveFormat? _format;
+    private readonly TocIndex _tocs;
 
     /// <summary>
     /// Makes an editor. The optional parameters come in the order <paramref name="time"/>, <paramref name="limits"/>, <paramref name="format"/>; a caller
@@ -42,6 +43,7 @@ public sealed partial class TextEditor
         _document = document;
         _hosts = hosts;
         _format = format;
+        _tocs = new TocIndex(document.Edits);
         History = new EditHistory(document, time ?? TimeProvider.System, limits ?? HistoryLimits.Default);
     }
 

@@ -137,6 +137,11 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? InsertPicture(TextPosition at, ReadOnlyMemory<byte> bytes, string? altText, bool prefixDocument = false)
     {
+        if (TocRefusesAt(at))
+        {
+            return null;
+        }
+
         if (RefusalForInsertPicture(at, bytes, altText, prefixDocument) is not null)
         {
             return null;
@@ -201,6 +206,13 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? PastePicture(TextRange selection, ReadOnlyMemory<byte> bytes, bool prefixDocument = false)
     {
+        LastFieldRefusal = null;
+        if (Resolve(selection) is { } tocSpan && TocRefusalOf(tocSpan) is { } tocRefusal)
+        {
+            LastFieldRefusal = tocRefusal;
+            return null;
+        }
+
         if (RefusalForPastePicture(selection, bytes, prefixDocument) is not null)
         {
             return null;

@@ -618,8 +618,9 @@ internal sealed partial class PageView
         ReferenceEquals(a.Paragraph, b.Paragraph) && a.Offset == b.Offset && a.Story == b.Story;
 
     // Puts the selection: now, or (while a save runs) as an operation queued in arrival order that is replayed when the save ends.
-    private void Place(EditSession session, TextRange range, CaretAffinity affinity)
+    private void Place(EditSession session, TextRange range, CaretAffinity affinity, TextPosition? from = null)
     {
+        range = SnapToTocEdges(session, range, from);
         _affinity = affinity;
         _affinityFor = range.End;
         if (session.BlockedReason == EditBlockedReason.Saving)
@@ -650,6 +651,21 @@ internal sealed partial class PageView
         _overlay.InvalidateVisual();
         PublishSelectionState();
         NotifyImeText();
+    }
+
+    // A caret rests only at the edges of a table of contents (a field that spans paragraphs): a position inside one moves to an edge, the nearer for a click, the one in the direction of the move for a key (from is where the caret was,
+    // so a key steps over the field). A selection that is extended keeps its anchor; a click or drag snaps both ends. Costs a lookup in the editor's kept answer, which is empty for a document without a table of contents.
+    private static TextRange SnapToTocEdges(EditSession session, TextRange range, TextPosition? from)
+    {
+        if (!session.CanEdit)
+        {
+            return range;
+        }
+
+        var editor = session.Editor;
+        var end = editor.SnapCaret(range.End, from);
+        var start = range.IsEmpty ? end : from is null ? editor.SnapCaret(range.Start) : range.Start;
+        return ReferenceEquals(end.Paragraph, range.End.Paragraph) && end.Offset == range.End.Offset && ReferenceEquals(start.Paragraph, range.Start.Paragraph) && start.Offset == range.Start.Offset ? range : new TextRange(start, end);
     }
 
     private bool _publishedSelection;

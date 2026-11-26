@@ -38,26 +38,42 @@ internal static class TocRanges
     public static List<TocRange>? In(IList<Block> container)
     {
         ArgumentNullException.ThrowIfNull(container);
-        var state = new State();
         List<TocRange>? found = null;
-        for (var i = 0; i < container.Count; i++)
+        var start = 0;
+
+        // A field that is never closed (an orphan begin) would swallow every later field: when a pass ends with a field still open, the paragraph that opened it is skipped and the pass starts again after it.
+        // The number of restarts is bounded so a list full of orphans costs a bounded time.
+        for (var restarts = 0; restarts <= MaxRestarts; restarts++)
         {
-            if (container[i] is not Paragraph paragraph)
+            var state = new State();
+            for (var i = start; i < container.Count; i++)
             {
-                continue;
+                if (container[i] is not Paragraph paragraph)
+                {
+                    continue;
+                }
+
+                state.Index = i;
+                Walk(paragraph.Inlines, state);
+                if (state.Closed is { } closed)
+                {
+                    (found ??= []).Add(closed);
+                    state.Closed = null;
+                }
             }
 
-            state.Index = i;
-            Walk(paragraph.Inlines, state);
-            if (state.Closed is { } closed)
+            if (state.Depth == 0 || state.OutermostBegin < 0)
             {
-                (found ??= []).Add(closed);
-                state.Closed = null;
+                break;
             }
+
+            start = state.OutermostBegin + 1;
         }
 
         return found;
     }
+
+    private const int MaxRestarts = 256;
 
     /// <summary>The table of contents of the list that holds the paragraph at <paramref name="index"/>, or null.</summary>
     public static TocRange? Around(IList<Block> container, int index) => In(container)?.FirstOrDefault(r => index >= r.First && index <= r.Last);
@@ -69,6 +85,9 @@ internal static class TocRanges
         public int Depth { get; set; }
 
         public int Candidate { get; set; } = -1;
+
+        // The paragraph of the begin that opened the field that is open now (the outermost one), or -1.
+        public int OutermostBegin { get; set; } = -1;
 
         public int TocFirst { get; set; } = -1;
 
@@ -106,6 +125,7 @@ internal static class TocRanges
                 if (state.Depth == 1)
                 {
                     state.Candidate = state.Index;
+                    state.OutermostBegin = state.Index;
                     state.Collecting = true;
                     state.Instruction = null;
                 }
@@ -129,6 +149,7 @@ internal static class TocRanges
 
                     state.TocFirst = -1;
                     state.Collecting = false;
+                    state.OutermostBegin = -1;
                 }
 
                 break;

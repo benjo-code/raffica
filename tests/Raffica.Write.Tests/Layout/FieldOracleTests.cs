@@ -135,6 +135,36 @@ public sealed class FieldOracleTests
         return LayoutModel.Document(FieldsBody(), LayoutModel.StylesPart(styles));
     }
 
+    private static string TocBody()
+    {
+        var begin = "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-3\" \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>";
+        var end = "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
+        return P(Run("Intro"))
+            + P(begin + Run("Entry A")) + P(Run("Entry B")) + P(Run("Entry C") + end)
+            + FieldsBody().Replace("<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>", string.Empty, StringComparison.Ordinal)
+            + "<w:sdt><w:sdtPr/><w:sdtContent>" + P(Run("Contents")) + P(begin + Run("E1")) + P(Run("E2") + end) + "</w:sdtContent></w:sdt>"
+            + P(Run("last"))
+            + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>";
+    }
+
+    // A document with a table of contents at the top level and one in a block content control: the steps type into them (a counted refusal each) and the editor's kept answer must equal a fresh search after every step.
+    [Theory]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    public async Task TypingInATocIsARefusalAndTheKeptAnswerStaysTrue(int seed)
+    {
+        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style><w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/><w:pPr><w:outlineLvl w:val=\"0\"/></w:pPr></w:style>";
+        var model = LayoutModel.Document(TocBody(), LayoutModel.StylesPart(styles));
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var steps = new FieldSteps(model, layout, new LayoutOptions());
+        Assert.True(steps.Editor.TocRangesOf(model.Body.Blocks) is { Count: 1 }, "the document has one table of contents at the top level");
+
+        await steps.RunAsync(new Random(seed), 60, "toc " + seed);
+
+        Assert.True(steps.RefusedPerKind[(int)FieldStepKind.TypeInToc] > 0, "no step typed into a table of contents");
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]

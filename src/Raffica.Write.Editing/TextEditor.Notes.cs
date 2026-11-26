@@ -34,6 +34,11 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? InsertNote(TextPosition caret, NoteType kind, bool prefixDocument = false)
     {
+        if (TocRefusesAt(caret))
+        {
+            return null;
+        }
+
         if (RefusalForNote(caret, prefixDocument) is not null)
         {
             return null;

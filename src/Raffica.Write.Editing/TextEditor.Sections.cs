@@ -65,9 +65,14 @@ public sealed partial class TextEditor
             return null;
         }
 
+        var index = TopLevelIndexOf(at.Paragraph) ?? throw new StalePositionException("The paragraph is not in the body.");
+        if (TocRefusesSplitBefore(index))
+        {
+            return null;
+        }
+
         var revision = History.BeginOperation();
         var blocks = _document.Body.Blocks;
-        var index = TopLevelIndexOf(at.Paragraph) ?? throw new StalePositionException("The paragraph is not in the body.");
         var before = BeforePoint(at, index);
         var sections = SectionList.Of(_document);
         var section = SectionSplitter.SectionIndexOf(sections, index);
@@ -98,8 +103,13 @@ public sealed partial class TextEditor
             return null;
         }
 
-        var revision = History.BeginOperation();
         var index = TopLevelIndexOf(at.Paragraph) ?? throw new StalePositionException("The paragraph is not in the body.");
+        if (TocRefusesSplitBefore(index))
+        {
+            return null;
+        }
+
+        var revision = History.BeginOperation();
         var before = BeforePoint(at, index);
         if (SectionSplitter.Split(_document, index, kind) is not { } split)
         {

@@ -226,6 +226,7 @@ internal sealed class FieldSteps
         await _layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
         AssertBookmarks(label);
+        AssertTocMemo(label);
         Compared++;
         RanPerKind[(int)_kind]++;
         return true;
@@ -246,6 +247,7 @@ internal sealed class FieldSteps
         await _layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
         AssertBookmarks(label);
+        AssertTocMemo(label);
         ReferenceFields.AssertStoredEqualsExpected(_model, host, label);
         Assert.Empty(Editor.RefreshFields(host, RefreshScope.OrderBased).Content);
         Written += result.Written;
@@ -257,13 +259,15 @@ internal sealed class FieldSteps
     // A refused edit inside a table of contents is a counted refusal like any other, and it must have left the document alone and named its reason.
     private bool TypeInToc(Random random)
     {
-        if (TocRanges.In(_model.Body.Blocks) is not { } ranges)
+        var found = new List<(IList<Block> Container, TocRange Toc)>();
+        CollectTocs(_model.Body.Blocks, found, 0);
+        if (found.Count == 0)
         {
             return Refuse();
         }
 
-        var toc = ranges[random.Next(ranges.Count)];
-        var paragraph = (Paragraph)_model.Body.Blocks[random.Next(toc.First, toc.Last + 1)];
+        var (container, toc) = found[random.Next(found.Count)];
+        var paragraph = (Paragraph)container[random.Next(toc.First, toc.Last + 1)];
         var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
         var revision = _model.Edits.Revision;
         var result = Editor.InsertText(new TextRange(at, at), "x");
@@ -271,6 +275,47 @@ internal sealed class FieldSteps
         Assert.Equal(revision, _model.Edits.Revision);
         Assert.Equal(FieldRefusalKind.InsideToc, Editor.LastFieldRefusal?.Kind);
         return Refuse();
+    }
+
+    // The tables of contents of every list of blocks of the body (the top level, block content controls and table cells).
+    private static void CollectTocs(IList<Block> container, List<(IList<Block> Container, TocRange Toc)> found, int depth)
+    {
+        foreach (var toc in TocRanges.In(container) ?? [])
+        {
+            found.Add((container, toc));
+        }
+
+        if (depth > 8)
+        {
+            return;
+        }
+
+        foreach (var block in container)
+        {
+            switch (block)
+            {
+                case ContentControlBlock control:
+                    CollectTocs(control.Content, found, depth + 1);
+                    break;
+                case Table table:
+                    foreach (var cell in table.Rows.OfType<TableRow>().SelectMany(r => r.Items.OfType<TableCell>()))
+                    {
+                        CollectTocs(cell.Blocks, found, depth + 1);
+                    }
+
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    // The editor keeps its answer between edits: after every step it must equal a fresh search of the body (the invalidation is what is under test).
+    private void AssertTocMemo(string label)
+    {
+        var kept = Editor.TocRangesOf(_model.Body.Blocks) ?? [];
+        var fresh = TocRanges.In(_model.Body.Blocks) ?? [];
+        Assert.True(kept.SequenceEqual(fresh), label + ": the kept tables of contents differ from a fresh search");
     }
 
     private bool Refuse()

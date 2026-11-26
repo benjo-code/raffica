@@ -159,7 +159,15 @@ internal sealed class StructureSteps
     public async Task<bool> MoveAsync(Random random, string label)
     {
         var blocks = _model.Body.Blocks;
+
+        // A table of contents moves whole or not at all and nothing lands inside one (the editor refuses the rest): the picks are the legal ones, the oracle is about the moves the editor accepts.
+        var tocs = TocRanges.In(blocks) ?? [];
         var (first, count, subtree) = Pick(random);
+        for (var attempt = 0; attempt < 64 && count > 0 && tocs.Any(t => first + count - 1 >= t.First && first <= t.Last && !(first <= t.First && first + count - 1 >= t.Last)); attempt++)
+        {
+            (first, count, subtree) = Pick(random);
+        }
+
         if (count == 0)
         {
             return false;
@@ -168,7 +176,7 @@ internal sealed class StructureSteps
         var targets = new List<int>();
         for (var t = 0; t <= blocks.Count; t++)
         {
-            if (t < first || t > first + count)
+            if ((t < first || t > first + count) && !tocs.Any(r => t > r.First && t <= r.Last))
             {
                 targets.Add(t);
             }

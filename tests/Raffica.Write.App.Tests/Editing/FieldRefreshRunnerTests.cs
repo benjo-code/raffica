@@ -4,6 +4,7 @@ using Raffica.Write.Documents;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
+using Raffica.WriteApp.Tests.Viewing;
 using Xunit;
 using DocumentLayout = Raffica.Write.Layout.DocumentLayout;
 
@@ -692,6 +693,9 @@ public sealed class FieldRefreshRunnerTests
         Assert.True(FieldWriter.SetResult(styleRef, field, "9"));
         model.Edits.RaiseDerived();
         runner.Notify(null);
+
+        // The refresh of the whole body waits for a complete layout (the timer starts over until it is): the edits above lay out in the background, so the tick that matters is the one after that has finished.
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsComplete, 30000);
         h.Clock.Fire();
 
         Assert.Equal("Chapter 1", Caption(h.Tab, 3));

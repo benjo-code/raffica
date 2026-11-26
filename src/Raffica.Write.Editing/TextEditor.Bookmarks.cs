@@ -33,6 +33,11 @@ public sealed partial class TextEditor
             return null;
         }
 
+        if (TocRefusesAny(range))
+        {
+            return null;
+        }
+
         var revision = History.BeginOperation();
         var old = CloneBlocks(span);
 

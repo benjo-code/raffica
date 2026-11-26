@@ -12,6 +12,11 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? MoveBlocks(int first, int count, int target)
     {
+        if (TocRefusesMove(first, count, target))
+        {
+            return null;
+        }
+
         var revision = History.BeginOperation();
         if (StoryResolver.TryBlocks(_document, StoryRef.Body) is not { } body)
         {

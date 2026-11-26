@@ -151,6 +151,11 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? InsertTable(TextPosition at, int columns, int rows, bool prefixDocument = false)
     {
+        if (TocRefusesAt(at))
+        {
+            return null;
+        }
+
         if (RefusalForInsertTable(at, columns, rows, prefixDocument) is not null)
         {
             return null;
