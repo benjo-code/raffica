@@ -12,8 +12,10 @@ namespace Raffica.Write.Editing;
 /// <paramref name="Move"/> is set when the operation (or an undo or redo) moved a range of blocks: the one <see cref="BlockChange"/> then spans every block whose place changed, with the same block objects before and after.
 /// <paramref name="Sections"/> is the section properties an operation (or an undo or redo) swapped, with the flag of left and right pages; the layout is then started over (<c>DocumentLayout.Resection</c>) instead of being given the block changes.
 /// <paramref name="Objects"/> is the notes (later also the pictures) an operation, an undo or a redo added to or removed from the document, together with the block change that holds their references; it needs no attribution (the notes parts are written afresh at every save and copy). The layout is given the block change as usual (<c>DocumentLayout.ApplyEdit</c>), or starts over when the result also carries a style.
+/// <paramref name="DerivedChanges"/> are the structural changes of field refreshes that an undo or redo reverted or replayed together with its step (see <see cref="EditHistory.AttachDerived"/>), in the order they were applied;
+/// they are already told to the document as derived changes and are null for every result that carries none. A consumer that keeps block indices (the layout) must account for them.
 /// </summary>
-public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null, StyleChange? Style = null, bool KeepSelection = false, BlockMove? Move = null, SectionChange? Sections = null, ObjectChange? Objects = null)
+public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null, StyleChange? Style = null, bool KeepSelection = false, BlockMove? Move = null, SectionChange? Sections = null, ObjectChange? Objects = null, IReadOnlyList<BlockChange>? DerivedChanges = null)
 {
     /// <summary>
     /// Tells the document which block ranges this result changed: the one call every raise site of the editor makes after <see cref="DocumentEdits.Raise"/> or <see cref="DocumentEdits.Restore"/>
