@@ -1097,7 +1097,7 @@
         {
           "id": "4.5.2",
           "title": "Fields: captions, cross-references and tables of contents (4.5b)",
-          "status": "planned",
+          "status": "in-progress",
           "plan": "superpowers/plans/2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md",
           "prerequisites": ["4.5.1"],
           "goal": "Captions, cross-references, a table of contents and lists of figures and tables are always current, with results written from Write's layout.",

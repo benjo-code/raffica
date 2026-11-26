@@ -48,7 +48,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 4.4.1 | Headings, lists and the outline (4.4a) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-21-milestone-04-4a-headings-lists-and-outline.md) | 2026-11-22 |
 | 4.4.2 | Sections, page numbers, headers and footers, page setup (4.4b) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-23-milestone-04-4b-sections-page-numbers-and-page-setup.md) | 2026-11-24 |
 | 4.5.1 | Tables, pictures and notes (4.5a) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-24-milestone-04-5a-tables-pictures-and-notes.md) | 2026-11-25 |
-| 4.5.2 | Fields: captions, cross-references and tables of contents (4.5b) | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md) | – |
+| 4.5.2 | Fields: captions, cross-references and tables of contents (4.5b) | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md) | – |
 | 4.5.3 | Hyperlinks and find and replace (4.5c) | 5 – Raffica Write | ⬜ open | – | – |
 | 4.6 | Review and proofing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.7 | Print and PDF | 5 – Raffica Write | ⬜ open | – | – |
@@ -806,7 +806,7 @@ Goal: Tables, pictures, footnotes and endnotes can be made and edited in Write, 
 - [x] A picture is never lost without a word: a paste that leaves a picture out and a copy or cut of a selected picture each say so (tests) – `APasteThatLeavesPicturesOutSaysSoAndChangesNothingWhenNothingElseIsLeft`, `CopyAndCutWithAPictureSelectedSayThatAPictureIsNotCopiedAndLeaveTheClipboardAlone` (`PageViewPasteTests`), `TheCopyAndCutKeysWithAPictureSelectedSayThatAPictureIsNotCopied` (`PictureCommandTests`), `TheCleaningOfAPasteCountsPicturesAndOldStyleDrawingsAndNothingElse` (`ClipboardTests`); added by the final review of 2026-11-25.
 
 ## Milestone 4.5.2 – Fields: captions, cross-references and tables of contents (4.5b)
-**Status:** 🟡 planned · **Plan:** [2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md](superpowers/plans/2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md) · **Prerequisites:** M4.5.1
+**Status:** 🔵 in progress · **Plan:** [2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md](superpowers/plans/2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md) · **Prerequisites:** M4.5.1
 
 Goal: Captions, cross-references, a table of contents and lists of figures and tables are always current, with results written from Write's layout.
 
