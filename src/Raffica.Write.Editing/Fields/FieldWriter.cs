@@ -44,20 +44,31 @@ public static class FieldWriter
                 return false;
             }
 
-            // A separate or end character that shares its run with other content is not split: the result is what lies between the two runs.
+            // A separate or end character that shares its run with other content (old result text) is not split: refused, never a mix of old and new text.
+            if (info.SeparateRun.Content is not [FieldChar] || info.EndRun.Content is not [FieldChar])
+            {
+                return false;
+            }
+
             from = separate + 1;
             to = end;
         }
 
+        // Only the inlines that carry the result are replaced; bookmark and comment markers, unknown inlines and content controls stay where they are.
+        var carrying = new List<int>();
         var current = new StringBuilder();
         Run? first = null;
         for (var i = from; i < to; i++)
         {
-            Collect(list[i], current, ref first);
+            if (list[i] is Run or Hyperlink or SimpleField or TrackedChange)
+            {
+                carrying.Add(i);
+                Collect(list[i], current, ref first);
+            }
         }
 
-        var plain = to - from == 1 && list[from] is Run { Content.Count: <= 1 };
-        if (current.ToString() == text && (plain || (to == from && text.Length == 0)))
+        var plain = carrying.Count == 1 && list[carrying[0]] is Run { Content.Count: <= 1 };
+        if (current.ToString() == text && (plain || (carrying.Count == 0 && text.Length == 0)))
         {
             return false;
         }
@@ -69,12 +80,13 @@ public static class FieldWriter
             run.Content.Add(new TextContent(text));
         }
 
-        for (var i = to - 1; i >= from; i--)
+        var at = carrying.Count > 0 ? carrying[0] : from;
+        for (var i = carrying.Count - 1; i >= 0; i--)
         {
-            list.RemoveAt(i);
+            list.RemoveAt(carrying[i]);
         }
 
-        list.Insert(from, run);
+        list.Insert(at, run);
         return true;
     }
 

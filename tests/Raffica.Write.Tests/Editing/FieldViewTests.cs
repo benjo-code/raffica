@@ -240,4 +240,114 @@ public sealed class FieldViewTests
         Assert.True(FieldWriter.SetResult(paragraph, spans[0], "Figure 2"));
         Assert.Equal(11, paragraph.Inlines.Count);
     }
+
+    [Fact]
+    public void SetResultRefusesASeparateRunThatSharesItsRunWithOldText()
+    {
+        var paragraph = Complex(" SEQ Figure ", "1");
+        ((Run)paragraph.Inlines[3]).Content.Add(new TextContent("1"));
+        paragraph.Inlines.RemoveAt(4);
+        var span = FieldView.InParagraph(paragraph)[0];
+
+        Assert.False(FieldWriter.SetResult(paragraph, span, "12"));
+        Assert.Equal(5, paragraph.Inlines.Count);
+    }
+
+    [Fact]
+    public void SetResultRefusesAnEndRunThatSharesItsRunWithOldText()
+    {
+        var paragraph = Complex(" SEQ Figure ", "1");
+        var end = (Run)paragraph.Inlines[5];
+        end.Content.Insert(0, new TextContent("1"));
+        paragraph.Inlines.RemoveAt(4);
+        var span = FieldView.InParagraph(paragraph)[0];
+
+        Assert.False(FieldWriter.SetResult(paragraph, span, "12"));
+        Assert.Equal(5, paragraph.Inlines.Count);
+    }
+
+    [Fact]
+    public void SetResultKeepsMarkersAndUnknownInlinesInAResult()
+    {
+        var paragraph = new Paragraph();
+        paragraph.Inlines.Add(Mark(FieldCharKind.Begin));
+        paragraph.Inlines.Add(Code(" REF x "));
+        paragraph.Inlines.Add(Mark(FieldCharKind.Separate));
+        var start = new BookmarkStart(7, "_Ref7");
+        var commentEnd = new CommentRangeEnd(3);
+        var unknown = new UnknownInline(new UnknownContent(new XElement(W + "customXml")));
+        var bookmarkEnd = new BookmarkEnd(7);
+        paragraph.Inlines.Add(start);
+        paragraph.Inlines.Add(Text("a"));
+        paragraph.Inlines.Add(commentEnd);
+        paragraph.Inlines.Add(unknown);
+        paragraph.Inlines.Add(Text("b"));
+        paragraph.Inlines.Add(bookmarkEnd);
+        paragraph.Inlines.Add(Mark(FieldCharKind.End));
+        var instruction = paragraph.Inlines[1];
+
+        Assert.True(FieldWriter.SetResult(paragraph, FieldView.InParagraph(paragraph)[0], "X"));
+
+        Assert.Same(instruction, paragraph.Inlines[1]);
+        Assert.Equal(" REF x ", ((InstructionText)((Run)instruction).Content[0]).Text);
+        Assert.Equal(9, paragraph.Inlines.Count);
+        Assert.Same(start, paragraph.Inlines[3]);
+        Assert.Equal("X", ((TextContent)((Run)paragraph.Inlines[4]).Content[0]).Text);
+        Assert.Same(commentEnd, paragraph.Inlines[5]);
+        Assert.Same(unknown, paragraph.Inlines[6]);
+        Assert.Contains(bookmarkEnd, paragraph.Inlines);
+        Assert.True(paragraph.Inlines.IndexOf(unknown) > paragraph.Inlines.IndexOf(commentEnd));
+        Assert.True(paragraph.Inlines.IndexOf(bookmarkEnd) > paragraph.Inlines.IndexOf(unknown));
+    }
+
+    [Fact]
+    public void SetResultOfAFieldWithOnlyMarkersInsertsTheRunAfterTheSeparate()
+    {
+        var paragraph = new Paragraph();
+        paragraph.Inlines.Add(Mark(FieldCharKind.Begin));
+        paragraph.Inlines.Add(Code(" REF x "));
+        paragraph.Inlines.Add(Mark(FieldCharKind.Separate));
+        var start = new BookmarkStart(1, "_Ref1");
+        paragraph.Inlines.Add(start);
+        paragraph.Inlines.Add(Mark(FieldCharKind.End));
+
+        Assert.True(FieldWriter.SetResult(paragraph, FieldView.InParagraph(paragraph)[0], "X"));
+        Assert.Same(start, paragraph.Inlines[4]);
+        Assert.Equal("X", ((TextContent)((Run)paragraph.Inlines[3]).Content[0]).Text);
+    }
+
+    [Theory]
+    [InlineData("SEQ Figure \\c")]
+    [InlineData("SEQ Figure \\n")]
+    [InlineData("SEQ Figure \\r 5")]
+    [InlineData("SEQ Figure \\s 2")]
+    public void SequenceSwitchesAreSupported(string text) => Assert.True(FieldSupport.Of(FieldInstruction.Parse(text)).IsSupported);
+
+    [Fact]
+    public void AComplexFieldInAHyperlinkIsFoundAndItsResultCanBeSet()
+    {
+        var link = new Hyperlink { Anchor = "x" };
+        foreach (var inline in Complex(" PAGEREF x ", "1").Inlines.Skip(1))
+        {
+            link.Inlines.Add(inline);
+        }
+
+        var paragraph = new Paragraph();
+        paragraph.Inlines.Add(link);
+        var span = Assert.Single(FieldView.InParagraph(paragraph));
+
+        Assert.Equal(FieldKind.PageRef, span.Support.Kind);
+        Assert.True(FieldWriter.SetResult(paragraph, span, "2"));
+        Assert.Equal("2", ((TextContent)((Run)link.Inlines[3]).Content[0]).Text);
+    }
+
+    [Fact]
+    public void AFieldInAParagraphOfABlockContentControlIsFound()
+    {
+        var control = new ContentControlBlock();
+        control.Content.Add(Complex(" SEQ Figure ", "1"));
+        var paragraph = Assert.IsType<Paragraph>(control.Content[0]);
+
+        Assert.Equal(FieldKind.Seq, Assert.Single(FieldView.InParagraph(paragraph)).Support.Kind);
+    }
 }
