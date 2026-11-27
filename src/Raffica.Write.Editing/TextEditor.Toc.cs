@@ -76,6 +76,56 @@ public sealed partial class TextEditor
 
     private int TextLengthOf(StoryRef story, IList<Block> container, int index) => Map(story, (Paragraph)container[index]).Projection.Text.Length;
 
+    // Enter at an outer edge of a table of contents: a plain paragraph to write in, since the field itself takes no text and may be the first or the last block of its list. At the end edge it goes after the paragraph that holds the end of the
+    // field and takes that paragraph's section break, as any split does (the field stays in its section). At the start edge it goes above the field, but only when no block of the list comes before it (kept markers aside): otherwise the
+    // block before is a place of its own. A paragraph where one field ends and another begins is no edge. Null when the caret is at no such edge: the caller splits as usual, and an edit in the field is refused.
+    private EditResult? SplitAtTocEdge(TextPosition at)
+    {
+        if (!TryLocate(at, out var story, out var container, out var index) || _tocs.RangesOf(container) is not { } ranges || BreakRuleOf(story, container) != BreakRule.Paragraph)
+        {
+            return null;
+        }
+
+        var holding = ranges.Where(r => index >= r.First && index <= r.Last).ToList();
+        if (holding.Count == 0)
+        {
+            return null;
+        }
+
+        var atEnd = holding.All(r => r.Last == index) && at.Offset >= TextLengthOf(story, container, index);
+        var atStart = !atEnd && at.Offset <= 0 && holding.All(r => r.First == index) && container.Take(index).All(b => b is UnknownBlock);
+        if (!atEnd && !atStart)
+        {
+            return null;
+        }
+
+        LastFieldRefusal = null;
+        var revision = History.BeginOperation();
+        var made = new Paragraph();
+        var edge = (Paragraph)container[index];
+        BlockChange change;
+        if (atEnd && edge.SectionBreak is { } section)
+        {
+            var old = edge.Clone();
+            edge.SectionBreak = null;
+            made.SectionBreak = section;
+            container.Insert(index + 1, made);
+            change = new BlockChange(story, container, index, 1, 2, [old]);
+        }
+        else
+        {
+            var place = atEnd ? index + 1 : index;
+            container.Insert(place, made);
+            change = new BlockChange(story, container, place, 0, 1, []);
+        }
+
+        _document.Edits.Raise();
+        var result = new EditResult(new TextPosition(story, made, 0), [change]);
+        _document.Edits.Attribute(result.Changes);
+        History.Record(result, new EditHistory.Point(index, Math.Max(0, at.Offset)), revision, null);
+        return result;
+    }
+
     // A caret or an insert point: refused when it is in a table of contents (the edges included). Sets LastFieldRefusal.
     private bool TocRefusesAt(TextPosition at)
     {

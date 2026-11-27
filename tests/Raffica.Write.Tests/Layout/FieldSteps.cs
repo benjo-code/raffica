@@ -70,6 +70,9 @@ internal enum FieldStepKind
 
     /// <summary>A letter or a long text typed into a random paragraph after everything is settled: the page pass is skipped when nothing can have moved a page result, and the independent count must still hold (see <c>TypeSkippingPagesAsync</c>).</summary>
     TypeSkippingPages,
+
+    /// <summary>A table of contents inserted at the end of its body, cell or content control (the last paragraph of that list), which leaves an empty paragraph after the field: text is typed there, Enter at the end edge of the field gives a paragraph before it and text is typed there too; the layout must equal a full layout after each.</summary>
+    InsertTocAtEnd,
 }
 
 /// <summary>
@@ -137,6 +140,10 @@ internal sealed class FieldSteps
         FieldStepKind.TypeSkippingPages,
         FieldStepKind.TypeSkippingPages,
         FieldStepKind.TypeSkippingPages,
+        FieldStepKind.InsertTocAtEnd,
+        FieldStepKind.Undo,
+        FieldStepKind.Redo,
+        FieldStepKind.InsertTocAtEnd,
     ];
 
     private readonly WordDocument _model;
@@ -243,6 +250,7 @@ internal sealed class FieldSteps
             FieldStepKind.DeleteHeading => await DeleteHeadingAsync(random, label),
             FieldStepKind.MoveChapter => await MoveChapterAsync(random, label),
             FieldStepKind.TypeSkippingPages => await TypeSkippingPagesAsync(random, label),
+            FieldStepKind.InsertTocAtEnd => await InsertTocAtEndAsync(random, label),
             FieldStepKind.Undo => Editor.History.CanUndo ? await UndoRedoAsync(undo: true, label) : Refuse(),
             _ => Editor.History.CanRedo ? await UndoRedoAsync(undo: false, label) : Refuse(),
         };
@@ -311,6 +319,15 @@ internal sealed class FieldSteps
     private async Task<bool> InsertCaptionAsync(Random random, bool chapter, string label)
     {
         var paragraphs = Paragraphs();
+
+        // A chapter number needs a Heading 1 above the caption: only those places are tried, so the step does not depend on the draw hitting one.
+        if (chapter)
+        {
+            var inside = TocParagraphs();
+            var first = paragraphs.FindIndex(p => FieldRefresh.HeadingLevel(p) == 1 && !inside.Contains(p));
+            paragraphs = first < 0 ? [] : [.. paragraphs.Skip(first + 1).Where(p => !inside.Contains(p))];
+        }
+
         if (paragraphs.Count == 0)
         {
             return Refuse();
@@ -379,6 +396,7 @@ internal sealed class FieldSteps
         var choice = choices[random.Next(choices.Count)];
         var paragraph = paragraphs[random.Next(paragraphs.Count)];
         var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
+        var present = FieldView.InParagraph(paragraph).Select(f => (object?)f.Info!.BeginRun ?? f.Info.Simple).ToHashSet(ReferenceEqualityComparer.Instance);
         var before = FieldView.InParagraph(paragraph).Count(f => f.Parent is null);
         var targetPage = target.Position.Paragraph is { } targetParagraph ? ReferencePageResults.PageTextOf(_layout, _model)(targetParagraph) : null;
         var result = Editor.InsertCrossReference(at, target, choice, host);
@@ -392,7 +410,9 @@ internal sealed class FieldSteps
         Assert.True(fields.Count == before + 1, $"{label}: the paragraph of a new cross-reference holds {fields.Count} fields, not {before + 1}");
         Assert.True(fields.Any(f => f.Support.IsSupported && f.Instruction.Has("h") && f.Support.Kind is FieldKind.Ref or FieldKind.NoteRef or FieldKind.PageRef), label + ": no supported link field in the paragraph of the new cross-reference");
         var checkedFields = 0;
-        foreach (var field in ReferenceFields.Expected(_model, host).Where(f => ReferenceEquals(f.Paragraph, made) && f.Text is not null))
+        // Only the field the insert made is judged before the refresh: an older reference in the paragraph may read a range the new field now stands in, and is then stale until the refresh below.
+        var added = FieldView.InParagraph(made);
+        foreach (var field in ReferenceFields.Expected(_model, host).Where(f => ReferenceEquals(f.Paragraph, made) && f.Text is not null && !present.Contains((object?)added[f.Ordinal].Info!.BeginRun ?? added[f.Ordinal].Info!.Simple)))
         {
             Assert.True(string.Equals(field.Text, ReferenceFields.Stored(made, field.Ordinal), StringComparison.Ordinal), $"{label}: a new cross-reference stores another result than the count gives (expected \"{field.Text}\", stored \"{ReferenceFields.Stored(made, field.Ordinal)}\", {field.Instruction}, {choice} of {target.Kind})");
             checkedFields++;
@@ -580,6 +600,73 @@ internal sealed class FieldSteps
         var done = await RefreshAsync(label + " refresh", touchedOnly: false);
         _strictUndo = fresh;
         return done;
+    }
+
+    // A table of contents at the end of a list of blocks (the body, a cell or a content control): a paragraph must follow the field and take text, and Enter at the end edge of the field must give another one before it that takes text too.
+    private async Task<bool> InsertTocAtEndAsync(Random random, string label)
+    {
+        await SettleAsync(label);
+        var ends = new List<Paragraph>();
+        CollectContainerEnds(_model.Body.Blocks, ends, 0);
+        if (ends.Count == 0)
+        {
+            return Refuse();
+        }
+
+        var end = ends[random.Next(ends.Count)];
+        var inserted = Editor.InsertToc(new TextPosition(StoryRef.Body, end, TextLength(end)), new TocOptions(1, 3, random.Next(2) == 0, true, (TocLeader)random.Next(4), null), new FakeFieldHost(_model));
+        if (!await CheckAsync(inserted, label, required: false))
+        {
+            return false;
+        }
+
+        var last = inserted!.Caret.Paragraph;
+        var (container, index) = TextEditor.FindIn(_model.Body.Blocks, last)!.Value;
+        Assert.True(index + 1 < container.Count && container[index + 1] is Paragraph, label + ": no paragraph follows the table of contents");
+        var after = (Paragraph)container[index + 1];
+        var at = new TextPosition(StoryRef.Body, after, 0);
+        Assert.True(await CheckAsync(Editor.InsertText(new TextRange(at, at), "after the list "), label + " typing after", required: false), label + ": the paragraph after the table of contents refused text");
+
+        var edge = new TextPosition(StoryRef.Body, last, TextLength(last));
+        var split = Editor.SplitParagraph(new TextRange(edge, edge));
+        Assert.True(await CheckAsync(split, label + " Enter at the end edge", required: false), label + ": Enter at the end edge of the table of contents was refused");
+        Assert.Same(container[index + 1], split.Caret.Paragraph);
+        Assert.NotSame(after, split.Caret.Paragraph);
+        Assert.True(await CheckAsync(Editor.InsertText(new TextRange(split.Caret, split.Caret), "between"), label + " typing between", required: false), label + ": the paragraph Enter made refused text");
+        return await RefreshAsync(label + " refresh", touchedOnly: false);
+    }
+
+    // The last paragraph of every list of blocks of the body that ends in one (kept markers aside): the body, its table cells and its block content controls.
+    private static void CollectContainerEnds(IList<Block> container, List<Paragraph> found, int depth)
+    {
+        if (container.LastOrDefault(b => b is not UnknownBlock) is Paragraph paragraph)
+        {
+            found.Add(paragraph);
+        }
+
+        if (depth > 8)
+        {
+            return;
+        }
+
+        foreach (var block in container)
+        {
+            switch (block)
+            {
+                case ContentControlBlock control:
+                    CollectContainerEnds(control.Content, found, depth + 1);
+                    break;
+                case Table table:
+                    foreach (var cell in table.Rows.OfType<TableRow>().SelectMany(r => r.Items.OfType<TableCell>()))
+                    {
+                        CollectContainerEnds(cell.Blocks, found, depth + 1);
+                    }
+
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     private async Task<bool> RemoveTocAsync(Random random, string label)

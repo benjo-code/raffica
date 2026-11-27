@@ -266,8 +266,13 @@ public sealed partial class TextEditor
         return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index, caret.Paragraph, end), revision, new EditHistory.Point(index, offset));
     }
 
-    /// <summary>Replaces the selection with a paragraph break (on an empty list paragraph, Enter ends the list instead: see <see cref="ToggleList"/>): the second paragraph has the properties of the first and takes what follows the caret.</summary>
-    public EditResult SplitParagraph(TextRange selection) => (selection.IsEmpty ? EndEmptyListItem(selection.Start) : null) ?? InsertText(selection, "\n");
+    /// <summary>
+    /// Replaces the selection with a paragraph break (on an empty list paragraph, Enter ends the list instead: see <see cref="ToggleList"/>): the second paragraph has the properties of the first and takes what follows the caret.
+    /// At an outer edge of a table of contents, where nothing else may be typed, it makes room instead: at the end edge a plain paragraph after the field (it takes the section break of the paragraph that holds the end of the
+    /// field), and at the start edge of a field that is first in its body, cell or content control a plain paragraph above it, with the caret in the new paragraph in both cases.
+    /// </summary>
+    public EditResult SplitParagraph(TextRange selection) =>
+        (selection.IsEmpty ? SplitAtTocEdge(selection.Start) ?? EndEmptyListItem(selection.Start) : null) ?? InsertText(selection, "\n");
 
     // The first Backspace or Delete next to a field: it selects the unit and changes nothing; the caller deletes the selection next.
     private static EditResult Select(TextPosition caret, (int Start, int End) unit) =>

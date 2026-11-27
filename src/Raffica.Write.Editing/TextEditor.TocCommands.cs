@@ -40,7 +40,8 @@ public sealed partial class TextEditor
     /// Inserts a table of contents (or a list of figures or tables when <paramref name="options"/> names a label) as one history step: the field <c>TOC \o "a-b" \h \z \u</c> (<c>\n</c> without page numbers,
     /// <c>\h \z \c "label"</c> for a list), its entries in the styles <c>TOC1</c> to <c>TOC9</c> (<c>TableofFigures</c>; made as companions of the step when the document lacks them, see <see cref="EditResult.Style"/>), one
     /// paragraph each, the begin, the instruction and the separate in the first paragraph and the end in the last, or the sentence of an empty list when there is no entry. An empty paragraph at <paramref name="at"/> is replaced; otherwise the
-    /// paragraphs go above the paragraph when the position is its start and below it elsewhere. Every heading (caption) an entry points at gets a hidden <c>_Toc</c> bookmark, a derived change of the step (the paragraphs it
+    /// paragraphs go above the paragraph when the position is its start and below it elsewhere. When no block would follow the field in its body, cell or content control, an empty paragraph goes after it (the edges of the
+    /// field take no text). Every heading (caption) an entry points at gets a hidden <c>_Toc</c> bookmark, a derived change of the step (the paragraphs it
     /// changed swap with the step on undo and redo). The page numbers are those <paramref name="host"/> knows (<c>?</c> until the page results are refreshed). The caret ends at the end of the field. Returns null, and changes
     /// nothing, when the options or the place are refused (<see cref="LastTocRefusal"/>). A stale position throws <see cref="StalePositionException"/> before anything changes.
     /// </summary>
@@ -76,6 +77,8 @@ public sealed partial class TextEditor
         var replaces = at.Paragraph.SectionBreak is null && at.Paragraph.Inlines.All(i => i is Run { Content.Count: 0 });
         var slot = replaces || offset == 0 ? index : index + 1;
         var removed = replaces ? 1 : 0;
+        // The edges of the field take no text, so a list that would be the last block of its body, cell or content control (kept markers aside) gets an empty paragraph after it to write in.
+        var needsRoom = container.Skip(slot + removed).All(b => b is UnknownBlock);
 
         var revision = History.BeginOperation();
         var existing = TocRefresh.Find(_document.Body.Blocks);
@@ -139,6 +142,11 @@ public sealed partial class TextEditor
             {
                 container.Insert(slot + k, made[k]);
             }
+
+            if (needsRoom)
+            {
+                container.Insert(slot + made.Count, new Paragraph());
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -149,7 +157,7 @@ public sealed partial class TextEditor
         _document.Edits.Raise();
         var last = made[^1];
         var caret = new TextPosition(story, last, Map(story, last).Projection.Text.Length);
-        var change = new BlockChange(story, container, slot, removed, made.Count, old);
+        var change = new BlockChange(story, container, slot, removed, made.Count + (needsRoom ? 1 : 0), old);
         var derived = DerivedOf(bookmarks.Changed);
         var result = new EditResult(caret, [change], Style: style, DerivedChanges: derived.Count > 0 ? derived : null);
         _document.Edits.Attribute([change, .. derived]);
