@@ -67,6 +67,9 @@ internal enum FieldStepKind
 
     /// <summary>A heading and the blocks under it moved to another place of the body, then a refresh: the entries follow the new order.</summary>
     MoveChapter,
+
+    /// <summary>A letter or a long text typed into a random paragraph after everything is settled: the page pass is skipped when nothing can have moved a page result, and the independent count must still hold (see <c>TypeSkippingPagesAsync</c>).</summary>
+    TypeSkippingPages,
 }
 
 /// <summary>
@@ -131,6 +134,9 @@ internal sealed class FieldSteps
         FieldStepKind.Redo,
         FieldStepKind.InsertToc,
         FieldStepKind.AddHeading,
+        FieldStepKind.TypeSkippingPages,
+        FieldStepKind.TypeSkippingPages,
+        FieldStepKind.TypeSkippingPages,
     ];
 
     private readonly WordDocument _model;
@@ -174,6 +180,12 @@ internal sealed class FieldSteps
 
     /// <summary>How many refresh passes the steps ran in all.</summary>
     public int SettlePasses { get; private set; }
+
+    /// <summary>How many typing steps ran without a page pass because nothing could have moved a page result.</summary>
+    public int PagePassesSkipped { get; private set; }
+
+    /// <summary>How many typing steps needed the page loop (the page table moved or a touched block carried something a page result points at).</summary>
+    public int PagePassesRun { get; private set; }
 
     /// <summary>How many page results (PAGEREF fields and table of contents entries) were compared with the independent page count.</summary>
     public int PageResultsCompared { get; private set; }
@@ -230,6 +242,7 @@ internal sealed class FieldSteps
             FieldStepKind.AddHeading => await AddHeadingAsync(random, label),
             FieldStepKind.DeleteHeading => await DeleteHeadingAsync(random, label),
             FieldStepKind.MoveChapter => await MoveChapterAsync(random, label),
+            FieldStepKind.TypeSkippingPages => await TypeSkippingPagesAsync(random, label),
             FieldStepKind.Undo => Editor.History.CanUndo ? await UndoRedoAsync(undo: true, label) : Refuse(),
             _ => Editor.History.CanRedo ? await UndoRedoAsync(undo: false, label) : Refuse(),
         };
@@ -554,13 +567,16 @@ internal sealed class FieldSteps
         var first = random.Next(1, 4);
         var last = Math.Max(first, random.Next(1, 10));
         var options = new TocOptions(first, last, random.Next(4) != 0, random.Next(3) != 0, (TocLeader)random.Next(4), figures ? (random.Next(2) == 0 ? "Figure" : "Table") : null);
+        // When the settle had to wait for a redo the lists that were there before are stale by design (the refresh left them): only the new list is judged then.
+        var stale = fresh ? null : TocRefresh.Find(_model.Body.Blocks).Select(s => s.Container[s.First]).ToHashSet();
         var result = Editor.InsertToc(at, options, host);
         if (!await CheckAsync(result, label, required: false))
         {
             return false;
         }
 
-        ReferenceToc.AssertEqualToExpected(_model, host, label + " (a new list, before the refresh)");
+        ReferenceToc.AssertEqualToExpected(_model, host, label + " (a new list, before the refresh)", notJudged: stale);
+        Assert.True(stale is null || TocRefresh.Find(_model.Body.Blocks).Any(s => !stale.Contains(s.Container[s.First])), label + ": the new list is not judged");
         var done = await RefreshAsync(label + " refresh", touchedOnly: false);
         _strictUndo = fresh;
         return done;
@@ -748,6 +764,63 @@ internal sealed class FieldSteps
         AssertBookmarks(label);
         AssertTocMemo(label);
         Compared++;
+        RanPerKind[(int)_kind]++;
+        return true;
+    }
+
+    // A letter (or, now and then, a long text that pushes later blocks down) typed into a random paragraph once every result is settled, then what the runner does: when the page table is the settled one and the touched block carries nothing a
+    // page result points at, the page pass is skipped, and the stored page results must still equal the independent count with no page pass run (and a forced whole-body pass must find nothing to write); otherwise the page loop runs and ends in the same state.
+    private async Task<bool> TypeSkippingPagesAsync(Random random, string label)
+    {
+        await RefreshAsync(label + " settle", touchedOnly: false);
+        var signature = new LayoutFieldHost(_model, _layout).PageSignature;
+        var paragraphs = Paragraphs();
+        if (paragraphs.Count == 0 || signature is null)
+        {
+            return Refuse();
+        }
+
+        var paragraph = paragraphs[random.Next(paragraphs.Count)];
+        var text = random.Next(4) == 0 ? string.Join(' ', Enumerable.Repeat("filler", 120 + random.Next(400))) : "x";
+        var at = new TextPosition(StoryRef.Body, paragraph, random.Next(TextLength(paragraph) + 1));
+        if (!await CheckAsync(Editor.InsertText(new TextRange(at, at), text), label, required: false))
+        {
+            return false;
+        }
+
+        var touched = _pending.ToArray();
+        var host = new LayoutFieldHost(_model, _layout);
+        if (!Editor.PagePassCanBeSkipped(host, touched, signature))
+        {
+            PagePassesRun++;
+            return await RefreshAsync(label + " page loop", touchedOnly: true);
+        }
+
+        PagePassesSkipped++;
+        var result = Editor.RefreshFields(host, RefreshScope.OrderBasedPagesCurrent, touched);
+        _pending.Clear();
+        _everythingPending = false;
+        foreach (var change in result.Content)
+        {
+            _layout.ApplyEdit(change, Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1));
+        }
+
+        await _layout.LayOutRestAsync(null, CancellationToken.None);
+        if (result.Written > 0)
+        {
+            // The order-based results themselves changed (and may have moved a page): the page loop follows, as in the runner.
+            Assert.False(result.Settled, label + ": a skipped pass that wrote something is not settled");
+            return await RefreshAsync(label + " follow-up", touchedOnly: false);
+        }
+
+        Assert.True(result.Settled, label + ": a skipped pass that wrote nothing is settled");
+        LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
+        var after = new LayoutFieldHost(_model, _layout);
+        ReferenceFields.AssertStoredEqualsExpected(_model, after, label, includeTocs: false);
+        PageResultsCompared += ReferencePageResults.AssertPageResults(_layout, _model, after, label);
+        var forced = Editor.RefreshFields(after, RefreshScope.WithPages);
+        Assert.Empty(forced.Content);
+        Assert.True(forced.Settled, label + ": a whole pass after a skipped one finds the page results settled");
         RanPerKind[(int)_kind]++;
         return true;
     }

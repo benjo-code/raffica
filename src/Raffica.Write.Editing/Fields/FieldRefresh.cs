@@ -8,6 +8,9 @@ public enum RefreshScope
 {
     OrderBased,
     WithPages,
+
+    /// <summary>As <see cref="OrderBased"/>, and the caller has shown that no page result can have moved (the page table is the one the last settled page pass saw and the touched blocks hold nothing a page result points at, see <see cref="TextEditor.PagePassCanBeSkipped"/>): the page results are left as they are and a pass that wrote nothing is settled.</summary>
+    OrderBasedPagesCurrent,
 }
 
 /// <summary>
@@ -34,6 +37,7 @@ internal static class FieldRefresh
         var body = document.Body.Blocks;
         // Page results are given only for the scope that asks for them and only from a complete layout; they depend on every block, so such a pass walks the whole body.
         var pagesOn = scope == RefreshScope.WithPages && host.IsComplete;
+        var pagesCurrent = scope == RefreshScope.OrderBasedPagesCurrent;
         var targets = pagesOn ? null : Targets(document, host, touched);
         if (targets is { Count: 0 })
         {
@@ -87,8 +91,50 @@ internal static class FieldRefresh
         var record = pass is { Structural.Count: > 0 } ? new DerivedRecord([.. pass.Structural]) : null;
         var written = state.Written + (pass?.Written ?? 0);
         var pageFields = state.PageFields;
-        var settled = pageFields == 0 || (pagesOn && written == 0 && !(pass?.Deferred ?? false));
+        var settled = pageFields == 0 || ((pagesOn || pagesCurrent) && written == 0 && !(pass?.Deferred ?? false));
         return new FieldRefreshResult(changes, record, notUpdated, written, settled, pass?.Deferred ?? false, pageFields);
+    }
+
+    /// <summary>
+    /// True when the touched blocks can change what a page result says or points at, whatever the page table does: a change that adds or removes blocks (the top-level indices of later blocks move), or a block (before or after) that holds a heading,
+    /// an outline level, a bookmark, a note reference, a field (a caption, a <c>PAGEREF</c>, a table of contents) or a section break. Only paragraphs of the touched blocks are looked at.
+    /// </summary>
+    internal static bool CarriesPageAnchor(IReadOnlyList<BlockChange> touched, WordDocument document)
+    {
+        foreach (var change in touched)
+        {
+            if (change.Added != change.OldBlocks.Count)
+            {
+                return true;
+            }
+
+            var blocks = new List<Block>(change.OldBlocks);
+            for (var i = change.First; i < change.First + change.Added && i < change.Container.Count; i++)
+            {
+                if (i >= 0)
+                {
+                    blocks.Add(change.Container[i]);
+                }
+            }
+
+            foreach (var paragraph in BookmarkOperations.ParagraphsOf(blocks))
+            {
+                if (paragraph.SectionBreak is not null || HeadingLevel(paragraph) is not null || TocBuilder.OutlineLevel(document, paragraph) is not null || HasFieldMarkup(paragraph))
+                {
+                    return true;
+                }
+
+                foreach (var leaf in Leaves(paragraph.Inlines, false))
+                {
+                    if (leaf.Inline is BookmarkStart or BookmarkEnd || (leaf.Inline is Run run && run.Content.Any(c => c is FootnoteReference or EndnoteReference)))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     private static void Announce(WordDocument document, List<BlockChange> changes)
@@ -560,7 +606,7 @@ internal static class FieldRefresh
 
                         var text = span.Support.Kind switch
                         {
-                            FieldKind.Ref => RefText(span.Instruction),
+                            FieldKind.Ref => RefText(span),
                             FieldKind.PageRef => PageText(span.Instruction),
                             _ => NoteText(span.Instruction),
                         };
@@ -602,8 +648,38 @@ internal static class FieldRefresh
             return _bookmarks.TryGetValue(name, out var found) ? found : null;
         }
 
-        private string? RefText(FieldInstruction instruction) =>
-            Find(instruction.Argument!) is { } mark ? ReferenceText(mark.Start, mark.Id, instruction.Has("n") || instruction.Has("r"), host) : null;
+        // A text reference to a bookmark that holds the field itself has no text of its own: Word shows "Error! Not a valid bookmark self-reference." and a refresh would grow it every time, so Write leaves the stored result (counted as not
+        // updated). The number of the paragraph (the n and r switches) is not such a text.
+        private string? RefText(FieldSpan span)
+        {
+            var number = span.Instruction.Has("n") || span.Instruction.Has("r");
+            return Find(span.Instruction.Argument!) is { } mark && (number || !HoldsItself(mark, span)) ? ReferenceText(mark.Start, mark.Id, number, host) : null;
+        }
+
+        private static bool HoldsItself((Paragraph Start, int Id) mark, FieldSpan span)
+        {
+            var inside = false;
+            foreach (var (inline, _) in Leaves(mark.Start.Inlines, false))
+            {
+                switch (inline)
+                {
+                    case BookmarkStart start when start.Id == mark.Id:
+                        inside = true;
+                        break;
+                    case BookmarkEnd end when end.Id == mark.Id:
+                        return false;
+                    default:
+                        if (inside && (ReferenceEquals(inline, span.Info!.BeginRun) || ReferenceEquals(inline, span.Info.Simple)))
+                        {
+                            return true;
+                        }
+
+                        break;
+                }
+            }
+
+            return false;
+        }
 
         // The printed number of the page the bookmark's paragraph starts on; null (counted as not updated) when the bookmark is gone or the layout has no answer.
         private string? PageText(FieldInstruction instruction) =>

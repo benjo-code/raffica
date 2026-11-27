@@ -26,5 +26,7 @@ internal sealed class LayoutFieldHost(WordDocument document, DocumentLayout layo
         return position.Story.Kind == StoryKind.Body ? _pages.PageOf(position.Paragraph) : null;
     }
 
+    public long? PageSignature => IsComplete ? _pages.Signature() : null;
+
     public string? NoteMarkText(int noteId, NoteType type) => _labels.NoteMarkText(noteId, type);
 }

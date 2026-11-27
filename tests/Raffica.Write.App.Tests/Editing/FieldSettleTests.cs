@@ -24,13 +24,6 @@ public sealed class FieldSettleTests
 
     private static Task<FieldHarness> OpenAsync() => FieldHarness.OpenAsync(bytes: FieldTestDocument.TocBytes());
 
-    // The timer tick once the layout is complete (a refresh of a document with page results waits for that, and an edit makes the layout incomplete until its background pass is over).
-    private static async Task FireAsync(FieldHarness h)
-    {
-        await ViewHarness.WaitAsync(() => h.Tab.Runner.IsFaulted || (h.Tab.Editor?.ActiveLayout ?? h.Tab.Runner.PageLayout) is { IsComplete: true }, 90000);
-        h.Clock.Fire();
-    }
-
     // A table of contents in the empty first paragraph, through the editor like the command does it (the refresh is notified by the edit).
     private static void InsertToc(FieldHarness h)
     {
@@ -92,7 +85,7 @@ public sealed class FieldSettleTests
     {
         using var h = await OpenAsync();
         InsertToc(h);
-        await FireAsync(h);
+        await h.FireUntilIdleAsync();
         var runner = h.Tab.Fields!;
         Assert.Equal(0, runner.Failures);
         Assert.All(s_chapters, (_, i) => Assert.EndsWith("\t1", Entries(h.Tab)[i], StringComparison.Ordinal));
@@ -101,10 +94,12 @@ public sealed class FieldSettleTests
 
         TypeLongText(h);
         var passes = runner.Passes;
-        await FireAsync(h);
+        await h.FireUntilIdleAsync();
 
         Assert.True(runner.Passes - passes is >= 1 and <= FieldRefreshRunner.MaxPasses);
         Assert.Equal(0, runner.Unsettled);
+        Assert.Equal(0, runner.PagePassesSkipped);
+        Assert.Equal(0, runner.SyncLayoutCompletions);
         Assert.Equal(0, runner.Failures);
         var (_, pageOf) = await FreshAsync(h.Tab);
         var after = Entries(h.Tab);
@@ -125,7 +120,7 @@ public sealed class FieldSettleTests
     {
         using var h = await OpenAsync();
         InsertToc(h);
-        await FireAsync(h);
+        await h.FireUntilIdleAsync();
         var runner = h.Tab.Fields!;
         var model = h.Tab.Docx.Model;
         var passes = runner.Passes;
@@ -136,9 +131,10 @@ public sealed class FieldSettleTests
         var first = model.Body.Blocks.OfType<Paragraph>().First(p => TextOf(p) == "alpha text");
         var at = new TextPosition(StoryRef.Body, first, 0);
         Assert.NotNull(session.Apply(e => e.InsertText(new TextRange(at, at), "x"), 0));
-        await FireAsync(h);
+        await h.FireUntilIdleAsync();
 
         Assert.Equal(1, runner.Passes - passes);
+        Assert.Equal(1, runner.PagePassesSkipped);
         Assert.Equal(derived, model.Edits.DerivedVersion);
         Assert.Equal(0, runner.Unsettled);
         Assert.Equal(0, runner.Failures);
@@ -171,7 +167,7 @@ public sealed class FieldSettleTests
             return editor.RefreshFields(growing, scope, blocks);
         };
 
-        await FireAsync(h);
+        await h.FireUntilIdleAsync();
 
         Assert.Equal(FieldRefreshRunner.MaxPasses, runner.Passes);
         Assert.Equal(1, runner.Unsettled);
@@ -181,6 +177,43 @@ public sealed class FieldSettleTests
         // The last result stays: the third pass wrote "111" after the entries.
         Assert.All(Entries(h.Tab), line => Assert.EndsWith("\t111", line, StringComparison.Ordinal));
         Assert.Equal("see page 111", PagerefText(h.Tab));
+    }
+
+    // The timer path waits for the background layout between passes and never lays the pages out on the UI thread; the bound of three passes and the count of unsettled bursts hold across the ticks.
+    [AvaloniaFact]
+    public async Task TheTimerPathNeverLaysTheLayoutOutOnTheUiThread()
+    {
+        using var h = await OpenAsync();
+        InsertToc(h);
+        TypeLongText(h);
+        var runner = h.Tab.Fields!;
+
+        await h.FireUntilIdleAsync();
+
+        Assert.Equal(0, runner.SyncLayoutCompletions);
+        Assert.Equal(0, runner.Unsettled);
+        Assert.Equal(0, runner.Failures);
+        Assert.InRange(runner.Passes, 2, FieldRefreshRunner.MaxPasses);
+        var (_, pageOf) = await FreshAsync(h.Tab);
+        var entries = Entries(h.Tab);
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.EndsWith("	" + pageOf(s_chapters[i]), entries[i], StringComparison.Ordinal);
+        }
+
+        // A pass that never settles also ends at the bound across ticks, without a synchronous layout.
+        var growing = new GrowingHost(runner.Host);
+        runner.Refresher = (editor, _, scope, blocks) =>
+        {
+            growing.Round++;
+            return editor.RefreshFields(growing, scope, blocks);
+        };
+        var passes = runner.Passes;
+        runner.Notify(null);
+        await h.FireUntilIdleAsync();
+        Assert.Equal(FieldRefreshRunner.MaxPasses, runner.Passes - passes);
+        Assert.Equal(1, runner.Unsettled);
+        Assert.Equal(0, runner.SyncLayoutCompletions);
     }
 
     [AvaloniaFact]
@@ -195,7 +228,8 @@ public sealed class FieldSettleTests
         // No timer tick: the save's settle alone brings the numbers (and the layout it needs) up to date, synchronously.
         await h.Tab.SettleFieldsAsync(CancellationToken.None);
 
-        Assert.True(runner.Passes >= 1);
+        Assert.True(runner.Passes is >= 1 and <= FieldRefreshRunner.MaxPasses);
+        Assert.False(runner.IsPending, "the save's settle ends the work in one call");
         Assert.Equal(0, runner.Unsettled);
         Assert.Equal(0, runner.Failures);
         var (_, pageOf) = await FreshAsync(h.Tab);
@@ -237,7 +271,7 @@ public sealed class FieldSettleTests
 
         // What the window does when the layout is complete: the first look at the whole body.
         h.Tab.EnsureFields().Notify(null);
-        await FireAsync(h);
+        await h.FireUntilIdleAsync();
 
         Assert.Equal("see page 1", PagerefText(h.Tab));
         Assert.Equal(0, h.Tab.Fields!.Failures);
@@ -252,7 +286,7 @@ public sealed class FieldSettleTests
         var runner = h.Tab.Fields!;
         runner.Notify(null);
 
-        await FireAsync(h);
+        await h.FireUntilIdleAsync();
 
         Assert.Equal(0, runner.Failures);
         Assert.Equal(0, runner.Unsettled);

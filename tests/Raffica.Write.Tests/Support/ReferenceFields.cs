@@ -100,7 +100,7 @@ internal static class ReferenceFields
                 string? text = null;
                 if (Counts(field) && bookmarks.TryGetValue(field.Instruction.Argument!, out var mark))
                 {
-                    text = field.Support.Kind == FieldKind.Ref ? ReferenceText(mark, field.Instruction, host, answers) : NoteMark(mark, host);
+                    text = field.Support.Kind == FieldKind.Ref ? ReferenceText(mark, field.Instruction, host, answers, (paragraph, ordinal)) : NoteMark(mark, host);
                 }
 
                 results.Add(new ExpectedField(paragraph, ordinal, InstructionOf(field), text));
@@ -287,7 +287,7 @@ internal static class ReferenceFields
         return found;
     }
 
-    private static string? ReferenceText(Mark mark, FieldInstruction instruction, IFieldHost host, Dictionary<(Paragraph, int), string> answers)
+    private static string? ReferenceText(Mark mark, FieldInstruction instruction, IFieldHost host, Dictionary<(Paragraph, int), string> answers, (Paragraph Paragraph, int Ordinal) own)
     {
         if (instruction.Has("n") || instruction.Has("r"))
         {
@@ -296,7 +296,10 @@ internal static class ReferenceFields
 
         var reader = new RangeReader(mark, answers);
         reader.Visit(mark.Paragraph.Inlines, deleted: false);
-        return reader.Complete ? reader.Text.ToString() : null;
+
+        // A reference to a bookmark that holds the reference itself is invalid to Word ("Error! Not a valid bookmark self-reference.", Word 16.0, checked 2026-11-27): there is no text for it, Write keeps the stored result.
+        var self = ReferenceEquals(own.Paragraph, mark.Paragraph) && reader.Begun.Contains(own.Ordinal);
+        return reader.Complete && !self ? reader.Text.ToString() : null;
     }
 
     private static string? NoteMark(Mark mark, IFieldHost host)
@@ -331,6 +334,9 @@ internal static class ReferenceFields
 
         public RunContent? FirstNote { get; private set; }
 
+        /// <summary>The ordinals of the fields that begin between the markers.</summary>
+        public HashSet<int> Begun { get; } = [];
+
         public void Visit(IEnumerable<Inline> inlines, bool deleted)
         {
             foreach (var inline in inlines)
@@ -355,6 +361,11 @@ internal static class ReferenceFields
                         break;
                     case SimpleField simple:
                         var ordinal = _ordinal++;
+                        if (_inside)
+                        {
+                            Begun.Add(ordinal);
+                        }
+
                         if (_inside && !deleted && _silent == 0 && answers.TryGetValue((mark.Paragraph, ordinal), out var expected))
                         {
                             Text.Append(expected);
@@ -390,6 +401,11 @@ internal static class ReferenceFields
                 switch (content)
                 {
                     case FieldChar { Kind: FieldCharKind.Begin }:
+                        if (_inside)
+                        {
+                            Begun.Add(_ordinal);
+                        }
+
                         _fields.Add((_ordinal++, false));
                         break;
                     case FieldChar { Kind: FieldCharKind.Separate } when _fields.Count > 0:

@@ -332,12 +332,17 @@ internal static class ReferenceToc
     /// Asserts that every table of contents of the body says what the oracle expects: as many entry paragraphs as entries (the sentence of an empty one), each in the style of its level with its line, a link to a hidden bookmark that
     /// starts in the heading, and a page number where one is due (its value too when <paramref name="pageTextOf"/> gives the expected page text of a heading; a heading it gives null for is not judged for its value). Returns how many entries were compared.
     /// </summary>
-    public static int AssertEqualToExpected(WordDocument document, IFieldHost host, string label, Func<Paragraph, string?>? pageTextOf = null)
+    public static int AssertEqualToExpected(WordDocument document, IFieldHost host, string label, Func<Paragraph, string?>? pageTextOf = null, IReadOnlySet<Block>? notJudged = null)
     {
         var compared = 0;
         var german = CaptionLabels.DocumentLanguage(document) == "de";
         foreach (var toc in Expected(document, host))
         {
+            if (notJudged?.Contains(toc.Container[toc.First]) == true)
+            {
+                continue;
+            }
+
             var areaLast = toc.TailOnly ? toc.Last - 1 : toc.Last;
             var count = areaLast - toc.First + 1;
             var wanted = Math.Max(1, toc.Entries.Count);

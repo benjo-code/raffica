@@ -252,6 +252,25 @@ public sealed class FieldOracleTests
         TestContext.Current.SendDiagnosticMessage($"page results {seed}: {steps.PageResultsCompared} compared, {steps.SettlePasses} passes over {steps.Compared} steps");
     }
 
+    // The skip needs both outcomes under test: typing that moves no page (the pass is skipped and the stored page results still equal the independent count) and typing that moves one (the page loop runs and ends in the same state).
+    [Fact]
+    public async Task TypingThatMovesNoPageSkipsThePagePassAndTypingThatMovesOneDoesNot()
+    {
+        var model = WithPageResults();
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var steps = new FieldSteps(model, layout, new LayoutOptions());
+        var random = new Random(77);
+
+        for (var i = 0; i < 40; i++)
+        {
+            await steps.RunKindAsync(FieldStepKind.TypeSkippingPages, random, "skipping " + i);
+        }
+
+        Assert.True(steps.PagePassesSkipped > 0, "no typing step skipped the page pass");
+        Assert.True(steps.PagePassesRun > 0, "no typing step needed the page loop");
+        Assert.True(steps.PageResultsCompared > 0);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]

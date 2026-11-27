@@ -67,6 +67,91 @@ public sealed class FieldRefreshTests
         Assert.Equal(4, result.Content.Count);
     }
 
+    // Typing right after a field must not put the text into the run of the field's end mark: a run that holds the end mark and other content cannot take a new result (FieldWriter), so the field would never be updated again.
+    [Theory]
+    [InlineData("x")]
+    [InlineData("x\nrest")]
+    [InlineData("\nrest")]
+    public void TextTypedRightAfterAFieldLeavesTheFieldUpdatable(string typed)
+    {
+        var bold = "<w:r><w:rPr><w:b/></w:rPr><w:fldChar w:fldCharType=\"end\"/></w:r>";
+        var field = Field("SEQ Figure", "7").Replace("<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>", bold, StringComparison.Ordinal);
+        var document = Doc(P(Run("Figure ") + field, "Caption"));
+        var editor = Editor(document);
+        var caption = (Paragraph)document.Body.Blocks[0];
+        var at = new TextPosition(StoryRef.Body, caption, "Figure 7".Length);
+
+        var result = editor.InsertText(new TextRange(at, at), typed);
+
+        Assert.True(FieldWriter.CanWrite(FieldView.InParagraph(caption)[0]));
+        if (typed[0] == 'x')
+        {
+            // The typed text takes the formatting of the run it follows.
+            var inserted = caption.Inlines.OfType<Run>().Single(r => r.Content.OfType<TextContent>().Any(t => t.Text == "x"));
+            Assert.DoesNotContain(inserted.Content, c => c is FieldChar);
+            Assert.Contains(inserted.Properties.Children, c => c.Name.LocalName == "b");
+        }
+
+        // The second keystroke goes on in the same run.
+        var after = editor.InsertText(new TextRange(result.Caret, result.Caret), "y");
+        Assert.True(FieldWriter.CanWrite(FieldView.InParagraph(caption)[0]));
+        Assert.NotNull(after);
+
+        var refreshed = editor.RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+        Assert.Equal("1", Stored(document, 0));
+        Assert.Equal(0, refreshed.NotUpdated);
+    }
+
+    // Word calls a reference to a bookmark that holds the reference itself invalid ("Error! Not a valid bookmark self-reference.", checked with Word 16.0 on 2026-11-27); Write never shows an error text, so the field keeps its stored result and is counted. Without this the result grows with every refresh and never settles.
+    [Theory]
+    [InlineData("REF Self \\h")]
+    [InlineData("REF Self")]
+    public void AReferenceToABookmarkThatHoldsItselfKeepsItsResult(string instruction)
+    {
+        var document = Doc(P("<w:bookmarkStart w:id=\"1\" w:name=\"Self\"/>" + Run("Chapter ") + Field(instruction, "old") + Run(" end") + "<w:bookmarkEnd w:id=\"1\"/>"));
+        var editor = Editor(document);
+
+        var first = editor.RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        Assert.Equal("old", Stored(document, 0));
+        Assert.Equal(0, first.Written);
+        Assert.Equal(1, first.NotUpdated);
+        Assert.Empty(editor.RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased).Content);
+    }
+
+    // A reference inside a bookmark that does not reach back to itself (the number of the paragraph, or a bookmark elsewhere) is still written.
+    [Fact]
+    public void AReferenceThatOnlyStandsInsideAnotherBookmarkIsStillWritten()
+    {
+        var document = Doc(
+            P("<w:bookmarkStart w:id=\"1\" w:name=\"Other\"/>" + Run("text") + "<w:bookmarkEnd w:id=\"1\"/>"),
+            P("<w:bookmarkStart w:id=\"2\" w:name=\"Around\"/>" + Field("REF Other \\h", "old") + "<w:bookmarkEnd w:id=\"2\"/>"));
+
+        Assert.Equal(1, Refresh(document).Written);
+        Assert.Equal("text", Stored(document, 1));
+    }
+
+    // A field with an empty result has no text a delete could take: one that lies between the deleted characters goes with them (as in Word), so a bookmark whose whole range is deleted goes too.
+    [Fact]
+    public void DeletingTheTextAroundAFieldWithAnEmptyResultTakesTheFieldAndTheBookmark()
+    {
+        var empty = "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> REF Missing </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
+        var document = Doc(
+            P("<w:bookmarkStart w:id=\"1\" w:name=\"Mark\"/>" + Run("ab") + empty + Run("cd") + "<w:bookmarkEnd w:id=\"1\"/>"),
+            P("<w:bookmarkStart w:id=\"2\" w:name=\"Kept\"/>" + Run("ab") + empty + Run("cd") + "<w:bookmarkEnd w:id=\"2\"/>"));
+        var editor = Editor(document);
+        var first = (Paragraph)document.Body.Blocks[0];
+        var second = (Paragraph)document.Body.Blocks[1];
+
+        editor.Delete(new TextRange(new TextPosition(StoryRef.Body, first, 0), new TextPosition(StoryRef.Body, first, 4)));
+        editor.Delete(new TextRange(new TextPosition(StoryRef.Body, second, 0), new TextPosition(StoryRef.Body, second, 2)));
+
+        Assert.Empty(FieldView.InParagraph(first));
+        Assert.DoesNotContain("Mark", BookmarkOperations.AllNames(document));
+        Assert.Single(FieldView.InParagraph(second));
+        Assert.Contains("Kept", BookmarkOperations.AllNames(document));
+    }
+
     [Fact]
     public void SeqRestartsAfterAHeadingWithS()
     {

@@ -42,6 +42,8 @@ internal sealed class FieldRefreshRunner : IDisposable
     private bool _disposed;
     private bool _running;
     private bool _wantPages = true;
+    private int _roundPasses;
+    private long? _settledSignature;
     private int _consecutiveFailures;
     private TextEditor? _bare;
     private WordDocument? _bareModel;
@@ -76,6 +78,12 @@ internal sealed class FieldRefreshRunner : IDisposable
     /// <summary>True while edits wait for the timer (or for a condition that holds it back).</summary>
     public bool IsPending => _pending;
 
+    /// <summary>How many times the pages were laid out on the calling thread by a refresh (the save path only: the timer path waits for the background layout, tests).</summary>
+    internal int SyncLayoutCompletions { get; private set; }
+
+    /// <summary>How many first passes skipped the page pass because nothing could have moved a page (tests).</summary>
+    internal int PagePassesSkipped { get; private set; }
+
     /// <summary>The host the refresh asks for labels and notes (tests).</summary>
     internal FieldHost Host => _host;
 
@@ -101,6 +109,7 @@ internal sealed class FieldRefreshRunner : IDisposable
 
         _pending = true;
         _consecutiveFailures = 0;
+        _roundPasses = 0;
         _timer.Restart(Delay);
     }
 
@@ -267,6 +276,7 @@ internal sealed class FieldRefreshRunner : IDisposable
             {
                 if (_host.Layout is { Mode: LayoutMode.Pages, IsComplete: false } layout)
                 {
+                    SyncLayoutCompletions++;
                     layoutFailed = true;
                     layout.LayOutThrough(int.MaxValue);
                     layoutFailed = false;
@@ -279,12 +289,23 @@ internal sealed class FieldRefreshRunner : IDisposable
                 CompleteLayout();
             }
 
-            for (var pass = 0; pass < MaxPasses && !token.IsCancellationRequested; pass++)
+            // A refresh that waited for the background layout goes on counting its passes (the bound is three per burst, whichever path); a save starts its own count.
+            var first = forSettle ? 0 : _roundPasses;
+            _roundPasses = 0;
+            for (var pass = first; pass < MaxPasses && !token.IsCancellationRequested; pass++)
             {
-                // Page results need every block and a complete layout: such a pass looks at the whole body; any other pass at the touched blocks of the first pass.
-                var pagesOn = _wantPages && _host.IsComplete;
-                var scope = pagesOn ? RefreshScope.WithPages : RefreshScope.OrderBased;
+                // Page results need every block and a complete layout: such a pass looks at the whole body; any other pass at the touched blocks of the first pass. The first pass of a burst of plain edits skips the page pass when the layout's page
+                // table is the one the last settled page pass saw and no touched block carries something a page result points at (the editor decides: a skipped pass gives what a whole pass gives).
+                var complete = _wantPages && _host.IsComplete;
+                var skip = complete && pass == 0 && touched is not null && editor.PagePassCanBeSkipped(_host, touched, _settledSignature);
+                var pagesOn = complete && !skip;
+                var scope = pagesOn ? RefreshScope.WithPages : skip ? RefreshScope.OrderBasedPagesCurrent : RefreshScope.OrderBased;
                 var blocks = pass == 0 && !pagesOn ? touched : null;
+                if (skip)
+                {
+                    PagePassesSkipped++;
+                }
+
                 try
                 {
                     last = Refresher is { } seam ? seam(editor, _host, scope, blocks) : editor.RefreshFields(_host, scope, blocks);
@@ -339,6 +360,12 @@ internal sealed class FieldRefreshRunner : IDisposable
                     WaitForRedo();
                 }
 
+                if (pagesOn)
+                {
+                    // The page table the settled numbers belong to: a later burst of plain edits that leaves it as it is cannot have moved a number.
+                    _settledSignature = last.Settled ? _host.PageSignature : null;
+                }
+
                 if (_pending)
                 {
                     // An edit arrived during the passes: they end here and start over with the new blocks when the timer fires.
@@ -357,8 +384,21 @@ internal sealed class FieldRefreshRunner : IDisposable
                     break;
                 }
 
-                // Write, apply, repeat: the layout shows what was written and is complete before the numbers are read again.
-                CompleteLayout();
+                // Write, apply, repeat: the numbers are read again from a complete layout. A save lays the rest out here and now; the timer path never does (it would freeze the window for the length of the layout): it waits for the background
+                // layout like the first look does, and the next tick runs the next pass.
+                if (!_host.IsComplete)
+                {
+                    if (!forSettle)
+                    {
+                        _roundPasses = pass + 1;
+                        _all = true;
+                        _pending = true;
+                        _timer.Restart(Delay);
+                        break;
+                    }
+
+                    CompleteLayout();
+                }
             }
 
             if (wholeBody && last is not null)
@@ -372,6 +412,8 @@ internal sealed class FieldRefreshRunner : IDisposable
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Failures++;
+            _roundPasses = 0;
+            _settledSignature = null;
             if (layoutFailed)
             {
                 // The layout threw while it followed the change: it is faulted for good (the session with it) and nothing more is refreshed.

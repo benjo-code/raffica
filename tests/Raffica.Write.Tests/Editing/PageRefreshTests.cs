@@ -281,4 +281,33 @@ public sealed class PageRefreshTests
         Assert.Equal("2", Stored(document, last, 0));
         Assert.Equal("2", Stored(document, last, 1));
     }
+
+    // The skip's rule at the editor: the page table must be the settled one and no touched block may carry a heading, a bookmark, a field, a note reference or a block count change.
+    [Fact]
+    public async Task APagePassCanBeSkippedOnlyWhenThePageTableIsTheSettledOneAndNothingTouchedCarriesAnAnchor()
+    {
+        var body = P(Run("one")) + P(Mark(1, "Bk", "target")) + P(Run("Chapter"), "Heading1") + P(Run("plain two")) + P(Run("see ") + Field("PAGEREF Bk \\h", "?")) + P(PageBreak + Run("tail")) + Plain;
+        var document = LayoutModel.Document(body, Styles());
+        var editor = Editor(document);
+        var host = await HostAsync(document);
+        var signature = host.PageSignature;
+        Assert.NotNull(signature);
+
+        BlockChange Replaced(int index) => new(StoryRef.Body, document.Body.Blocks, index, 1, 1, [document.Body.Blocks[index].Clone()]);
+
+        Assert.True(editor.PagePassCanBeSkipped(host, [Replaced(0)], signature), "a plain paragraph on the settled page table");
+        Assert.True(editor.PagePassCanBeSkipped(host, [Replaced(3)], signature));
+        Assert.False(editor.PagePassCanBeSkipped(host, [Replaced(1)], signature), "a bookmark");
+        Assert.False(editor.PagePassCanBeSkipped(host, [Replaced(2)], signature), "a heading");
+        Assert.False(editor.PagePassCanBeSkipped(host, [Replaced(4)], signature), "a field");
+        Assert.False(editor.PagePassCanBeSkipped(host, [new BlockChange(StoryRef.Body, document.Body.Blocks, 0, 2, 1, [document.Body.Blocks[0].Clone(), document.Body.Blocks[1].Clone()])], signature), "blocks added or removed");
+        Assert.False(editor.PagePassCanBeSkipped(host, [Replaced(0)], null), "no settled signature yet");
+        Assert.False(editor.PagePassCanBeSkipped(host, [Replaced(0)], signature + 1), "another page table");
+
+        // Text that pushes later blocks to another page changes the signature.
+        Para(document, 0).Inlines.Add(new Run { Content = { new TextContent(string.Join(' ', Enumerable.Repeat("filler", 1500))) } });
+        var moved = await HostAsync(document);
+        Assert.NotEqual(signature, moved.PageSignature);
+        Assert.False(editor.PagePassCanBeSkipped(moved, [Replaced(0)], signature));
+    }
 }

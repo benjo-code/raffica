@@ -5,6 +5,17 @@ namespace Raffica.Write.Editing;
 public sealed partial class TextEditor
 {
     /// <summary>
+    /// True when a page pass (<see cref="RefreshScope.WithPages"/>) can be left out after an edit of <paramref name="touched"/>: the host's page table equals <paramref name="settledSignature"/> (the one it gave when the last page pass settled; both known) and no touched block
+    /// can change what a page result says or points at (<see cref="FieldRefresh.CarriesPageAnchor"/>). Then every page result is what a whole pass would write, so the caller asks for <see cref="RefreshScope.OrderBasedPagesCurrent"/> and the cost stays the walk of the touched blocks. Cheap: no body walk.
+    /// </summary>
+    public bool PagePassCanBeSkipped(IFieldHost host, IReadOnlyList<BlockChange> touched, long? settledSignature)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(touched);
+        return settledSignature is { } settled && host.PageSignature == settled && !FieldRefresh.CarriesPageAnchor(touched, _document);
+    }
+
+    /// <summary>
     /// Brings the results of <c>SEQ</c>, <c>STYLEREF 1 \s</c>, <c>REF</c> and <c>NOTEREF</c> fields of the body up to date, from the model and <paramref name="host"/> alone. It is not an edit: no revision, no dirty flag, no history step
     /// and no caret (a table of contents whose paragraph count changed is <see cref="FieldRefreshResult.Structural"/>: attach it with <see cref="EditHistory.AttachDerived"/>); a refresh that wrote something raises <see cref="DocumentEdits.DerivedVersion"/> and says so to the snapshot tracker, and the caller brings <see cref="FieldRefreshResult.Content"/> into the layout
     /// (<c>DocumentLayout.ApplyEdit</c>). <paramref name="touched"/> are the block changes of the edit that made the refresh necessary (null for the whole body, as for the first refresh of a document); the walk then writes only to those blocks

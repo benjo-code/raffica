@@ -314,6 +314,15 @@ internal sealed class FieldHarness : IDisposable
         Clock.Fire();
     }
 
+    /// <summary>Ticks until the timer stays quiet (a refresh whose results moved the pages waits for the background layout between its passes, one tick each), at most ten times.</summary>
+    public async Task FireUntilIdleAsync()
+    {
+        for (var i = 0; i < 10 && (i == 0 || Clock.IsArmed); i++)
+        {
+            await FireAsync();
+        }
+    }
+
     public static void Pump() => ViewHarness.Pump();
 
     public void Dispose()

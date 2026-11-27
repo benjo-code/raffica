@@ -38,6 +38,13 @@ internal sealed class FieldHost(WriteTab tab) : IFieldHost
             return null;
         }
 
+        return PagesFor(layout).PageOf(position.Paragraph);
+    }
+
+    public long? PageSignature => Layout is { Mode: LayoutMode.Pages } layout ? PagesFor(layout).Signature() : null;
+
+    private FieldPages PagesFor(DocumentLayout layout)
+    {
         var model = tab.Docx.Model;
         if (_pages is null || !ReferenceEquals(_pagesLayout, layout) || !ReferenceEquals(_pagesModel, model))
         {
@@ -46,7 +53,7 @@ internal sealed class FieldHost(WriteTab tab) : IFieldHost
             _pages = new FieldPages(model, layout);
         }
 
-        return _pages.PageOf(position.Paragraph);
+        return _pages;
     }
 
     public string? NoteMarkText(int noteId, NoteType type) => Labels().NoteMarkText(noteId, type);

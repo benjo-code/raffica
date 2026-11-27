@@ -449,7 +449,19 @@ public sealed partial class TextEditor
                 InsertRange(item.Run.Content, item.Index, replacement);
                 break;
             case PointKind.AfterContent:
-                InsertRange(map.Items[point.Flat].Run.Content, map.Items[point.Flat].Index + 1, contents);
+                var previous = map.Items[point.Flat];
+                // Text right after a field never goes into the run of its end mark: a run that holds the end mark and other content cannot take a new result (FieldWriter), so the field would never be updated again.
+                if (previous.Content is FieldChar { Kind: FieldCharKind.End } && previous.Index == previous.Run.Content.Count - 1)
+                {
+                    var next = MakeRun(paragraph, previous.Run);
+                    InsertRange(next.Content, 0, contents);
+                    previous.Owner.Insert(previous.Owner.IndexOf(previous.Run) + 1, next);
+                }
+                else
+                {
+                    InsertRange(previous.Run.Content, previous.Index + 1, contents);
+                }
+
                 break;
             case PointKind.BeforeContent:
                 InsertRange(map.Items[point.Flat].Run.Content, map.Items[point.Flat].Index, contents);
@@ -743,6 +755,7 @@ public sealed partial class TextEditor
         }
 
         EditRules.KillUnknownBetween(map, lowest, highest, kill);
+        KillFieldsBetween(map, lowest, highest, kill, simpleKill);
 
         var touched = new HashSet<Run>();
         foreach (var (flat, cut) in cuts)
@@ -766,6 +779,32 @@ public sealed partial class TextEditor
 
         Prune(map.Paragraph.Inlines, touched);
         return true;
+    }
+
+    // A field with an empty result has no piece a delete could take: one that stands wholly between the removed contents goes with them, as in Word (a bookmark around the deleted text would otherwise stay for a field nobody sees). A field in a
+    // tracked change is left as it is.
+    private static void KillFieldsBetween(ParagraphMap map, int lowest, int highest, HashSet<int> kill, List<SimpleFieldSpan> simpleKill)
+    {
+        var inside = map.ComplexFields.Where(f => f.Begin > lowest && f.End < highest && !kill.Contains(f.Begin)).ToList();
+        var simple = map.SimpleFields.Where(s => s.Start == s.End && s.Start > lowest && s.Start <= highest && !simpleKill.Contains(s)).ToList();
+        if (inside.Count == 0 && simple.Count == 0)
+        {
+            return;
+        }
+
+        var tracked = FieldView.InParagraph(map.Paragraph).Where(f => f.InTrackedChange).ToList();
+        foreach (var (begin, end) in inside)
+        {
+            if (!tracked.Any(f => ReferenceEquals(f.Info!.BeginRun, map.Items[begin].Run)))
+            {
+                for (var i = begin; i <= end; i++)
+                {
+                    kill.Add(i);
+                }
+            }
+        }
+
+        simpleKill.AddRange(simple.Where(s => !tracked.Any(f => ReferenceEquals(f.Info!.Simple, s.Field))));
     }
 
     // Removes the runs that lost their last content and the links, fields and insertions that were left empty by it.

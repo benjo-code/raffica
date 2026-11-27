@@ -36,6 +36,9 @@ internal sealed class ParagraphMap
 
     public IReadOnlyList<SimpleFieldSpan> SimpleFields => _simpleFields;
 
+    /// <summary>The complex fields: the flat items of the begin and the end mark (an unclosed one ends at the last item).</summary>
+    public IReadOnlyList<(int Begin, int End)> ComplexFields => _fields;
+
     public static ParagraphMap Build(Paragraph paragraph, IProjectionHost host)
     {
         var map = new ParagraphMap(paragraph, ParagraphProjection.Build(paragraph, host));

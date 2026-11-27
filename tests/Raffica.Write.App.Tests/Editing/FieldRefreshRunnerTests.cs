@@ -400,7 +400,7 @@ public sealed class FieldRefreshRunnerTests
         structural = false;
         Assert.NotNull(session.Apply(e => e.History.Redo(), 0));
 
-        // The look at the whole body waits for a complete layout: the edits above lay out in the background, so the tick that matters is the one after that has finished.
+        // The look at the whole body waits for a complete layout: the edits above lay out in the background, so the tick that matters is the one after that has finished. The pass that rewrites the list leaves pages to lay out, so one more tick follows it (the timer path never lays out on the UI thread).
         await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsComplete, 30000);
         h.Clock.Fire();
         Assert.True(runner.Passes > passes);
@@ -795,9 +795,9 @@ public sealed class FieldRefreshRunnerTests
         // The redo is done: the list is brought up to date and the step that was redone carries the change.
         Assert.NotNull(session.Apply(e => e.History.Redo(), 0));
 
-        // The look at the whole body waits for a complete layout: the edits above lay out in the background, so the tick that matters is the one after that has finished.
+        // The look at the whole body waits for a complete layout: the edits above lay out in the background, so the tick that matters is the one after that has finished. The pass that rewrites the list leaves pages to lay out, so one more tick follows it (the timer path never lays out on the UI thread).
         await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsComplete, 30000);
-        await h.FireAsync();
+        await h.FireUntilIdleAsync();
         Assert.True(runner.Passes > passes);
         Assert.Equal(inserted + 1, TocParagraphs(h.Tab));
         Assert.Equal(1, runner.StructuralAttached);

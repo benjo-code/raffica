@@ -17,6 +17,12 @@ public interface IFieldHost
     /// <summary>The page the position is on: its zero-based index and the printed page number (section format and start respected), or null when the layout has no answer.</summary>
     (int PageIndex, string PageText)? PageOf(TextPosition position);
 
+    /// <summary>
+    /// A value that changes whenever a page result could: it covers the page of every top-level body block and the printed number of every page, and is known only while <see cref="IsComplete"/>. Null (the default) means "not known": a caller then
+    /// never skips a page pass. Equal values at two times mean no body block moved to another page and no page changed its number.
+    /// </summary>
+    long? PageSignature => null;
+
     /// <summary>The mark text of the note with that id (the number the reader sees), or null when there is none.</summary>
     string? NoteMarkText(int noteId, NoteType type);
 }

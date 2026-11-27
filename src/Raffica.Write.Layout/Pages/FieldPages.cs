@@ -45,6 +45,46 @@ public sealed class FieldPages(WordDocument document, DocumentLayout layout)
         return _layout.TryGetPage(at.Page, out var page) && page is not null ? (at.Page, page.Number) : null;
     }
 
+    /// <summary>
+    /// A hash of the page table: the page count, the printed number of every page and the page every top-level body block starts on. Null for a layout of the writing view or one that is not complete. Equal values mean that nothing a page
+    /// result reads has moved (the cost is one pass over the pages and the block table, no body walk and no paragraph map).
+    /// </summary>
+    public long? Signature()
+    {
+        if (_layout.Mode != LayoutMode.Pages || !_layout.IsComplete)
+        {
+            return null;
+        }
+
+        var hash = 14695981039346656037UL;
+        void Add(long value) => hash = unchecked((hash ^ (ulong)value) * 1099511628211UL);
+        var count = _layout.LaidOutPages;
+        Add(count);
+        for (var p = 0; p < count; p++)
+        {
+            if (!_layout.TryGetPage(p, out var page) || page is null)
+            {
+                return null;
+            }
+
+            foreach (var c in page.Number)
+            {
+                Add(c);
+            }
+
+            Add(-1);
+        }
+
+        var blocks = _document.Body.Blocks.Count;
+        Add(blocks);
+        for (var b = 0; b < blocks; b++)
+        {
+            Add(_layout.Locate(b)?.Page ?? -2);
+        }
+
+        return unchecked((long)hash);
+    }
+
     private static Dictionary<Paragraph, int> Build(IList<Block> body)
     {
         var map = new Dictionary<Paragraph, int>(ReferenceEqualityComparer.Instance);
