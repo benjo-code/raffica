@@ -254,7 +254,8 @@ public sealed class TocEditingTests
         Assert.Contains("\\n", instruction, StringComparison.Ordinal);
         Assert.Contains("\\h \\z", instruction, StringComparison.Ordinal);
         Assert.DoesNotContain("PAGEREF", Bytes(document), StringComparison.Ordinal);
-        Assert.All(TocParagraphs(document), p => Assert.Null(p.Properties.Get(XName.Get("tabs", "http://schemas.openxmlformats.org/wordprocessingml/2006/main"))));
+        // Word writes the right stop of the page numbers into such a list too; no tab goes to it.
+        Assert.All(TocParagraphs(document), p => Assert.Single(p.Properties.Get(XName.Get("tabs", "http://schemas.openxmlformats.org/wordprocessingml/2006/main"))!.Elements()));
         ReferenceToc.AssertEqualToExpected(document, host, "no pages");
     }
 

@@ -362,19 +362,20 @@ public sealed class TocStructuralRefreshTests
         var host = new FakeFieldHost(document);
         Assert.NotNull(editor.InsertToc(At(document, 3), new TocOptions(1, 3, true, false, TocLeader.Dots, null), host));
         var before = BodyBytes(document);
-        Assert.All(TocParagraphs(document), p => Assert.Null(p.Properties.Get(s_tabs)));
+        var own = TocParagraphs(document)[0].Properties.Get(s_tabs)?.ToString(SaveOptions.DisableFormatting);
+        Assert.NotNull(own);
 
-        // The next refresh finds nothing to write: it never invents a tab stop.
+        // The next refresh finds nothing to write.
         var again = editor.RefreshFields(host, RefreshScope.OrderBased);
         Assert.Empty(again.Content);
         Assert.Equal(before, BodyBytes(document));
 
-        // A heading added later gets an entry like its neighbours: no tab stop.
+        // A heading added later gets an entry like its neighbours: the page number after a space, the same stops.
         var step = Step(editor.ApplyParagraphStyle(Whole(document, 1), "Heading1"));
         var (result, _) = Refresh(editor, host, step);
         Assert.NotNull(result.Structural);
-        Assert.Equal(["Alpha|?", "x|?", "Beta|?"], Lines(document));
-        Assert.All(TocParagraphs(document), p => Assert.Null(p.Properties.Get(s_tabs)));
+        Assert.Equal(["Alpha ?", "x ?", "Beta ?"], Lines(document));
+        Assert.All(TocParagraphs(document), p => Assert.Equal(own, p.Properties.Get(s_tabs)?.ToString(SaveOptions.DisableFormatting)));
         ReferenceToc.AssertEqualToExpected(document, host, "left aligned");
     }
 

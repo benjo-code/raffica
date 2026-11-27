@@ -17,7 +17,7 @@ public sealed class FieldLabels(WordDocument document)
     private readonly WordDocument _document = document ?? throw new ArgumentNullException(nameof(document));
     private int _revision = int.MinValue;
     private LayoutEffectiveFormat? _format;
-    private Dictionary<Paragraph, (string Text, string Numbers)>? _labels;
+    private Dictionary<Paragraph, (string Text, string Numbers, bool Tab)>? _labels;
     private Dictionary<(NoteType Type, int Id), string>? _marks;
     private readonly HashSet<Paragraph> _missed = new(ReferenceEqualityComparer.Instance);
 
@@ -27,7 +27,10 @@ public sealed class FieldLabels(WordDocument document)
     /// <summary>The label of a paragraph of the body as the page draws it (for example <c>2.1.</c>), or null when it has none (no list, or a list or level that does not exist).</summary>
     public string? NumberLabel(Paragraph paragraph) => LabelOf(paragraph)?.Text;
 
-    private (string Text, string Numbers)? LabelOf(Paragraph paragraph)
+    /// <summary>True when a tab follows the label of the paragraph (the suffix of its list level); false for a space or nothing and for a paragraph without a label.</summary>
+    public bool LabelEndsInTab(Paragraph paragraph) => LabelOf(paragraph)?.Tab ?? false;
+
+    private (string Text, string Numbers, bool Tab)? LabelOf(Paragraph paragraph)
     {
         ArgumentNullException.ThrowIfNull(paragraph);
         var format = Current();
@@ -84,16 +87,16 @@ public sealed class FieldLabels(WordDocument document)
         return _format;
     }
 
-    private Dictionary<Paragraph, (string Text, string Numbers)> BuildLabels(LayoutEffectiveFormat format)
+    private Dictionary<Paragraph, (string Text, string Numbers, bool Tab)> BuildLabels(LayoutEffectiveFormat format)
     {
         LabelBuilds++;
-        var labels = new Dictionary<Paragraph, (string Text, string Numbers)>(ReferenceEqualityComparer.Instance);
+        var labels = new Dictionary<Paragraph, (string Text, string Numbers, bool Tab)>(ReferenceEqualityComparer.Instance);
         var counter = new NumberingCounter(_document.Numbering);
         foreach (var paragraph in ParagraphsOf(_document.Body.Blocks, 0))
         {
             if (counter.Next(format.ResolveParagraph(StoryRef.Body, paragraph), out var numbers) is { } label)
             {
-                labels[paragraph] = (label.Text, numbers);
+                labels[paragraph] = (label.Text, numbers, label.Suffix == NumberSuffix.Tab);
             }
         }
 

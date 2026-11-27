@@ -70,7 +70,7 @@ public sealed class FieldInstruction
             var next = i + 1 < tokens.Count && !tokens[i + 1].IsSwitch ? tokens[i + 1].Text : null;
 
             // An unknown field or switch takes the next plain token as its value, so it is not mistaken for the argument.
-            if (value is null && next is not null && (spec is null || kind is null || kind == SwitchValue.Required || (kind == SwitchValue.Optional && LooksLikeRange(next))))
+            if (value is null && next is not null && (spec is null || kind is null || kind is SwitchValue.Required or SwitchValue.Text || (kind == SwitchValue.Optional && LooksLikeRange(next))))
             {
                 value = next;
                 i++;
@@ -106,6 +106,11 @@ public sealed class FieldInstruction
         if (kind is null)
         {
             return false;
+        }
+
+        if (kind == SwitchValue.Text)
+        {
+            return true;
         }
 
         if (kind == SwitchValue.None)
@@ -169,6 +174,9 @@ public sealed class FieldInstruction
         None,
         Required,
         Optional,
+
+        /// <summary>Any text, also none.</summary>
+        Text,
     }
 
     // The support table: per field name the switches Write handles, whether each carries a value, and how many plain arguments the field has.
@@ -181,6 +189,6 @@ public sealed class FieldInstruction
         ["REF"] = new(1, new() { ["h"] = SwitchValue.None, ["n"] = SwitchValue.None, ["r"] = SwitchValue.None, ["*"] = SwitchValue.Required }),
         ["PAGEREF"] = new(1, new() { ["h"] = SwitchValue.None }),
         ["NOTEREF"] = new(1, new() { ["h"] = SwitchValue.None, ["f"] = SwitchValue.None }),
-        ["TOC"] = new(0, new() { ["o"] = SwitchValue.Required, ["u"] = SwitchValue.None, ["h"] = SwitchValue.None, ["z"] = SwitchValue.None, ["n"] = SwitchValue.Optional, ["c"] = SwitchValue.Required }),
+        ["TOC"] = new(0, new() { ["o"] = SwitchValue.Required, ["u"] = SwitchValue.None, ["h"] = SwitchValue.None, ["z"] = SwitchValue.None, ["n"] = SwitchValue.Optional, ["p"] = SwitchValue.Text, ["c"] = SwitchValue.Required }),
     };
 }

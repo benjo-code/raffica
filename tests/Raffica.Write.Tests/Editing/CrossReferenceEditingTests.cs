@@ -514,6 +514,10 @@ public sealed class CrossReferenceEditingTests
 
         public string? ChapterNumber(Paragraph paragraph) => inner.ChapterNumber(paragraph);
 
+        public bool LabelEndsInTab(Paragraph paragraph) => inner.LabelEndsInTab(paragraph);
+
+        public LineGeometry MeasureLine(Paragraph paragraph, string text) => inner.MeasureLine(paragraph, text);
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => inner.PageOf(position);
 
         public string? NoteMarkText(int noteId, NoteType type) => "1";

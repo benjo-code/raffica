@@ -99,6 +99,22 @@ internal static class ReferenceNumbering
         return result;
     }
 
+    /// <summary>True when the level of the paragraph's list puts a tab after its label: no <c>w:suff</c>, or one that names neither a space nor nothing.</summary>
+    public static bool TabFollows(WordDocument document, Paragraph paragraph)
+    {
+        var defaultStyle = document.Styles?.Styles.FirstOrDefault(s => s.IsDefault && (s.Type ?? "paragraph") == "paragraph");
+        var (numId, level) = EffectiveNumbering(paragraph, document.Styles, defaultStyle);
+        if (numId <= 0 || document.Numbering is not { } numbering || numbering.FindInstance(numId) is not { } instance)
+        {
+            return false;
+        }
+
+        var definition = instance.Overrides.FirstOrDefault(o => o.Level == level && o.Definition is not null)?.Definition
+            ?? (instance.AbstractNumId is { } id ? numbering.FindAbstract(id)?.Levels.FirstOrDefault(l => l.Level == level) : null);
+        return definition is not null
+            && !definition.KeptChildren.Any(c => c.Content.Element.Name == W + "suff" && c.Content.Element.Attribute(W + "val")?.Value is "space" or "nothing");
+    }
+
     private static (int NumId, int Level) EffectiveNumbering(Paragraph paragraph, StyleSheet? styles, Style? defaultStyle)
     {
         var numId = -1;

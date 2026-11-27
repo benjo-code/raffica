@@ -92,12 +92,17 @@ public sealed class WordCheckFieldFilesTests
     {
         private readonly FieldLabels _labels = new(document);
         private readonly FieldPages _pages = new(document, layout);
+        private readonly LineMeasure _measure = new(document, Fonts);
 
         public bool IsComplete => layout.IsComplete;
 
         public string? NumberLabel(Paragraph paragraph) => _labels.NumberLabel(paragraph);
 
         public string? ChapterNumber(Paragraph paragraph) => _labels.ChapterNumber(paragraph);
+
+        public bool LabelEndsInTab(Paragraph paragraph) => _labels.LabelEndsInTab(paragraph);
+
+        public LineGeometry MeasureLine(Paragraph paragraph, string text) => _measure.Measure(paragraph, text);
 
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => position.Story.Kind == StoryKind.Body ? _pages.PageOf(position.Paragraph) : null;
 
@@ -265,6 +270,113 @@ public sealed class WordCheckFieldFilesTests
         Settle(file, editor);
 
         await SaveAsync(file, folder, "fields-contents-options.docx");
+    }
+
+    // Numbers whose width differs: twelve chapters with a second and third level under the last ones, and the level texts and formats given.
+    [Theory]
+    [InlineData("fields-contents-wide.docx", "%1.", "%1.%2.", "%1.%2.%3.", null, 1, null)]
+    [InlineData("fields-contents-chapters.docx", "Chapter %1:", "Chapter %1.%2:", "Chapter %1.%2.%3:", null, 1, null)]
+    [InlineData("fields-contents-roman.docx", "%1.", "%1.%2.", "%1.%2.%3.", "upperRoman", 13, null)]
+    [InlineData("fields-contents-appendix.docx", "Appendix %1", "Appendix %1.%2", "(%3)", "upperLetter", 1, null)]
+    [InlineData("fields-contents-suffix.docx", "%1.", "%1.%2.", "%1.%2.%3.", null, 9, "space")]
+    public async Task TablesOfContentsOverWideNumbersAreSavedForWord(string name, string first, string second, string third, string? format, int start, string? suffix)
+    {
+        var folder = Folder();
+        var lines = new List<(string? Style, string Text)> { (null, "Contents stand here."), (null, "Without right alignment."), (null, "Without page numbers.") };
+        for (var chapter = 1; chapter <= 12; chapter++)
+        {
+            lines.Add(("Heading1", $"Chapter heading {chapter}"));
+            lines.AddRange(Filler($"Opening {chapter}", 6));
+            if (chapter >= 10)
+            {
+                lines.Add(("Heading2", $"Section heading {chapter}"));
+                lines.Add(("Heading3", $"Subsection heading {chapter}"));
+            }
+        }
+
+        lines.Add(("Heading1", "A very long chapter heading that goes on and on so that its entry in the table of contents cannot possibly fit on one single line of the page"));
+        var (file, editor) = Build([.. lines]);
+        using var _ = file;
+        Number(file, editor);
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        foreach (var level in file.Model.Numbering!.Abstracts.Where(a => a.Levels.Any(l => l.Level == 0 && l.Text?.Contains("%1", StringComparison.Ordinal) == true)).SelectMany(a => a.Levels).Where(l => l.Level < 3))
+        {
+            level.Text = level.Level switch { 0 => first, 1 => second, _ => third };
+            level.Format = format ?? level.Format;
+            level.Start = level.Level == 0 ? start : level.Start;
+            if (suffix is not null)
+            {
+                level.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(w + "suff", new XAttribute(w + "val", suffix)))));
+            }
+        }
+
+        file.Model.Edits.Raise();
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents");
+        Did(editor.InsertToc(End(Para(file, "Without right alignment.")), new TocOptions(1, 3, true, false, TocLeader.None, null), HostOf(file)), "contents that are not right-aligned");
+        Did(editor.InsertToc(End(Para(file, "Without page numbers.")), new TocOptions(1, 3, false, true, TocLeader.Dots, null), HostOf(file)), "contents without page numbers");
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, name);
+    }
+
+    // Numbered headings that hold no text: Word lists each as its number. A heading whose paragraph mark is hidden and one that is a page break are left out.
+    [Fact]
+    public async Task TablesOfContentsOverEmptyHeadingsAreSavedForWord()
+    {
+        var folder = Folder();
+        var heading = (string content) => "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr>" + content + "</w:p>";
+        var body = P(Run("Contents:")) + P(Run("Not right-aligned:")) + P(Run("Without page numbers:")) + P(Run("With a hyphen before the number:"))
+            + heading(Run("Alpha")) + heading(string.Empty) + heading(Run("    ")) + heading("<w:r><w:tab/></w:r>") + heading("<w:r><w:br/></w:r>") + heading("<w:r><w:br w:type=\"column\"/></w:r>")
+            + heading("<w:del w:id=\"40\" w:author=\"Probe\" w:date=\"2026-01-01T00:00:00Z\">" + Deleted("gone") + "</w:del>") + heading("<w:bookmarkStart w:id=\"41\" w:name=\"Empty\"/><w:bookmarkEnd w:id=\"41\"/>")
+            + heading("<w:r><w:rPr><w:vanish/></w:rPr><w:t>secret</w:t></w:r>") + heading("<w:r><w:br w:type=\"page\"/></w:r>") + heading("<w:r><w:rPr><w:vanish/></w:rPr><w:t>secret</w:t></w:r>" + Run("  "))
+            + "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/><w:rPr><w:vanish/></w:rPr></w:pPr></w:p>"
+            + heading(Run("Footnote only")) + heading(Run("Omega")) + P(Run("The end."));
+        using var file = Probe(body);
+        var editor = EditorOf(file);
+        Number(file, editor);
+        var noted = Para(file, "Footnote only");
+        Did(editor.InsertNote(End(noted), NoteType.Footnote), "a footnote");
+        // A heading that is only a footnote reference: its text goes, the reference stays.
+        var held = file.Model.Body.Blocks.OfType<Paragraph>().First(p => TextOf(p).StartsWith("Footnote only", StringComparison.Ordinal) && p.Properties.StyleId == "Heading1");
+        Did(editor.Delete(new TextRange(new TextPosition(StoryRef.Body, held, 0), new TextPosition(StoryRef.Body, held, "Footnote only".Length))), "the text of a heading");
+
+        Did(editor.InsertToc(End(Para(file, "Contents:")), s_contents, HostOf(file)), "a table of contents");
+        Did(editor.InsertToc(End(Para(file, "Not right-aligned:")), new TocOptions(1, 3, true, false, TocLeader.Dots, null), HostOf(file)), "contents that are not right-aligned");
+        Did(editor.InsertToc(End(Para(file, "Without page numbers:")), new TocOptions(1, 3, false, true, TocLeader.Dots, null), HostOf(file)), "contents without page numbers");
+        Did(editor.InsertToc(End(Para(file, "With a hyphen before the number:")), new TocOptions(1, 3, true, false, TocLeader.Dots, null), HostOf(file)), "contents with another separator");
+        // The card writes a space; a file can name another separator, which the refresh follows.
+        var hyphen = TocRefresh.Find(file.Model.Body.Blocks)[^1];
+        var instruction = ((Paragraph)hyphen.Container[hyphen.First]).Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<InstructionText>().First();
+        instruction.Text = instruction.Text.Replace("\\p \" \"", "\\p \"-\"", StringComparison.Ordinal);
+        file.Model.Edits.Raise();
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, "fields-contents-empty.docx");
+    }
+
+    // Lists whose styles have tab stops of their own, as the corpus thesis has them: Write adds a stop after a number only where the style has none behind it.
+    [Fact]
+    public async Task TablesOfContentsOverStylesWithTabStopsAreSavedForWord()
+    {
+        var folder = Folder();
+        var lines = new List<(string? Style, string Text)> { (null, "Contents stand here."), ("Heading1", "First"), ("Heading2", "Second"), ("Heading3", "Third"), ("Heading1", "Fourth"), (null, "The end.") };
+        var (file, editor) = Build([.. lines]);
+        using var _ = file;
+        Number(file, editor);
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents");
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        XElement Stop(string kind, int position) => new(w + "tab", new XAttribute(w + "val", kind), new XAttribute(w + "pos", position));
+        // TOC1 as in the thesis (a stop behind the numbers), TOC2 with one the numbers are longer than, TOC3 with a hanging indent.
+        file.Model.Styles!.Find("TOC1")!.ParagraphProperties.Set(w + "tabs", new XElement(w + "tabs", Stop("left", 567), Stop("right", 9072)));
+        file.Model.Styles!.Find("TOC2")!.ParagraphProperties.Set(w + "tabs", new XElement(w + "tabs", Stop("left", 300)));
+        file.Model.Styles!.Find("TOC3")!.ParagraphProperties.Set(w + "ind", new XElement(w + "ind", new XAttribute(w + "left", 1440), new XAttribute(w + "hanging", 1000)));
+        file.Model.Edits.Raise();
+        var list = TocRefresh.Find(file.Model.Body.Blocks)[0];
+        Did(editor.RemoveToc(new TextPosition(StoryRef.Body, (Paragraph)list.Container[list.First], 0)), "removing the table of contents");
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents over styles with tab stops");
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, "fields-contents-style-stops.docx");
     }
 
     [Fact]

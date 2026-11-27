@@ -20,16 +20,21 @@ internal static partial class EditCommand
     private const int FieldPagesParagraphs = 60;
 
     // What the refresh asks of the app, over the layout the bench edits: the labels and note marks of the layout's own counter and the pages of the pages layout.
-    private sealed class BenchFieldHost(WordDocument document, DocumentLayout layout) : IFieldHost
+    private sealed class BenchFieldHost(WordDocument document, DocumentLayout layout, FontCatalog fonts) : IFieldHost
     {
         private readonly FieldLabels _labels = new(document);
         private readonly FieldPages _pages = new(document, layout);
+        private readonly LineMeasure _measure = new(document, fonts);
 
         public bool IsComplete => layout.IsComplete;
 
         public string? NumberLabel(Paragraph paragraph) => _labels.NumberLabel(paragraph);
 
         public string? ChapterNumber(Paragraph paragraph) => _labels.ChapterNumber(paragraph);
+
+        public bool LabelEndsInTab(Paragraph paragraph) => _labels.LabelEndsInTab(paragraph);
+
+        public LineGeometry MeasureLine(Paragraph paragraph, string text) => _measure.Measure(paragraph, text);
 
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => position.Story.Kind == StoryKind.Body ? _pages.PageOf(position.Paragraph) : null;
 
@@ -44,12 +49,13 @@ internal static partial class EditCommand
         var bytes = File.ReadAllBytes(file);
         using var docx = DocxFile.Open(bytes);
         var model = docx.Model;
-        var layout = LayOut(model, FontCatalog.CreateShipped(), new PackageImages(bytes), LayoutMode.Pages);
+        var fonts = FontCatalog.CreateShipped();
+        var layout = LayOut(model, fonts, new PackageImages(bytes), LayoutMode.Pages);
         var format = new RefreshingFormat(model);
         var editor = new TextEditor(model, (story, paragraph) => layout.ProjectionHost(story, paragraph), format: format);
         var blocks = model.Body.Blocks;
         var rows = new List<EditRow>();
-        var host = new BenchFieldHost(model, layout);
+        var host = new BenchFieldHost(model, layout, fonts);
 
         int Through() => Math.Min(Math.Max(0, layout.LaidOutPages - 1), 1);
 
@@ -198,7 +204,7 @@ internal static partial class EditCommand
             FieldCases.RefreshPages,
             () => Apply(editor.InsertText(new TextRange(At(chapterText), At(chapterText)), new string('\n', FieldPagesParagraphs))),
             () => Refresh(host));
-        Add(FieldCases.FirstSettle, MakeHeading, () => Refresh(new BenchFieldHost(model, layout)));
+        Add(FieldCases.FirstSettle, MakeHeading, () => Refresh(new BenchFieldHost(model, layout, fonts)));
         return rows;
     }
 }

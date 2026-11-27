@@ -5,7 +5,7 @@ using Raffica.Write.Model;
 namespace Raffica.Write.Editing;
 
 /// <summary>
-/// What a field refresh asks the app: the number labels and note marks of the tab's model (<see cref="FieldLabels"/>: the layout's own numbering counter and note format, worked out for a revision), whether the layout is complete and the
+/// What a field refresh asks the app: the number labels and note marks of the tab's model (<see cref="FieldLabels"/>: the layout's own numbering counter and note format, worked out for a revision), the width of a text (<see cref="LineMeasure"/> over the tab's fonts), whether the layout is complete and the
 /// page of a position (<see cref="FieldPages"/>: the page the paragraph's block starts on and the number the footer's <c>PAGE</c> field prints there). Pages exist only in the pages view: while the session follows the writing view's strips
 /// <see cref="IsComplete"/> is false and <see cref="PageOf"/> says "no answer", so the timer writes no page result and the stored ones stay; a save pays them from a pages layout of its own (<see cref="SettlePages"/>). UI thread only.
 /// </summary>
@@ -17,6 +17,8 @@ internal sealed class FieldHost(WriteTab tab) : IFieldHost
     private FieldPages? _pages;
     private WordDocument? _pagesModel;
     private DocumentLayout? _settlePages;
+    private LineMeasure? _measure;
+    private WordDocument? _measureModel;
 
     /// <summary>The layout the refresh follows: the one the editing session follows, or the pages layout while there is no session; null while the pages layout is stale.</summary>
     internal DocumentLayout? Layout => tab.Editor is { } session ? session.ActiveLayout : (tab.Runner.PageLayoutIsStale ? null : tab.Runner.PageLayout);
@@ -54,6 +56,20 @@ internal sealed class FieldHost(WriteTab tab) : IFieldHost
     public string? NumberLabel(Paragraph paragraph) => Labels().NumberLabel(paragraph);
 
     public string? ChapterNumber(Paragraph paragraph) => Labels().ChapterNumber(paragraph);
+
+    public bool LabelEndsInTab(Paragraph paragraph) => Labels().LabelEndsInTab(paragraph);
+
+    public LineGeometry MeasureLine(Paragraph paragraph, string text)
+    {
+        var model = tab.Docx.Model;
+        if (_measure is null || !ReferenceEquals(_measureModel, model))
+        {
+            _measureModel = model;
+            _measure = new LineMeasure(model, tab.Fonts);
+        }
+
+        return _measure.Measure(paragraph, text);
+    }
 
     public (int PageIndex, string PageText)? PageOf(TextPosition position)
     {

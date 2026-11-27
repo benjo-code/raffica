@@ -19,7 +19,7 @@ public enum TocLeader
 /// <summary>
 /// What a new table of contents, list of figures or list of tables is made of. <paramref name="FirstLevel"/> and <paramref name="LastLevel"/> (1 to 9, first not above last) choose the heading levels of a table of contents
 /// (<c>\o "a-b"</c>, with the outline levels, <c>\u</c>); <paramref name="Label"/> is null for a table of contents and the caption label (a sequence identifier) for a list of figures or tables (<c>\c "label"</c>, the levels
-/// are then not used). <paramref name="PageNumbers"/> off writes <c>\n</c>; <paramref name="RightAlign"/> puts the page numbers at a right tab stop with <paramref name="Leader"/> (off: the number follows after a plain tab).
+/// are then not used). <paramref name="PageNumbers"/> off writes <c>\n</c>; <paramref name="RightAlign"/> puts the page numbers at a right tab stop with <paramref name="Leader"/> (off writes <c>\p " "</c>, as Word does: the number follows after a space).
 /// </summary>
 public sealed record TocOptions(int FirstLevel, int LastLevel, bool PageNumbers, bool RightAlign, TocLeader Leader, string? Label);
 

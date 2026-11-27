@@ -7,10 +7,10 @@ namespace Raffica.Write.Editing;
 
 /// <summary>
 /// What a <c>TOC</c> instruction asks for, as the refresh and the insert read it: the levels of the headings (<c>\o "a-b"</c>, all nine with only <c>\u</c>), whether outline levels count (<c>\u</c>), the caption label of a list
-/// of figures or tables (<c>\c "label"</c>, which replaces the levels), whether entries are links (<c>\h</c>) and where page numbers are left out (<c>\n</c>, with or without a range of levels). Another switch or a value Write cannot read
-/// is not a specification: the field is then not updated (<see cref="TryParse"/>).
+/// of figures or tables (<c>\c "label"</c>, which replaces the levels), whether entries are links (<c>\h</c>), where page numbers are left out (<c>\n</c>, with or without a range of levels) and what stands before a page number
+/// (<paramref name="Separator"/>: a tab, or what <c>\p</c> names). Another switch or a value Write cannot read is not a specification: the field is then not updated (<see cref="TryParse"/>).
 /// </summary>
-internal sealed record TocSpec(int FirstLevel, int LastLevel, bool Outline, string? Label, bool Links, bool NoPages, (int From, int To)? NoPagesLevels)
+internal sealed record TocSpec(int FirstLevel, int LastLevel, bool Outline, string? Label, bool Links, bool NoPages, (int From, int To)? NoPagesLevels, string Separator = "\t")
 {
     /// <summary>True for a list of figures or tables (<c>\c</c>).</summary>
     public bool IsFigureList => Label is not null;
@@ -55,17 +55,44 @@ internal sealed record TocSpec(int FirstLevel, int LastLevel, bool Outline, stri
             }
         }
 
+        var separator = "\t";
+        if (parsed.Has("p"))
+        {
+            if (SeparatorOf(parsed.ValueOf("p")) is not { } named)
+            {
+                return null;
+            }
+
+            separator = named;
+        }
+
         if (parsed.Has("c"))
         {
-            return parsed.ValueOf("c") is { } label && CaptionLabels.IsUsable(label) ? new TocSpec(1, 1, false, label, links, noPages, noPagesLevels) : null;
+            return parsed.ValueOf("c") is { } label && CaptionLabels.IsUsable(label) ? new TocSpec(1, 1, false, label, links, noPages, noPagesLevels, separator) : null;
         }
 
         if (parsed.ValueOf("o") is { } levels)
         {
-            return Range(levels) is { } range ? new TocSpec(range.From, range.To, outline, null, links, noPages, noPagesLevels) : null;
+            return Range(levels) is { } range ? new TocSpec(range.From, range.To, outline, null, links, noPages, noPagesLevels, separator) : null;
         }
 
-        return outline ? new TocSpec(1, 9, true, null, links, noPages, noPagesLevels) : null;
+        return outline ? new TocSpec(1, 9, true, null, links, noPages, noPagesLevels, separator) : null;
+    }
+
+    // What Word puts before a page number for the value of \p: its first character, a space for an empty value, a tab without a value. A control character other than a tab is not one Write writes.
+    private static string? SeparatorOf(string? value)
+    {
+        if (value is null)
+        {
+            return "\t";
+        }
+
+        if (value.Length == 0)
+        {
+            return " ";
+        }
+
+        return Rune.TryGetRuneAt(value, 0, out var first) && (!Rune.IsControl(first) || first.Value == '\t') ? first.ToString() : null;
     }
 
     // "a-b" or "a", levels 1 to 9, first not above last.
@@ -88,26 +115,40 @@ internal sealed record TocSpec(int FirstLevel, int LastLevel, bool Outline, stri
         return (a, b);
     }
 
-    /// <summary>The instruction a new table of contents gets (<c>TOC \o "1-3" \h \z \u</c>, with <c>\n</c> for no page numbers, or <c>TOC \h \z \c "label"</c> for a list).</summary>
+    /// <summary>
+    /// The instruction a new table of contents gets, with the switches in Word's order: <c>TOC \o "1-3" \h \z \u</c>, with <c>\n</c> for no page numbers and <c>\p " "</c> for page numbers that are not right-aligned, or
+    /// <c>TOC \h \z \c "label"</c> for a list, with the same two switches.
+    /// </summary>
     public static string InstructionFor(TocOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var pages = options.PageNumbers ? string.Empty : @" \n";
+        var pages = (options.PageNumbers ? string.Empty : @" \n") + (options.RightAlign ? string.Empty : @" \p "" """);
         return options.Label is { } label
             ? "TOC" + pages + @" \h \z \c """ + label + "\""
             : "TOC \\o \"" + options.FirstLevel.ToString(CultureInfo.InvariantCulture) + "-" + options.LastLevel.ToString(CultureInfo.InvariantCulture) + "\"" + pages + @" \h \z \u";
     }
 }
 
-/// <summary>One line of a table of contents: the paragraph it stands for, its level, the number label (empty when there is none) and the text.</summary>
-internal sealed record TocEntry(Paragraph Source, int Level, string Label, string Text);
+/// <summary>
+/// One line of a table of contents: the paragraph it stands for, its level, the number label (empty when there is none), the text (empty only after a label) and whether a tab follows the label (<paramref name="LabelTab"/>; a list
+/// level can have a space or nothing there, which the entry shows as a space).
+/// </summary>
+internal sealed record TocEntry(Paragraph Source, int Level, string Label, string Text, bool LabelTab = false)
+{
+    /// <summary>What the entry says before its page number: the label, what follows it and the text; the label alone without a text, the text alone without a label.</summary>
+    public string Line => Label.Length == 0 ? Text : Text.Length == 0 ? Label : Label + (LabelTab ? "\t" : " ") + Text;
+
+    /// <summary>True when the entry has a tab after its label, so that a tab stop must take the text behind the number.</summary>
+    public bool HasLabelTab => LabelTab && Label.Length > 0 && Text.Length > 0;
+}
 
 /// <summary>
 /// Reads the entries of a table of contents from the body and makes the paragraphs of one, in Word's own shape: every entry is a paragraph of the style <c>TOC1</c> to <c>TOC9</c> (<c>TableofFigures</c> for a list) that holds a
-/// <c>w:hyperlink</c> to a hidden <c>_Toc</c> bookmark on the heading, with the number label, a tab, the text, a tab and a <c>PAGEREF</c> field. The rules of an entry: a heading is a paragraph of the style <c>Heading1</c> to
-/// <c>Heading9</c> (by id, never by name), with <c>\u</c> also a paragraph with an outline level (its own or its style's); its text is the visible text with line breaks and tabs read as spaces, hidden text and tracked deletions left out;
-/// an entry with no text left is left out; the label is the number label the host shows, and a heading without one has none; a heading in a table or a content control counts; the entries of a table of contents
-/// are not headings of another.
+/// <c>w:hyperlink</c> to a hidden <c>_Toc</c> bookmark on the heading, with the number label, what follows it (a tab or a space), the text, the separator before the page number (a tab unless <c>\p</c> names another) and a
+/// <c>PAGEREF</c> field. The rules of an entry: a heading is a paragraph of the style <c>Heading1</c> to <c>Heading9</c> (by id, never by name), with <c>\u</c> also a paragraph with an outline level (its own or its style's); its text
+/// is the visible text with line breaks and tabs read as spaces, hidden text and tracked deletions left out; the label is the number label the host shows, and a heading without one has none; a heading with no text left is listed as its
+/// label alone, as Word does (see <see cref="IsListedWithoutText"/>), and left out without one; a heading in a table or a content control counts; the entries of a table of contents are not headings of another. The tab stops of the
+/// entries are <see cref="TocTabs"/>.
 /// </summary>
 internal static class TocBuilder
 {
@@ -132,6 +173,7 @@ internal static class TocBuilder
 
             int level;
             string label;
+            var tab = false;
             if (spec.Label is { } caption)
             {
                 if (!HoldsSequence(paragraph, caption))
@@ -151,19 +193,52 @@ internal static class TocBuilder
 
                 level = found;
                 label = host.NumberLabel(paragraph) ?? string.Empty;
+                tab = label.Length > 0 && host.LabelEndsInTab(paragraph);
             }
 
             var text = VisibleText(paragraph);
-            if (text.Length == 0)
+            if (text.Length == 0 && (label.Length == 0 || !IsListedWithoutText(paragraph)))
             {
                 continue;
             }
 
-            entries.Add(new TocEntry(paragraph, level, label, text));
+            entries.Add(new TocEntry(paragraph, level, label, text, tab));
         }
 
         return entries;
     }
+
+    /// <summary>
+    /// Whether Word lists a numbered heading that has no visible text, as its number: an empty one, one with white space, tabs, line or column breaks, note or comment references, bookmarks, hidden or deleted text. Word leaves out a heading
+    /// whose paragraph mark is hidden, and one that holds a page break and no text. A picture, a symbol, a non-breaking hyphen or another object Word lists with a copy of it, which Write does not make, so such a heading stays left out
+    /// (a recorded difference); so does one whose paragraph is a tracked deletion.
+    /// </summary>
+    internal static bool IsListedWithoutText(Paragraph paragraph)
+    {
+        var mark = paragraph.Properties.Get(W + "rPr");
+        return mark?.Element(W + "del") is null && !IsOn(mark?.Element(W + "vanish")) && Blank(paragraph.Inlines);
+    }
+
+    private static bool IsOn(XElement? toggle) => toggle is not null && (string?)toggle.Attribute(W + "val") is not ("0" or "false" or "off");
+
+    // True when the shown inlines hold nothing Word would copy into an entry and no page break.
+    private static bool Blank(IEnumerable<Inline> inlines) => inlines.All(inline => inline switch
+    {
+        Run run => run.Properties.GetFlag(W + "vanish") || run.Content.All(content => content switch
+        {
+            TextContent or TabContent or FootnoteReference or EndnoteReference or CommentReference or FieldChar or InstructionText or DeletedText => true,
+            BreakContent b => b.Kind != BreakKind.Page,
+            UnknownRunContent unknown => unknown.Content.Element.Name.LocalName is "cr" or "ptab" or "lastRenderedPageBreak" or "annotationRef",
+            _ => false,
+        }),
+        Hyperlink link => Blank(link.Inlines),
+        SimpleField simple => Blank(simple.Inlines),
+        ContentControlInline control => Blank(control.Inlines),
+        TrackedChange change => change.Kind is TrackedChangeKind.Delete or TrackedChangeKind.MoveFrom || Blank(change.Inlines),
+        BookmarkStart or BookmarkEnd or CommentRangeStart or CommentRangeEnd => true,
+        UnknownInline unknown => unknown.Content.Element.Name.LocalName is "proofErr" or "permStart" or "permEnd" or "moveFromRangeStart" or "moveFromRangeEnd" or "moveToRangeStart" or "moveToRangeEnd",
+        _ => false,
+    });
 
     // A caption Word lists: a sequence field of the label that it counts (also one in a tracked insertion), not a hidden one (\h without a number format).
     private static bool HoldsSequence(Paragraph paragraph, string label) =>
@@ -285,18 +360,18 @@ internal static class TocBuilder
 
     /// <summary>
     /// The paragraphs of the entries (the sentence of an empty list when there are none), detached and without the marks of the field. <paramref name="bookmarkOf"/> gives the hidden bookmark of an entry (null: none can be made, the entry is
-    /// plain text) and <paramref name="pageOf"/> the page text of an entry's bookmark. <paramref name="tabs"/> is the tab stop element written into every paragraph (null for none).
+    /// plain text) and <paramref name="pageOf"/> the page text of an entry's bookmark. <paramref name="tabsOf"/> gives the tab stops of a paragraph that has its style (the entry is null for the sentence): a new element, or null for none.
     /// </summary>
-    public static List<Paragraph> Entries(WordDocument document, TocSpec spec, IReadOnlyList<TocEntry> entries, Func<TocEntry, string?> bookmarkOf, Func<TocEntry, string?, string> pageOf, XElement? tabs)
+    public static List<Paragraph> Entries(WordDocument document, TocSpec spec, IReadOnlyList<TocEntry> entries, Func<TocEntry, string?> bookmarkOf, Func<TocEntry, string?, string> pageOf, Func<TocEntry?, Paragraph, XElement?> tabsOf)
     {
         var paragraphs = new List<Paragraph>(Math.Max(1, entries.Count));
         if (entries.Count == 0)
         {
             var sentence = new Paragraph();
             sentence.Properties.StyleId = StyleIdFor(spec.FirstLevel, spec.IsFigureList);
-            if (tabs is not null)
+            if (tabsOf(null, sentence) is { } own)
             {
-                sentence.Properties.Set(W + "tabs", new XElement(tabs));
+                sentence.Properties.Set(W + "tabs", own);
             }
 
             sentence.Inlines.Add(TextRun(EmptySentence(document)));
@@ -309,9 +384,9 @@ internal static class TocBuilder
             var bookmark = spec.NeedsBookmark(entry.Level) ? bookmarkOf(entry) : null;
             var paragraph = new Paragraph();
             paragraph.Properties.StyleId = StyleIdFor(entry.Level, spec.IsFigureList);
-            if (tabs is not null)
+            if (tabsOf(entry, paragraph) is { } tabs)
             {
-                paragraph.Properties.Set(W + "tabs", new XElement(tabs));
+                paragraph.Properties.Set(W + "tabs", tabs);
             }
 
             IList<Inline> target = paragraph.Inlines;
@@ -326,13 +401,20 @@ internal static class TocBuilder
             if (entry.Label.Length > 0)
             {
                 target.Add(TextRun(entry.Label));
-                target.Add(TabRun());
+                if (entry.Text.Length > 0)
+                {
+                    target.Add(entry.LabelTab ? TabRun() : TextRun(" "));
+                }
             }
 
-            target.Add(TextRun(entry.Text));
+            if (entry.Text.Length > 0)
+            {
+                target.Add(TextRun(entry.Text));
+            }
+
             if (bookmark is not null && spec.ShowsPage(entry.Level))
             {
-                target.Add(TabRun());
+                target.Add(spec.Separator == "\t" ? TabRun() : TextRun(spec.Separator));
                 foreach (var inline in FieldWriter.Make("PAGEREF " + bookmark + (spec.Links ? @" \h" : string.Empty), pageOf(entry, bookmark), null))
                 {
                     target.Add(inline);

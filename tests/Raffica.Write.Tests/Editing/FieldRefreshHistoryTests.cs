@@ -139,6 +139,10 @@ public sealed class FieldRefreshHistoryTests
 
         public string? ChapterNumber(Paragraph paragraph) => throw new InvalidOperationException("test");
 
+        public bool LabelEndsInTab(Paragraph paragraph) => inner.LabelEndsInTab(paragraph);
+
+        public LineGeometry MeasureLine(Paragraph paragraph, string text) => inner.MeasureLine(paragraph, text);
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => inner.PageOf(position);
 
         public string? NoteMarkText(int noteId, NoteType type) => inner.NoteMarkText(noteId, type);

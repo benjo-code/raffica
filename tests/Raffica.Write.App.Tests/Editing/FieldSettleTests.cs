@@ -153,6 +153,10 @@ public sealed class FieldSettleTests
 
         public string? ChapterNumber(Paragraph paragraph) => inner.ChapterNumber(paragraph);
 
+        public bool LabelEndsInTab(Paragraph paragraph) => inner.LabelEndsInTab(paragraph);
+
+        public LineGeometry MeasureLine(Paragraph paragraph, string text) => inner.MeasureLine(paragraph, text);
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => (Round, new string('1', Round));
 
         public string? NoteMarkText(int noteId, NoteType type) => inner.NoteMarkText(noteId, type);

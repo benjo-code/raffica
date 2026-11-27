@@ -11,6 +11,8 @@ namespace Raffica.Write.Tests.Support;
 internal sealed class FakeFieldHost(WordDocument document) : IFieldHost
 {
     private Dictionary<Paragraph, string>? _labels;
+    private Raffica.Write.Layout.FieldLabels? _layoutLabels;
+    private Raffica.Write.Layout.LineMeasure? _measure;
     private EditStamp _stamp;
 
     /// <summary>What <see cref="IsComplete"/> answers.</summary>
@@ -21,7 +23,17 @@ internal sealed class FakeFieldHost(WordDocument document) : IFieldHost
 
     public bool IsComplete => Complete;
 
-    public void Invalidate() => _labels = null;
+    public void Invalidate()
+    {
+        _labels = null;
+        _layoutLabels = null;
+        _measure = null;
+    }
+
+    // The suffix of a list level and the width of a text are the layout's: a model host has no fonts of its own.
+    public bool LabelEndsInTab(Paragraph paragraph) => (_layoutLabels ??= new Raffica.Write.Layout.FieldLabels(document)).LabelEndsInTab(paragraph);
+
+    public LineGeometry MeasureLine(Paragraph paragraph, string text) => (_measure ??= new Raffica.Write.Layout.LineMeasure(document, Layout.PageTestKit.Fonts)).Measure(paragraph, text);
 
     public string? NumberLabel(Paragraph paragraph)
     {

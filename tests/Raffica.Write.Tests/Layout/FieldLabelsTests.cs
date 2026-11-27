@@ -92,6 +92,11 @@ public sealed class FieldLabelsTests
 
         public string? ChapterNumber(Paragraph paragraph) => labels.ChapterNumber(paragraph);
 
+        public bool LabelEndsInTab(Paragraph paragraph) => labels.LabelEndsInTab(paragraph);
+
+        // No table of contents in these documents: nothing is measured.
+        public LineGeometry MeasureLine(Paragraph paragraph, string text) => throw new NotSupportedException();
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => null;
 
         public string? NoteMarkText(int noteId, NoteType type) => labels.NoteMarkText(noteId, type);

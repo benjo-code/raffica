@@ -29,6 +29,7 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
     private readonly Dictionary<IList<Block>, int> _shifts = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, List<TocEntry>> _entries = [];
     private readonly TocBookmarks _bookmarks = new(document);
+    private TocTabs? _tabs;
 
     /// <summary>The changes made so far (what a failure part-way has to tell the owner).</summary>
     public IReadOnlyList<BlockChange> Changes => _changes;
@@ -156,14 +157,15 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
         var tailSource = shape.TailParagraph ? null : (Paragraph)container[last];
         var tail = tailSource?.Inlines.Skip(shape.End).Select(i => i.Clone()).ToList() ?? [];
         var pages = StoredPages(old);
-        var tabs = TabsFor(old);
+        // The old entries are read before the headings get any new bookmark: the tab stops of the list stay with its entries.
+        var previous = new TocPrevious(old, entries, entry => TocBuilder.StyleIdFor(entry.Level, spec.IsFigureList), _tabs ??= new TocTabs(document, host));
         var proposed = TocBuilder.Entries(
             document,
             spec,
             entries,
             entry => _bookmarks.NameFor(entry.Source),
             (entry, bookmark) => (pagesOn ? host.PageOf(new TextPosition(StoryRef.Body, entry.Source, 0))?.PageText : null) ?? (bookmark is not null && pages.TryGetValue(bookmark, out var stored) ? stored : "?"),
-            tabs);
+            previous.TabsOf);
         for (var i = head.Count - 1; i >= 0; i--)
         {
             proposed[0].Inlines.Insert(0, head[i]);
@@ -263,21 +265,6 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
         {
             target.Properties.Set(child.Name, new XElement(child));
         }
-    }
-
-    // The tab stops of the entries: the ones the list already has in its paragraphs (the first paragraph that has any; a new entry copies that situation), else none. Right alignment is the insert's job (the tab stops
-    // of the paragraphs it writes, or the TOC1 to TOC9 styles of a file); a refresh never invents a tab stop, so a list the user made left-aligned stays so and a foreign list keeps the look its file gave it.
-    private static XElement? TabsFor(List<Paragraph> old)
-    {
-        foreach (var paragraph in old)
-        {
-            if (paragraph.Properties.Get(W + "tabs") is { } own)
-            {
-                return own;
-            }
-        }
-
-        return null;
     }
 
     // The page text stored in every PAGEREF field of the old paragraphs, by the bookmark the field names.

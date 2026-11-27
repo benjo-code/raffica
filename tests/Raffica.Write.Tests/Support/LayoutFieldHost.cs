@@ -22,6 +22,10 @@ internal sealed class LayoutFieldHost(WordDocument document, DocumentLayout layo
 
     public string? ChapterNumber(Paragraph paragraph) => _labels.ChapterNumber(paragraph);
 
+    public bool LabelEndsInTab(Paragraph paragraph) => _labels.LabelEndsInTab(paragraph);
+
+    public LineGeometry MeasureLine(Paragraph paragraph, string text) => _labels.MeasureLine(paragraph, text);
+
     public (int PageIndex, string PageText)? PageOf(TextPosition position)
     {
         PageQuestions++;

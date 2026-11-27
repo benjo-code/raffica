@@ -7,18 +7,24 @@ using Xunit;
 
 namespace Raffica.Write.Tests.Support;
 
-/// <summary>One entry the oracle expects in a table of contents: the paragraph it stands for, its level, the line (the label, a tab and the text, or the text alone) and whether it shows a page number.</summary>
-internal sealed record ExpectedEntry(Paragraph Heading, int Level, string Line, bool Page);
+/// <summary>
+/// One entry the oracle expects in a table of contents: the paragraph it stands for, its level, the line before the page number (the label, a tab or a space and the text; the text or the label alone), whether it shows a page number and
+/// whether a tab stands after the label.
+/// </summary>
+internal sealed record ExpectedEntry(Paragraph Heading, int Level, string Line, bool Page, bool LabelTab = false);
 
-/// <summary>A table of contents of the body with the entries the oracle expects (the sentence of an empty one is <see cref="Sentence"/>).</summary>
-internal sealed record ExpectedToc(IList<Block> Container, int First, int Last, bool TailOnly, bool Links, bool Figures, IReadOnlyList<ExpectedEntry> Entries);
+/// <summary>A table of contents of the body with the entries the oracle expects (the sentence of an empty one is <see cref="Sentence"/>) and what stands before their page numbers.</summary>
+internal sealed record ExpectedToc(IList<Block> Container, int First, int Last, bool TailOnly, bool Links, bool Figures, IReadOnlyList<ExpectedEntry> Entries, string Separator);
 
 /// <summary>
 /// The entries of the tables of contents of a document's body, counted from the model alone: its own walk over the headings (and captions), its own reading of the visible text and the outline levels, and its own check of what
-/// an entry paragraph says. It shares no code with <c>TocBuilder</c>, <c>TocRefresh</c> or <c>TocSpec</c>; only the field grammar (<see cref="FieldInstruction"/>, <see cref="TocRanges"/>) and the number labels of the host are
-/// shared. The rules: a heading is a paragraph of the style Heading1 to Heading9 by id (with <c>\u</c> also one with an outline level, its own or its style's) inside the levels of <c>\o</c>; its line is the visible text
-/// (line breaks and tabs as spaces, hidden text and tracked deletions left out, trimmed), after the number label and a tab when the host shows a label; a heading with no text is left out; a list takes the paragraphs that hold a
-/// <c>SEQ</c> of its label that Word counts (tracked insertions too, not deleted or moved away) and that is not hidden (<c>\h</c> without a format), with the whole text of the paragraph. Page numbers are not judged (they come with the page results).
+/// an entry paragraph says. It shares no code with <c>TocBuilder</c>, <c>TocRefresh</c>, <c>TocTabs</c> or <c>TocSpec</c>; only the field grammar (<see cref="FieldInstruction"/>, <see cref="TocRanges"/>) and the number labels of the host are
+/// shared. The rules, as Word has them: a heading is a paragraph of the style Heading1 to Heading9 by id (with <c>\u</c> also one with an outline level, its own or its style's) inside the levels of <c>\o</c>; its line is the visible text
+/// (line breaks and tabs as spaces, hidden text and tracked deletions left out, trimmed), after the number label and what the list level puts behind it (a tab, or a space) when the host shows a label; a heading with no text is the label
+/// alone, and is left out without a label, when its paragraph mark is hidden, when it holds a page break or something else than text (a picture or a symbol, which Word would copy); a list takes the paragraphs that hold a
+/// <c>SEQ</c> of its label that Word counts (tracked insertions too, not deleted or moved away) and that is not hidden (<c>\h</c> without a format), with the whole text of the paragraph. Before a page number stands the first character
+/// of the value of <c>\p</c> (a space for an empty one), else a tab. Page numbers are not judged (they come with the page results). An entry with a tab after its label must have a left stop, its own or its style's, when it has a right
+/// one: else the tab after the label goes to the right edge.
 /// </summary>
 internal static class ReferenceToc
 {
@@ -170,17 +176,50 @@ internal static class ReferenceToc
             }
 
             var text = VisibleText(paragraph);
-            if (text.Length == 0)
+            var number = host.NumberLabel(paragraph);
+            var numbered = !string.IsNullOrEmpty(number);
+            if (text.Length == 0 && !(numbered && ListedWithoutText(paragraph)))
             {
                 continue;
             }
 
-            var number = host.NumberLabel(paragraph);
-            entries.Add(new ExpectedEntry(paragraph, level.Value, string.IsNullOrEmpty(number) ? text : number + "\t" + text, !noPages && !(noRange is { } n && level >= n.From && level <= n.To)));
+            var tab = numbered && text.Length > 0 && ReferenceNumbering.TabFollows(document, paragraph);
+            var line = !numbered ? text : text.Length == 0 ? number! : number + (tab ? "\t" : " ") + text;
+            entries.Add(new ExpectedEntry(paragraph, level.Value, line, !noPages && !(noRange is { } n && level >= n.From && level <= n.To), tab));
         }
 
-        found.Add(new ExpectedToc(container, first, last, tailOnly, instruction.Has("h"), label is not null, entries));
+        var separator = "\t";
+        if (instruction.ValueOf("p") is { } value)
+        {
+            separator = value.Length == 0 ? " " : value[..(char.IsHighSurrogate(value[0]) && value.Length > 1 ? 2 : 1)];
+        }
+
+        found.Add(new ExpectedToc(container, first, last, tailOnly, instruction.Has("h"), label is not null, entries, separator));
     }
+
+    // A paragraph mark that is neither hidden nor a tracked deletion, and in the shown runs no page break and nothing but text, tabs, line and column breaks, references and field marks.
+    private static bool ListedWithoutText(Paragraph paragraph)
+    {
+        var mark = paragraph.Properties.Get(W + "rPr");
+        if (mark?.Element(W + "del") is not null || mark?.Element(W + "vanish") is not null)
+        {
+            return false;
+        }
+
+        return !LiveRuns(paragraph.Inlines).Where(r => r.Properties.Get(W + "vanish") is null).SelectMany(r => r.Content)
+            .Any(c => c is Picture || (c is BreakContent b && b.Kind == BreakKind.Page)
+                || (c is UnknownRunContent u && u.Content.Element.Name.LocalName is not ("cr" or "ptab" or "lastRenderedPageBreak" or "annotationRef")));
+    }
+
+    private static IEnumerable<Run> LiveRuns(IEnumerable<Inline> inlines) => inlines.SelectMany(i => i switch
+    {
+        Run run => [run],
+        Hyperlink link => LiveRuns(link.Inlines),
+        SimpleField field => LiveRuns(field.Inlines),
+        ContentControlInline control => LiveRuns(control.Inlines),
+        TrackedChange change when change.Kind is not (TrackedChangeKind.Delete or TrackedChangeKind.MoveFrom) => LiveRuns(change.Inlines),
+        _ => [],
+    });
 
     private static void Gather(IList<Block> container, List<(IList<Block>, int, int)> all, int depth)
     {
@@ -308,6 +347,8 @@ internal static class ReferenceToc
         }
     }
 
+    private static List<string> StopKinds(XElement? tabs) => [.. (tabs?.Elements(W + "tab") ?? []).Select(t => (string?)t.Attribute(W + "val") ?? string.Empty)];
+
     // The text of an entry paragraph as it stands (text and tabs of every run, field instructions left out).
     private static string Stored(Paragraph paragraph)
     {
@@ -362,10 +403,23 @@ internal static class ReferenceToc
                 var line = Stored(paragraph);
                 var page = entry.Page ? pageTextOf?.Invoke(entry.Heading) : null;
                 Assert.True(
-                    entry.Page ? (page is null ? line.StartsWith(entry.Line + "\t", StringComparison.Ordinal) && line.Length > entry.Line.Length + 1 : line == entry.Line + "\t" + page) : line == entry.Line,
+                    entry.Page ? (page is null ? line.StartsWith(entry.Line + toc.Separator, StringComparison.Ordinal) && line.Length > entry.Line.Length + toc.Separator.Length : line == entry.Line + toc.Separator + page) : line == entry.Line,
                     $"{label}: entry {k} of a table of contents reads another line than the heading (expected length {entry.Line.Length}, stored length {line.Length}, page {entry.Page})");
                 var style = toc.Figures ? "TableofFigures" : "TOC" + entry.Level.ToString(CultureInfo.InvariantCulture);
                 Assert.True(paragraph.Properties.StyleId == style, $"{label}: entry {k} of a table of contents has the style {paragraph.Properties.StyleId}, not {style}");
+                if (entry.LabelTab)
+                {
+                    var own = StopKinds(paragraph.Properties.Get(W + "tabs"));
+                    var inherited = new List<string>();
+                    var current = document.Styles?.Find(style);
+                    for (var depth = 0; current is not null && depth < 32; depth++)
+                    {
+                        inherited.AddRange(StopKinds(current.ParagraphProperties.Get(W + "tabs")));
+                        current = current.BasedOn is { } parent ? document.Styles?.Find(parent) : null;
+                    }
+
+                    Assert.True(!own.Contains("right") || own.Contains("left") || inherited.Contains("left"), $"{label}: entry {k} has a number, a right stop and no left one");
+                }
                 if (toc.Links)
                 {
                     var link = ModelWalk.Inlines(paragraph.Inlines).OfType<Hyperlink>().Single();

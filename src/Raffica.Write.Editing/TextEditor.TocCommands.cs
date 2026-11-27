@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Raffica.Write.Model;
 
 namespace Raffica.Write.Editing;
@@ -98,7 +99,9 @@ public sealed partial class TextEditor
         var entries = TocBuilder.Collect(_document, host, spec, excluded);
         var bookmarks = new TocRefresh.TocBookmarks(_document);
         var top = ReferenceEquals(container, _document.Body.Blocks) ? index : Math.Max(0, TopLevelIndexOf(_document.Body.Blocks, at.Paragraph));
-        var tabs = options.PageNumbers && options.RightAlign ? TocBuilder.RightTab(TocBuilder.TextWidthTwips(_document, top), options.Leader) : null;
+        // Word writes the right stop of the page numbers into every list, with dots where nothing leads to a page number; the stop after a number comes with each entry (TocTabs).
+        var right = TocBuilder.RightTab(TocBuilder.TextWidthTwips(_document, top), options.PageNumbers && options.RightAlign ? options.Leader : TocLeader.Dots);
+        var tabs = new TocTabs(_document, host);
         // From here the model changes (the styles, the bookmarks of the headings, the paragraphs). Whatever throws in this part must not leave a changed model with no raise: the raise makes the history clear itself
         // and the snapshot tracker write the whole body (an unattributed raise), the same fail-safe as every other operation of the editor; the exception goes on to the session, which faults.
         StyleChange? style;
@@ -113,7 +116,7 @@ public sealed partial class TextEditor
                 entries,
                 entry => bookmarks.NameFor(entry.Source),
                 (entry, _) => host.PageOf(new TextPosition(StoryRef.Body, entry.Source, 0))?.PageText ?? "?",
-                tabs);
+                (entry, paragraph) => entry is null ? new XElement(right) : tabs.ForNew(entry, paragraph, right));
             var marks = FieldWriter.Make(TocSpec.InstructionFor(options), string.Empty, null);
             for (var i = 2; i >= 0; i--)
             {
