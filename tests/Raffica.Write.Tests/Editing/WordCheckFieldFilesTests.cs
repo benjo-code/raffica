@@ -354,6 +354,39 @@ public sealed class WordCheckFieldFilesTests
         await SaveAsync(file, folder, "fields-contents-empty.docx");
     }
 
+    // Numbers that change under a list with short titles: grown ("XVIII.", "Chapter 1:") and short again. With "grown" the file keeps the long numbers, else it goes back to the short ones.
+    [Theory]
+    [InlineData("fields-contents-renumbered-roman.docx", "%1.", 18, false)]
+    [InlineData("fields-contents-renumbered-chapters.docx", "Chapter %1:", 1, false)]
+    [InlineData("fields-contents-renumbered-grown.docx", "Chapter %1:", 18, true)]
+    public async Task RenumberedTablesOfContentsAreSavedForWord(string name, string text, int start, bool grown)
+    {
+        var folder = Folder();
+        var (file, editor) = Build([(null, "Contents stand here."), ("Heading1", "FAQ"), ("Heading1", "A"), ("Heading2", "B"), ("Heading1", "Notes"), (null, "The end.")]);
+        using var _ = file;
+        Number(file, editor);
+        var level = file.Model.Numbering!.Abstracts.SelectMany(a => a.Levels).First(l => l.Level == 0 && l.Text?.Contains("%1", StringComparison.Ordinal) == true);
+        level.Format = "upperRoman";
+        level.Start = 2;
+        file.Model.Edits.Raise();
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents");
+        Settle(file, editor);
+
+        level.Text = text;
+        level.Start = start;
+        file.Model.Edits.Raise();
+        Settle(file, editor);
+        if (!grown)
+        {
+            level.Text = "%1.";
+            level.Start = 2;
+            file.Model.Edits.Raise();
+            Settle(file, editor);
+        }
+
+        await SaveAsync(file, folder, name);
+    }
+
     // Lists whose styles have tab stops of their own, as the corpus thesis has them: Write adds a stop after a number only where the style has none behind it.
     [Fact]
     public async Task TablesOfContentsOverStylesWithTabStopsAreSavedForWord()

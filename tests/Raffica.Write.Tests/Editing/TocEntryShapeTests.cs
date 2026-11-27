@@ -202,18 +202,112 @@ public sealed class TocEntryShapeTests
         Assert.Equal("left:1500 right:9062/hyphen", TabText(Assert.Single(Entries(document))));
     }
 
-    [Fact]
-    public void ANumberThatOutgrowsItsStopGetsAnother()
+    [Theory]
+    // The stop the number outgrew moves: left behind, it would take the tab before the page number when the number is short again.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"220\"/>", "1.", "Chapter %1:", "left:1320 right:9062/dot")]
+    // A stop of the user's that still takes the title behind the new number stays where it is.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"600\"/>", "1.", "%1)", "left:600 right:9062/dot")]
+    // Word's own stop for the old number moves to Word's stop for the new one, also when the old one would still serve.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"1320\"/>", "Chapter 1:", "%1.", "left:440 right:9062/dot")]
+    // A stop left before the old number (Word's own update leaves such) takes the shorter number; the stop of the old one goes.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"left\" w:pos=\"1500\"/>", "Chapter 1:", "%1.", "left:440 right:9062/dot")]
+    // A stop of the user's behind the number stop stays.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"left\" w:pos=\"3000\"/>", "1.", "Chapter %1:", "left:1320 left:3000 right:9062/dot")]
+    // The numbering goes: its stop goes with it, the user's behind it stays.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"left\" w:pos=\"3000\"/>", "1.", "", "left:3000 right:9062/dot")]
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"left\" w:pos=\"880\"/>", "Chapter 1:", "", "right:9062/dot")]
+    public void ANumberThatChangesTakesItsStopWithIt(string stops, string number, string level, string expected)
     {
-        const string tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"220\"/><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
-        var document = Doc(Marked("Alpha", 1) + Entry("TOC1", tabs, "TOC \\o \"1-3\" \\h \\z \\u", "1.", "Alpha", 1) + End(), numbered: true);
-        var level = document.Numbering!.Abstracts[0].Levels[0];
-        level.Text = "Chapter %1:";
+        var tabs = "<w:tabs>" + stops + "<w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        var document = Doc(Marked("Alpha", 1) + Entry("TOC1", tabs, "TOC \\o \"1-3\" \\h \\z \\u", number, "Alpha", 1) + End(), numbered: true);
+        document.Numbering!.Abstracts[0].Levels[0].Text = level;
+        document.Edits.Raise();
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        Assert.Equal(expected, TabText(Assert.Single(Entries(document))));
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+        ReferenceToc.AssertEqualToExpected(document, host, "changed number");
+    }
+
+    [Fact]
+    public void AStopLeftBeforeANumberThatGrowsDoesNotStayBesideTheNewOne()
+    {
+        const string tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"left\" w:pos=\"1320\"/><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        var document = Doc(Marked("Alpha", 1) + Entry("TOC1", tabs, "TOC \\o \"1-3\" \\h \\z \\u", "Chapter 1:", "Alpha", 1) + End(), numbered: true);
+        document.Numbering!.Abstracts[0].Levels[0].Text = "Chapter %1: Chapter %1:";
         document.Edits.Raise();
 
         Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
 
-        Assert.Equal("left:220 left:1320 right:9062/dot", TabText(Assert.Single(Entries(document))));
+        // Kept, the stop at 440 would take the tab of a short number again and leave the new stop to the tab before the page number.
+        var left = Assert.Single(Tabs(Assert.Single(Entries(document))), t => t.Kind == "left");
+        Assert.True(left.Position > 1760, $"the stop is at {left.Position}");
+    }
+
+    [Theory]
+    // What Word 16 wrote into its own list of the same numbers after "Update table": one stop per entry, also on the way back.
+    [InlineData("%1.", "upperRoman", 2, "%1.", 18, 440, 660, 880, 660)]
+    [InlineData("%1.", "upperRoman", 2, "Chapter %1:", 2, 440, 660, 1320, 1320)]
+    public void ANumberThatGrowsAndShrinksAgainHasTheStopsWordWrites(string first, string format, int start, string changed, int changedStart, int one, int two, int changedOne, int changedTwo)
+    {
+        var (file, editor) = Numbered([(null, "Contents."), ("Heading1", "FAQ"), ("Heading1", "Notes")], [first], format, start);
+        using var _ = file;
+        var host = new FakeFieldHost(file.Model);
+        Insert(editor, file.Model, host: host);
+        string[] before = [$"left:{one} right:9072/dot", $"left:{two} right:9072/dot"];
+        Assert.Equal(before, Entries(file.Model).Select(TabText));
+
+        Renumber(file.Model, changed, changedStart);
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Assert.Equal([$"left:{changedOne} right:9072/dot", $"left:{changedTwo} right:9072/dot"], Entries(file.Model).Select(TabText));
+
+        Renumber(file.Model, first, start);
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        Assert.Equal(before, Entries(file.Model).Select(TabText));
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+    }
+
+    [Fact]
+    public void AStopThatGoesWhereTheStyleServesLeavesNoEmptyTabStops()
+    {
+        const string toc1 = "<w:style w:type=\"paragraph\" w:styleId=\"TOC1\"><w:name w:val=\"toc 1\"/><w:pPr><w:tabs><w:tab w:val=\"left\" w:pos=\"300\"/></w:tabs></w:pPr></w:style>";
+        const string tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"1320\"/></w:tabs>";
+        var document = Doc(Marked("Alpha", 1) + Entry("TOC1", tabs, "TOC \\o \"1-3\" \\h \\z \\u", "Chapter 1:", "Alpha", 1) + End(), numbered: true, extraStyles: toc1);
+
+        Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        Assert.Null(Assert.Single(Entries(document)).Properties.Get(XName.Get("tabs", "http://schemas.openxmlformats.org/wordprocessingml/2006/main")));
+    }
+
+    [Fact]
+    public void AUsersStopOfAnEntryWithoutANumberSurvivesAChangedTitle()
+    {
+        const string tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"2000\"/><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        var document = Doc(Marked("Introduction renamed", 1) + Entry("TOC1", tabs, "TOC \\o \"1-3\" \\h \\z \\u", null, "Introduction", 1) + End());
+
+        Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        var entry = Assert.Single(Entries(document));
+        Assert.Equal("Introduction renamed|1", Line(entry));
+        Assert.Equal("left:2000 right:9062/dot", TabText(entry));
+    }
+
+    [Fact]
+    public void AUsersStopOfAListOfFiguresSurvivesAChangedCaption()
+    {
+        const string tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"2000\"/><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        var caption = "<w:p><w:bookmarkStart w:id=\"1\" w:name=\"_Toc100000001\"/>" + Run("Figure ") + Start("SEQ Figure") + Run("1") + Mark("end") + Run(": New words") + "<w:bookmarkEnd w:id=\"1\"/></w:p>";
+        var document = Doc(caption + Entry("TableofFigures", tabs, "TOC \\h \\z \\c \"Figure\"", null, "Figure 1: Old words", 1) + End());
+
+        Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        var entry = Assert.Single(Entries(document));
+        Assert.Equal("Figure 1: New words|1", Line(entry));
+        Assert.Equal("left:2000 right:9062/dot", TabText(entry));
     }
 
     [Fact]
@@ -471,8 +565,8 @@ public sealed class TocEntryShapeTests
     private static string Start(string instruction) => Mark("begin") + $"<w:r><w:instrText xml:space=\"preserve\"> {instruction} </w:instrText></w:r>" + Mark("separate");
 
     // An entry as Word and Write write it: a link with the number, a tab, the title, a tab and the page reference. The first one begins the field.
-    private static string Entry(string style, string pPr, string? begins, string number, string title, int id) =>
-        $"<w:p><w:pPr><w:pStyle w:val=\"{style}\"/>{pPr}</w:pPr>{(begins is null ? string.Empty : Start(begins))}<w:hyperlink w:anchor=\"_Toc10000000{id}\" w:history=\"1\">{Run(number)}<w:r><w:tab/></w:r>{Run(title)}<w:r><w:tab/></w:r>"
+    private static string Entry(string style, string pPr, string? begins, string? number, string title, int id) =>
+        $"<w:p><w:pPr><w:pStyle w:val=\"{style}\"/>{pPr}</w:pPr>{(begins is null ? string.Empty : Start(begins))}<w:hyperlink w:anchor=\"_Toc10000000{id}\" w:history=\"1\">{(number is null ? string.Empty : Run(number) + "<w:r><w:tab/></w:r>")}{Run(title)}<w:r><w:tab/></w:r>"
         + Start($"PAGEREF _Toc10000000{id} \\h") + Run(id.ToString(CultureInfo.InvariantCulture)) + Mark("end") + "</w:hyperlink></w:p>";
 
     private static string End() => "<w:p>" + Mark("end") + "</w:p>";

@@ -6,10 +6,10 @@ namespace Raffica.Write.Editing;
 
 /// <summary>
 /// The entries a table of contents holds before a refresh writes them again, so that the tab stops Word or the user gave an entry stay with it. An entry is paired with the old paragraph that points at a bookmark of its heading, else with
-/// the one of its style that says the same line, else (a list with as many paragraphs as entries) with the one in its place. A paired entry keeps the stops of that paragraph; a stop after its number is added only when the tab there would
-/// go to the right stop (<see cref="TocTabs.ForExisting"/>), and the left stops go when the entry says another line and has no tab after a number, as they would catch the tab before its page number. An entry without such a paragraph,
-/// or one whose level changed, takes the other stops of an entry of its style (else of the first entry that has stops) and a stop after its number as a new one does (<see cref="TocTabs.ForNew"/>). The style of an old paragraph is
-/// read by its name (<see cref="TocTabs.EntryStyle"/>).
+/// the one of its style that says the same line, else (a list with as many paragraphs as entries) with the one in its place. A paired entry of the same level keeps the stops of that paragraph, except for the stop of its number when the
+/// number changes or goes, and gets a stop after its number when the tab there would go to the right stop (<see cref="TocTabs.ForExisting"/>). An entry without such a paragraph, or one whose level changed, takes the other stops of an
+/// entry of its style (else of the first entry that has stops) without the left ones, and a stop after its number as a new one does (<see cref="TocTabs.ForNew"/>). The style of an old paragraph is read by its name
+/// (<see cref="TocTabs.EntryStyle"/>).
 /// </summary>
 internal sealed class TocPrevious
 {
@@ -42,8 +42,7 @@ internal sealed class TocPrevious
 
         if (_paired.TryGetValue(entry, out var old) && old.Style == style)
         {
-            var kept = !entry.HasLabelTab && !Says(old, entry) ? TocTabs.WithoutLeftStops(old.Tabs) : old.Tabs;
-            return _tabs.ForExisting(entry, old.Paragraph, kept);
+            return _tabs.ForExisting(entry, old.Paragraph, old.Tabs, old.Number);
         }
 
         var shared = _old.Where(o => o.Style == style).Select(o => o.Tabs).FirstOrDefault(t => t is not null) ?? first;
@@ -153,8 +152,17 @@ internal sealed class TocPrevious
         }
 
         var tabs = copy.Properties.Get(W + "tabs");
-        return new Old(copy, style, names, line.ToString(), tabs is null ? null : new XElement(tabs));
+        var said = line.ToString();
+        return new Old(copy, style, names, said, NumberOf(said, page), tabs is null ? null : new XElement(tabs));
     }
 
-    private sealed record Old(Paragraph Paragraph, string? Style, List<string> Names, string Line, XElement? Tabs);
+    // The text before the first tab of the line, the character before a page reference left aside: the number of an entry that has a tab after one, else null.
+    private static string? NumberOf(string line, bool page)
+    {
+        var title = page && line.Length > 0 ? line[..^1] : line;
+        var tab = title.IndexOf('\t', StringComparison.Ordinal);
+        return tab > 0 ? title[..tab] : null;
+    }
+
+    private sealed record Old(Paragraph Paragraph, string? Style, List<string> Names, string Line, string? Number, XElement? Tabs);
 }

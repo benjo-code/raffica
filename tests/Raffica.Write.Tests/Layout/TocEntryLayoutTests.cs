@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
@@ -32,10 +33,67 @@ public sealed class TocEntryLayoutTests
         var host = new LayoutFieldHost(file.Model, Finish(DocumentLayout.Create(file.Model, Fonts, new LayoutOptions())));
         Assert.NotNull(editor.InsertToc(new TextPosition(StoryRef.Body, at, "Contents.".Length), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host));
 
-        var layout = Finish(DocumentLayout.Create(file.Model, Fonts, new LayoutOptions()));
+        AssertShortLines(file.Model, 4);
+    }
 
-        var entries = Entries(file.Model);
-        Assert.Equal(4, entries.Count);
+    [Theory]
+    [InlineData("upperRoman", 2, "%1.", 18)]
+    [InlineData("upperRoman", 2, "Chapter %1:", 2)]
+    [InlineData("decimal", 1, "Chapter %1.%1.%1:", 100)]
+    public void AShortEntryKeepsItsPageNumberAtTheRightEdgeWhenItsNumberGrowsAndShrinksAgain(string format, int start, string changed, int changedStart)
+    {
+        var (file, editor) = Numbered([(null, "Contents."), ("Heading1", "FAQ"), ("Heading1", "A")], ["%1."], format, start);
+        using var _ = file;
+        var host = new FakeFieldHost(file.Model);
+        var at = (Paragraph)file.Model.Body.Blocks[0];
+        Assert.NotNull(editor.InsertToc(new TextPosition(StoryRef.Body, at, "Contents.".Length), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host));
+
+        foreach (var (text, from) in new[] { (changed, changedStart), ("%1.", start), (changed, changedStart), ("%1.", start) })
+        {
+            Renumber(file.Model, text, from);
+            editor.RefreshFields(host, RefreshScope.OrderBased);
+
+            AssertShortLines(file.Model, 2);
+            Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+        }
+    }
+
+    [Fact]
+    public void AStopTheNumberOutgrewThroughItsStyleDoesNotStayBesideTheNewOne()
+    {
+        // The entry style gets larger letters and loses them again, as an undone style change does: the stop of the smaller number must not stay in front of the one the larger number needed.
+        var (file, editor) = Numbered([(null, "Contents."), ("Heading1", "FAQ")]);
+        using var _ = file;
+        var host = new FakeFieldHost(file.Model);
+        var at = (Paragraph)file.Model.Body.Blocks[0];
+        Assert.NotNull(editor.InsertToc(new TextPosition(StoryRef.Body, at, "Contents.".Length), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host));
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var style = file.Model.Styles!.Find("TOC1")!;
+
+        style.RunProperties.Set(w + "sz", new XElement(w + "sz", new XAttribute(w + "val", "96")));
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Assert.Single(Tabs(Assert.Single(Entries(file.Model))), t => t.Kind == "left");
+
+        style.RunProperties.Remove(w + "sz");
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        var entry = Assert.Single(Entries(file.Model));
+        Assert.Single(Tabs(entry), t => t.Kind == "left");
+        var layout = Finish(DocumentLayout.Create(file.Model, Fonts, new LayoutOptions()));
+        var margin = layout.Caret(new TextPosition(StoryRef.Body, at, 0), 0)!.Value.X;
+        var end = At(layout, entry, ParagraphProjection.Build(entry, ProjectionHost.Plain).Text.Length);
+        Assert.True(end.Top == At(layout, entry, 0).Top && Math.Abs(end.X - margin - TextWidth) < 1f, $"the page number does not end at the right edge: {end.X - margin}");
+    }
+
+    // Every entry is one line: the title right after the number (the next TOC level indent, 11 points apart, or the number and its 12 points of room), the page number at the right edge.
+    private static void AssertShortLines(WordDocument document, int count)
+    {
+        var at = (Paragraph)document.Body.Blocks[0];
+        var layout = Finish(DocumentLayout.Create(document, Fonts, new LayoutOptions()));
+        var entries = Entries(document);
+        Assert.Equal(count, entries.Count);
         var margin = layout.Caret(new TextPosition(StoryRef.Body, at, 0), 0)!.Value.X;
         foreach (var entry in entries)
         {
@@ -46,7 +104,6 @@ public sealed class TocEntryLayoutTests
             var title = At(layout, entry, tab + 1);
             var end = At(layout, entry, text.Length);
             Assert.True(number.Top == title.Top && number.Top == end.Top, $"the entry '{text}' is not one line: {number.Top}, {title.Top}, {end.Top}");
-            // The next TOC level indent (11 points apart) or the number and its 12 points of room, never the right edge.
             Assert.True(title.X > labelEnd.X && title.X - labelEnd.X <= 24f, $"the title of '{text}' starts {title.X - labelEnd.X} points after its number");
             Assert.True(Math.Abs(end.X - margin - TextWidth) < 1f, $"the page number of '{text}' does not end at the right edge: {end.X - margin}");
         }

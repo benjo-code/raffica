@@ -52,6 +52,18 @@ internal static class TocDocuments
         return (file, editor);
     }
 
+    /// <summary>Gives the first level of the numbered headings another level text and start.</summary>
+    public static void Renumber(WordDocument document, string text, int start)
+    {
+        foreach (var level in document.Numbering!.Abstracts.SelectMany(a => a.Levels).Where(l => l.Level == 0 && l.Text is { Length: > 0 }))
+        {
+            level.Text = text;
+            level.Start = start;
+        }
+
+        document.Edits.Raise();
+    }
+
     public static TextRange Caret(TextPosition at) => new(at, at);
 
     /// <summary>The paragraphs of the entries of the table of contents number <paramref name="index"/> of the body (a paragraph that holds only the end mark is not one).</summary>
