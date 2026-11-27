@@ -1,5 +1,10 @@
 using Avalonia.Headless.XUnit;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
+using Raffica.Write.Editing;
+using Raffica.Write.Layout;
+using Raffica.Write.Model;
+using Raffica.Write.Settings;
 using Raffica.WriteApp.Tests.Editing;
 using Xunit;
 
@@ -85,6 +90,49 @@ public sealed class SaveSettleTests
             Assert.Equal(0, tab.Docx.Model.Edits.DerivedVersion);
         }
     }
+
+    // The pages layout is made anew by the save: the one of the window went stale with the edit in the writing view, and no view is switched.
+    [AvaloniaFact]
+    public async Task ASaveAsFromTheWritingViewWritesRealPageNumbersAndKeepsTheView()
+    {
+        var (fixture, window, tab, _) = await OpenAsync(FieldTestDocument.TocBytes());
+        using (fixture)
+        {
+            await WindowFixture.WaitAsync(() => tab.Runner.PageLayout.IsComplete);
+            var view = window.ViewOf(tab)!;
+            view.Mode = WriteView.Writing;
+            await WindowFixture.WaitAsync(() => tab.Runner.FlowLayout is { IsComplete: true });
+            var host = tab.EnsureFields().Host;
+            var first = (Paragraph)tab.Docx.Model.Body.Blocks[0];
+            Assert.NotNull(view.ApplyOperation(e => e.InsertToc(new TextPosition(StoryRef.Body, first, 0), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host)));
+            Assert.True(tab.Runner.PageLayoutIsStale);
+            Assert.Contains(Lines(tab.Docx.Model), line => line.EndsWith("\t?", StringComparison.Ordinal));
+            var target = Path.Combine(fixture.Folder, "writing.docx");
+            window.SavePicker = _ => Task.FromResult<SavePick?>(new SavePick(target, Existed: false));
+
+            var outcome = await SaveHarness.AwaitAsync(window.SaveAsActiveAsync());
+
+            Assert.Equal(new SavedAs(target), outcome);
+            using (var written = DocxFile.Open(target))
+            {
+                var lines = Lines(written.Model);
+                Assert.DoesNotContain(lines, line => line.Contains('?', StringComparison.Ordinal));
+                Assert.Equal(["Alpha\t1", "Beta\t1", "Gamma\t1"], lines.Where(line => line.Contains('\t', StringComparison.Ordinal)));
+                Assert.Contains("see page 1", lines);
+            }
+
+            Assert.Equal(WriteView.Writing, view.Mode);
+            Assert.Equal(LayoutMode.Flow, tab.Editor!.ActiveMode);
+            Assert.True(tab.Runner.PageLayoutIsStale, "the save must not leave a page layout a switch of the view would trust");
+            Assert.False(tab.Runner.IsFaulted);
+
+            // The switch back makes the pages anew, and they show what was saved.
+            view.Mode = WriteView.Page;
+            await WindowFixture.WaitAsync(() => !tab.Runner.PageLayoutIsStale && tab.Runner.PageLayout.IsComplete);
+        }
+    }
+
+    private static List<string> Lines(WordDocument model) => [.. model.Body.Blocks.OfType<Paragraph>().Select(p => ParagraphProjection.Build(p, ProjectionHost.Plain).Text)];
 
     [AvaloniaFact]
     public async Task AThrowingScanBeforeTheSettleStillLetsTheSaveWrite()

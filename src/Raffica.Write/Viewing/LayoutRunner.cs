@@ -578,6 +578,20 @@ internal sealed class LayoutRunner : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// A pages layout of the current model that belongs to the caller: the runner does not follow it, no view shows it and the tab's own layouts and their stale mark stay as they are (a save in the writing view reads page numbers
+    /// from it). Nothing is laid out yet. Needs the lease of the calling thread; the caller lays it out and brings it up to date while it holds the lease, and lets it go before it gives the lease back.
+    /// </summary>
+    internal DocumentLayout CreateDetachedPageLayout()
+    {
+        lock (_gate)
+        {
+            RequireLease();
+        }
+
+        return DocumentLayout.Create(_tab.Docx.Model, _tab.Fonts, Options(LayoutMode.Pages));
+    }
+
     private void RequireLease()
     {
         if (!_leased || _leaseOwner != Environment.CurrentManagedThreadId)

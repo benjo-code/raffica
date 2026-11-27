@@ -1,9 +1,11 @@
 using Avalonia.Headless.XUnit;
+using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
 using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
+using Raffica.WriteApp.Tests.Documents;
 using Raffica.WriteApp.Tests.Viewing;
 using Xunit;
 using DocumentLayout = Raffica.Write.Layout.DocumentLayout;
@@ -402,19 +404,294 @@ public sealed class FieldSettleTests
         Assert.Contains("alpha text1", again.Model.Body.Blocks.OfType<Paragraph>().Select(TextOf));
     }
 
-    // A save made while the writing view is still followed has no pages to read: the results stay owed, and the save after the switch back writes them.
+    // A save made while the writing view is followed lays pages of its own out to read the numbers: the view, its layouts and the edit history are left as they are, and the pages layout stays marked stale, so a switch back makes it anew.
     [AvaloniaFact]
-    public async Task ASaveInTheWritingViewKeepsThePageResultsOwed()
+    public async Task ASaveInTheWritingViewWritesThePageResults()
     {
         var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
         using var harness = h;
+        var runner = h.Tab.Fields!;
+        var session = h.Tab.Editor!;
+        var edits = h.Tab.Docx.Model.Edits;
+        var revision = edits.Revision;
+        var flow = h.Tab.Runner.FlowLayout;
+        Assert.True(h.Tab.Runner.PageLayoutIsStale);
+        Assert.Equal(0, runner.SettlePageLayouts);
 
         await h.Tab.SettleFieldsAsync(CancellationToken.None);
-        Assert.Equal("alpha text?", TextOf(reference));
 
-        h.Tab.Editor!.ActiveMode = LayoutMode.Pages;
+        Assert.Equal("alpha text1", TextOf(reference));
+        Assert.Equal("see page 1", PagerefText(h.Tab));
+        Assert.Equal(1, runner.SettlePageLayouts);
+        Assert.Equal(LayoutMode.Flow, session.ActiveMode);
+        Assert.Same(flow, h.Tab.Runner.FlowLayout);
+        Assert.True(h.Tab.Runner.PageLayoutIsStale);
+        Assert.Equal(revision, edits.Revision);
+        Assert.False(runner.IsPending);
+        Assert.Equal(0, runner.Failures);
+        Assert.Equal(0, runner.Unsettled);
+        Assert.False(h.Tab.Runner.IsFaulted);
+
+        // Nothing is owed any more: a second save lays nothing out and the switch back asks for nothing.
+        var passes = runner.Passes;
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+        Assert.Equal(1, runner.SettlePageLayouts);
+        Assert.Equal(passes, runner.Passes);
+        session.ActiveMode = LayoutMode.Pages;
+        Assert.False(h.Clock.IsArmed);
+        await ViewHarness.WaitAsync(() => session.ActiveLayout is { IsComplete: true }, 30000);
+        await AssertLiveLayoutEqualsFreshAsync(h);
+    }
+
+    // A table of contents inserted in the writing view stores "?" for every page; the save that follows writes the numbers of the pages into the file.
+    [AvaloniaFact]
+    public async Task ASaveFromTheWritingViewWritesTheNumbersOfAListInsertedThere()
+    {
+        using var h = await OpenAsync();
+        var session = h.Tab.EnsureEditor();
+        session.ActiveMode = LayoutMode.Flow;
+        h.Tab.Runner.EnsureFlow();
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.FlowLayout is { IsComplete: true }, 30000);
+        InsertToc(h);
+        TypeLongText(h);
+        Assert.All(Entries(h.Tab), line => Assert.EndsWith("\t?", line, StringComparison.Ordinal));
+        var flow = new ManualSave(h);
+
+        var path = await flow.SaveAsAsync("writing.docx");
+
+        await AssertSavedPagesAsync(h.Tab, path, s_chapters);
+        Assert.Equal(LayoutMode.Flow, session.ActiveMode);
+        Assert.Equal(0, h.Tab.Fields!.Failures);
+        Assert.InRange(h.Tab.Fields!.Passes, 1, FieldRefreshRunner.MaxPasses);
+    }
+
+    // No pages layout was ever made past the first page (the background layout never ran): the save makes its own and leaves the view's one alone.
+    [AvaloniaFact]
+    public async Task ASaveInTheWritingViewWithNoPageLayoutBuiltWritesRealNumbers()
+    {
+        using var h = await FieldHarness.OpenAsync(layoutComplete: false, bytes: FieldTestDocument.PagedTocBytes());
+        Assert.False(h.Tab.Docx.IsPrefix);
+        var session = h.Tab.EnsureEditor();
+        session.ActiveMode = LayoutMode.Flow;
+        var pages = h.Tab.Runner.PageLayout;
+        Assert.Equal(1, pages.LaidOutPages);
+        Assert.Null(h.Tab.Runner.FlowLayout);
+        var save = new ManualSave(h);
+
+        var path = await save.SaveAsAsync("nothing-built.docx");
+
+        await AssertSavedPagesAsync(h.Tab, path, s_chapters);
+        Assert.Same(pages, h.Tab.Runner.PageLayout);
+        Assert.Equal(1, pages.LaidOutPages);
+        Assert.Equal(LayoutMode.Flow, session.ActiveMode);
+        Assert.Equal(1, h.Tab.Fields!.SettlePageLayouts);
+        Assert.Equal(0, h.Tab.Fields!.Failures);
+        Assert.False(h.Tab.Runner.IsFaulted);
+    }
+
+    // A save that owes no page result lays nothing out: only order-based results (SEQ), and a field Write leaves alone.
+    [AvaloniaFact]
+    public async Task ASaveInTheWritingViewWithNoPageResultsLaysNothingOut()
+    {
+        using var h = await FieldHarness.OpenAsync();
+        var session = h.Tab.EnsureEditor();
+        session.ActiveMode = LayoutMode.Flow;
+        h.Tab.Runner.EnsureFlow();
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.FlowLayout is { IsComplete: true }, 30000);
+
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+
+        Assert.Equal("Figure 1", FieldTestDocument.TextOf(h.Tab, 1));
+        Assert.Equal(0, h.Tab.Fields!.SettlePageLayouts);
+        Assert.Equal(1, h.Tab.Fields!.Passes);
+        Assert.Equal(0, h.Tab.Fields!.Failures);
+    }
+
+    // The timer never makes the pages of a save: in the writing view it keeps the stored page results as before.
+    [AvaloniaFact]
+    public async Task TheTimerInTheWritingViewMakesNoPageLayout()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var runner = h.Tab.Fields!;
+        runner.Notify(null);
+        await h.FireUntilIdleAsync();
+
+        Assert.Equal("alpha text?", TextOf(reference));
+        Assert.Equal(0, runner.SettlePageLayouts);
+        Assert.True(h.Tab.Runner.PageLayoutIsStale);
+    }
+
+    // The page layout of a save stops at a page end when the save is cancelled: nothing page based is written, nothing fails, and the next save pays it.
+    [AvaloniaFact]
+    public async Task ACancelledSaveInTheWritingViewStopsItsPageLayoutAndTheNextSaveFinishes()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var runner = h.Tab.Fields!;
+        using var cancel = new CancellationTokenSource();
+        var steps = 0;
+        runner.SettlePageStep = _ =>
+        {
+            steps++;
+            cancel.Cancel();
+        };
+
+        await h.Tab.SettleFieldsAsync(cancel.Token);
+
+        Assert.Equal(1, steps);
+        Assert.Equal("alpha text?", TextOf(reference));
+        Assert.Equal(0, runner.Failures);
+        Assert.False(h.Tab.Runner.IsFaulted);
+        Assert.False(h.Tab.Runner.IsLeased);
+
+        runner.SettlePageStep = null;
         await h.Tab.SettleFieldsAsync(CancellationToken.None);
         Assert.Equal("alpha text1", TextOf(reference));
+        Assert.Equal(0, runner.Failures);
+    }
+
+    // A cancel while the save's pages follow the results it just wrote leaves those results unchecked: they stay owed, and the next save lays pages out again and reads them.
+    [AvaloniaFact]
+    public async Task ACancelWhileTheSavePagesFollowTheResultsLeavesThemOwed()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var runner = h.Tab.Fields!;
+        using var cancel = new CancellationTokenSource();
+        var completed = false;
+        runner.SettlePageStep = layout =>
+        {
+            if (completed)
+            {
+                cancel.Cancel();
+            }
+
+            completed |= layout.IsComplete;
+        };
+
+        await h.Tab.SettleFieldsAsync(cancel.Token);
+
+        Assert.True(cancel.IsCancellationRequested, "the pages never followed a written result");
+        Assert.Equal(0, runner.Failures);
+        runner.SettlePageStep = null;
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+        Assert.Equal(2, runner.SettlePageLayouts);
+        Assert.Equal("alpha text1", TextOf(reference));
+        Assert.Equal(0, runner.Failures);
+    }
+
+    // A tab closed while the save lays its pages out: the settle ends at the page it is on, writes nothing and throws nothing.
+    [AvaloniaFact]
+    public async Task ATabClosedDuringThePageLayoutOfASaveEndsTheSettle()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var runner = h.Tab.Fields!;
+        var steps = 0;
+        runner.SettlePageStep = _ =>
+        {
+            steps++;
+            h.Tab.Dispose();
+        };
+
+        await h.Tab.SettleFieldsAsync(h.Tab.Token);
+
+        Assert.Equal(1, steps);
+        Assert.Equal("alpha text?", TextOf(reference));
+        Assert.Equal(0, runner.Failures);
+        Assert.Equal(0, h.Tab.FieldWiringFailures);
+    }
+
+    // A page layout of a save that throws is a failed refresh, never a faulted document: the save goes on with the stored results.
+    [AvaloniaFact]
+    public async Task AThrowingPageLayoutOfASaveFaultsNothing()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var runner = h.Tab.Fields!;
+        runner.SettlePageStep = _ => throw new InvalidOperationException("test");
+
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+
+        Assert.Equal("alpha text?", TextOf(reference));
+        Assert.Equal(1, runner.Failures);
+        Assert.False(h.Tab.Runner.IsFaulted);
+        Assert.False(h.Tab.Runner.IsLeased);
+        Assert.Null(h.Tab.Editor!.BlockedReason);
+        runner.SettlePageStep = null;
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+        Assert.Equal("alpha text1", TextOf(reference));
+    }
+
+    // The three passes of the spec hold for a save in the writing view as for any other.
+    [AvaloniaFact]
+    public async Task ASaveInTheWritingViewEndsAfterThreePassesWhenTheNumbersKeepChanging()
+    {
+        var (h, _) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var runner = h.Tab.Fields!;
+        var growing = new GrowingHost(runner.Host);
+        runner.Refresher = (editor, _, scope, blocks) =>
+        {
+            growing.Round++;
+            return editor.RefreshFields(growing, scope, blocks);
+        };
+        runner.Notify(null);
+        var passes = runner.Passes;
+
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+
+        Assert.InRange(runner.Passes - passes, 2, FieldRefreshRunner.MaxPasses);
+        Assert.Equal(1, runner.SettlePageLayouts);
+        Assert.Equal(0, runner.Failures);
+    }
+
+    // The saved file read again: every list line and the page reference name the pages of a layout made from scratch, and no "?" is left.
+    private static async Task AssertSavedPagesAsync(WriteTab tab, string path, string[] chapters)
+    {
+        var (_, pageOf) = await FreshAsync(tab);
+        using var again = DocxFile.Open(path);
+        var saved = again.Model.Body.Blocks.OfType<Paragraph>().Select(TextOf).ToList();
+        var entries = saved.Where(t => t.Contains('\t', StringComparison.Ordinal)).ToList();
+        Assert.Equal(chapters.Length, entries.Count);
+        for (var i = 0; i < chapters.Length; i++)
+        {
+            Assert.Equal(chapters[i] + "\t" + pageOf(chapters[i]), entries[i]);
+        }
+
+        Assert.DoesNotContain(saved, line => line.Contains('?', StringComparison.Ordinal));
+        Assert.DoesNotContain(saved, line => line.EndsWith("77", StringComparison.Ordinal));
+    }
+
+    // The save flow of the app over a harness tab: the picker names a file in the harness folder.
+    private sealed class ManualSave(FieldHarness h) : ISaveInteraction
+    {
+        private string _path = string.Empty;
+
+        public async Task<string> SaveAsAsync(string name)
+        {
+            _path = System.IO.Path.Combine(h.Folder, name);
+            var outcome = await SaveHarness.AwaitAsync(new WriteSaveFlow(this).SaveAsAsync(h.Tab), 60000);
+            Assert.Equal(new SavedAs(_path), outcome);
+            return _path;
+        }
+
+        public Task<ChangedChoice> AskChangedOriginalAsync(WriteTab tab) => throw new InvalidOperationException("not expected");
+
+        public Task<SavePick?> PickSavePathAsync(WriteTab tab) => Task.FromResult<SavePick?>(new SavePick(_path, Existed: false));
+
+        public Task ShowErrorAsync(WriteTab tab, SaveProblem problem) => throw new InvalidOperationException("the save failed: " + problem.Kind);
+
+        public void Note(string text)
+        {
+        }
+
+        public bool IsOpenInAnotherTab(string path, WriteTab tab) => false;
+
+        public void PathChanged(WriteTab tab)
+        {
+        }
     }
 
     [AvaloniaFact]

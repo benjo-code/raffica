@@ -85,6 +85,12 @@ internal sealed class FieldRefreshRunner : IDisposable
     /// <summary>How many first passes skipped the page pass because nothing could have moved a page (tests).</summary>
     internal int PagePassesSkipped { get; private set; }
 
+    /// <summary>How many saves in the writing view made a pages layout of their own to read the page results (tests).</summary>
+    internal int SettlePageLayouts { get; private set; }
+
+    /// <summary>Test seam: called after each step of laying out the pages of a save in the writing view, with that layout.</summary>
+    internal Action<DocumentLayout>? SettlePageStep { get; set; }
+
     /// <summary>Test seam: called under the lease after the results were told to a layout, while no background layout runs.</summary>
     internal Action<DocumentLayout>? AfterApply { get; set; }
 
@@ -130,7 +136,11 @@ internal sealed class FieldRefreshRunner : IDisposable
 
     /// <summary>
     /// Brings the results up to date now, before a save reads the model: the same passes as the timer's, run synchronously (the task is complete when this returns; it is a task for the passes that may yield later). A refresh that is blocked
-    /// (a prefix document, a stale layout, an IME composition, a faulted session) is skipped, and so is one when the token is cancelled or the runner disposed; nothing is thrown for any of them.
+    /// (a prefix document, a stale pages layout, an IME composition, a faulted session) is skipped, and so is one when the token is cancelled or the runner disposed; nothing is thrown for any of them.
+    /// <para>
+    /// The writing view has no pages: a save there that owes page results makes a pages layout of its own under the lease, lays it out to its end and reads them from it, within the same <see cref="MaxPasses"/> passes. The view and
+    /// its layouts are left as they are, and results that changed leave the tab's pages layout stale, so a switch back makes it anew. A save that owes no page result lays nothing out, and the timer never makes such a layout.
+    /// </para>
     /// </summary>
     public Task SettleAsync(CancellationToken token)
     {
@@ -141,7 +151,7 @@ internal sealed class FieldRefreshRunner : IDisposable
 
         try
         {
-            ClaimOwedPages();
+            ClaimOwedPages(forSettle: true);
             if (_pending && Blocked(forSettle: true) == Hold.None)
             {
                 _timer.Stop();
@@ -190,7 +200,7 @@ internal sealed class FieldRefreshRunner : IDisposable
 
         try
         {
-            ClaimOwedPages();
+            ClaimOwedPages(forSettle: false);
             if (!_pending)
             {
                 return;
@@ -218,11 +228,11 @@ internal sealed class FieldRefreshRunner : IDisposable
         }
     }
 
-    // Page results owed since a pass without pages are work again once there are pages (for the tick and for the settle of a save). The touched blocks stay as they are: that pass dropped the signature of the settled page results, so the next one
-    // reads every page result. They stay owed until a pass with pages ran.
-    private void ClaimOwedPages()
+    // Page results owed since a pass without pages are work again once there are pages (for the tick), and for the settle of a save in any view (in the writing view it makes pages of its own). The touched blocks stay as they are: that pass
+    // dropped the signature of the settled page results, so the next one reads every page result. They stay owed until a pass with pages ran.
+    private void ClaimOwedPages(bool forSettle)
     {
-        if (_pagesOwed && !_tab.IsDisposed && _host.HasPages)
+        if (_pagesOwed && !_tab.IsDisposed && (forSettle || _host.HasPages))
         {
             _pending = true;
         }
@@ -254,7 +264,9 @@ internal sealed class FieldRefreshRunner : IDisposable
             return Hold.Later;
         }
 
-        if (_host.Layout is not { } layout || layout.PreeditText is not null)
+        // The strips of the writing view may not be made yet when a save settles: it needs no layout of the view (it lays out pages of its own for the page results), and without one there is no composition to wait for.
+        var layout = _host.Layout;
+        if (layout is null ? !(forSettle && _tab.Editor is { ActiveMode: LayoutMode.Flow }) : layout.PreeditText is not null)
         {
             return Hold.Later;
         }
@@ -271,7 +283,7 @@ internal sealed class FieldRefreshRunner : IDisposable
 
         // The first look at the whole body, and any look at a document that has page results (a table of contents, a PAGEREF), waits for the layout to be complete, so that nothing is asked of a half-built layout and the page loop (which needs
         // it) can follow; a save does not wait (it completes the layout itself).
-        return !forSettle && (_all || _wantPages) && !layout.IsComplete ? Hold.Later : Hold.None;
+        return !forSettle && (_all || _wantPages) && layout is { IsComplete: false } ? Hold.Later : Hold.None;
     }
 
     private TextEditor EditorFor(WordDocument model)
@@ -318,6 +330,27 @@ internal sealed class FieldRefreshRunner : IDisposable
             var editor = EditorFor(model);
             FieldRefreshResult? last = null;
 
+            // The pages of a save in the writing view (see LayOutOwnPages); null in every other refresh. A failure of that layout is counted and gives up on it: it is no layout of the document's, so nothing is faulted.
+            DocumentLayout? own = null;
+            var ownFailed = false;
+            bool OwesOwnPages() => forSettle && own is null && !ownFailed && _pagesOwed && !_host.HasPages;
+
+            void WithOwnPages(Func<DocumentLayout?> make)
+            {
+                try
+                {
+                    own = make();
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    Failures++;
+                    ownFailed = true;
+                    own = null;
+                }
+
+                _host.SettlePages = own;
+            }
+
             // Lays out the rest of the pages (the lease holder may; the background layout is paused) so that the next pass reads final page numbers. A fault of the layout is a fault of the edit path, like in ApplyToLayout.
             void CompleteLayout()
             {
@@ -339,12 +372,22 @@ internal sealed class FieldRefreshRunner : IDisposable
             // A refresh that waited for the background layout goes on counting its passes (the bound is three per burst, whichever path); a save starts its own count.
             var first = forSettle ? 0 : _roundPasses;
             _roundPasses = 0;
-            for (var pass = first; pass < MaxPasses && !token.IsCancellationRequested; pass++)
+            for (var pass = first; pass < MaxPasses && !token.IsCancellationRequested && !_tab.IsDisposed; pass++)
             {
+                // A save in the writing view that owes page results reads them from pages of its own, made before the pass that reads them.
+                if (OwesOwnPages())
+                {
+                    WithOwnPages(() => LayOutOwnPages(token));
+                    if (token.IsCancellationRequested || _tab.IsDisposed)
+                    {
+                        break;
+                    }
+                }
+
                 // Page results need every block and a complete layout: such a pass looks at the whole body; any other pass at the touched blocks of the first pass. The first pass of a burst of plain edits skips the page pass when the layout's page
                 // table is the one the last settled page pass saw and no touched block carries something a page result points at (the editor decides: a skipped pass gives what a whole pass gives).
                 var complete = _wantPages && _host.IsComplete;
-                var skip = complete && pass == 0 && touched is not null && editor.PagePassCanBeSkipped(_host, touched, settledBefore);
+                var skip = complete && pass == 0 && own is null && touched is not null && editor.PagePassCanBeSkipped(_host, touched, settledBefore);
                 var pagesOn = complete && !skip;
                 var scope = pagesOn ? RefreshScope.WithPages : skip ? RefreshScope.OrderBasedPagesCurrent : RefreshScope.OrderBased;
                 var blocks = pass == 0 && !pagesOn ? touched : null;
@@ -404,6 +447,12 @@ internal sealed class FieldRefreshRunner : IDisposable
                     layoutFailed = true;
                     ApplyToLayout(last.Content, forSettle);
                     layoutFailed = false;
+                    if (own is { } pages)
+                    {
+                        // The save's own pages follow the results too, so the next pass reads the numbers of the document as it is now. When they cannot (a cancel, a failure) the results just written were never checked and stay owed.
+                        WithOwnPages(() => FollowOnOwnPages(pages, last.Content, token));
+                        _pagesOwed |= own is null;
+                    }
                 }
 
                 if (last.Structural is { } record)
@@ -420,6 +469,12 @@ internal sealed class FieldRefreshRunner : IDisposable
                 // The page table the page results are current for: the one a settled page pass read, or the one a settled skip was checked against. Any other pass (without pages, or one that may still change a page result) drops it.
                 _settledSignature = !last.Settled ? null : pagesOn ? _host.PageSignature : skip ? settledBefore : null;
 
+                // A save in the writing view that now owes page results goes on: the next pass makes pages of its own and reads them. A table of contents that waits for a redo does not hold the numbers of the other results back.
+                if (OwesOwnPages() && pass < MaxPasses - 1 && (!_pending || _waitForRedo))
+                {
+                    continue;
+                }
+
                 if (_pending)
                 {
                     // An edit arrived during the passes: they end here and start over with the new blocks when the timer fires.
@@ -428,7 +483,7 @@ internal sealed class FieldRefreshRunner : IDisposable
 
                 if (last.Settled || !_host.HasPages)
                 {
-                    // Nothing page-based may still change, or there are no pages to follow (the writing view): the stored page results stay.
+                    // Nothing page-based may still change, or there are no pages to follow (the timer in the writing view): the stored page results stay.
                     break;
                 }
 
@@ -461,6 +516,15 @@ internal sealed class FieldRefreshRunner : IDisposable
                 reported = true;
             }
 
+            if (last is null && !_tab.IsDisposed)
+            {
+                // Cancelled before the first pass: the blocks of this try stay to be looked at.
+                _touched.InsertRange(0, snapshot);
+                _all |= wholeBody;
+                _pending = true;
+                _timer.Restart(Delay);
+            }
+
             _consecutiveFailures = 0;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -485,6 +549,7 @@ internal sealed class FieldRefreshRunner : IDisposable
         }
         finally
         {
+            _host.SettlePages = null;
             _running = false;
         }
 
@@ -499,6 +564,42 @@ internal sealed class FieldRefreshRunner : IDisposable
         {
             Guarded(() => _tab.ReportNotUpdated(NotUpdated));
         }
+    }
+
+    // The pages of a save in the writing view: a layout of its own over the model, made under the lease the caller holds and laid out to its end. Null when the save was cancelled or the tab closed on the way.
+    private DocumentLayout? LayOutOwnPages(CancellationToken token)
+    {
+        var layout = _tab.Runner.CreateDetachedPageLayout();
+        SettlePageLayouts++;
+        return Complete(layout, token) ? layout : null;
+    }
+
+    // The results of a pass told to the save's own pages, which are then laid out to their end again.
+    private DocumentLayout? FollowOnOwnPages(DocumentLayout layout, IReadOnlyList<BlockChange> content, CancellationToken token)
+    {
+        foreach (var change in content)
+        {
+            layout.ApplyEdit(change, Math.Max(0, layout.LaidOutPages - 1));
+        }
+
+        return Complete(layout, token) ? layout : null;
+    }
+
+    // One page at a time, so a cancelled save or a closed tab ends the work at a page end.
+    private bool Complete(DocumentLayout layout, CancellationToken token)
+    {
+        while (!layout.IsComplete)
+        {
+            if (token.IsCancellationRequested || _disposed || _tab.IsDisposed)
+            {
+                return false;
+            }
+
+            layout.LayOutThrough(layout.LaidOutPages);
+            SettlePageStep?.Invoke(layout);
+        }
+
+        return !token.IsCancellationRequested && !_disposed && !_tab.IsDisposed;
     }
 
     private void Guarded(Action action)

@@ -160,6 +160,23 @@ internal static class FieldTestDocument
         return Package(body.ToString());
     }
 
+    /// <summary>
+    /// A short document of four pages that begins with a stale table of contents of two paragraphs, followed by the chapters Alpha, Beta and Gamma, each on a page of its own: small enough to be opened whole, so its pages layout
+    /// holds page 1 alone until something lays it out.
+    /// </summary>
+    public static byte[] PagedTocBytes()
+    {
+        var body = new StringBuilder("<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-3\" \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:t>stale</w:t></w:r></w:p>");
+        body.Append("<w:p><w:r><w:t>stale too</w:t></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>");
+        foreach (var name in (string[])["Alpha", "Beta", "Gamma"])
+        {
+            body.Append(Chapter(name).Replace("<w:pStyle w:val=\"Heading1\"/>", "<w:pStyle w:val=\"Heading1\"/><w:pageBreakBefore/>", StringComparison.Ordinal));
+            body.Append(Plain("a line of text"));
+        }
+
+        return Package(body.ToString());
+    }
+
     private static string Plain(string text) => "<w:p><w:r><w:t xml:space=\"preserve\">" + text + "</w:t></w:r></w:p>";
 
     private static string Chapter(string text) => "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>" + text + "</w:t></w:r></w:p>";
