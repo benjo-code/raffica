@@ -2,7 +2,7 @@
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe <RafficaPdf> --case cold|warm|thousand|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
-//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory|typing|typing-background|typing-pane|typing-sections-pane|typing-snapshot|typing-objects|format|structure|sections|objects|gesture --out <csv> [--machine <name>] [--testdata <folder>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory|typing|typing-background|typing-pane|typing-sections-pane|typing-snapshot|typing-objects|typing-fields|format|structure|sections|objects|gesture|fields --out <csv> [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <write-layout-bench> --case engine --out <csv> [--runs <n>] [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf|write] [--mode frame] [--machine <name>] [--app <bundle dir>] [--dmg <file>]
 //   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64|osx-arm64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf|write] [--app <bundle dir> --dmg <file>: pdf on macOS]
@@ -18,6 +18,8 @@
 // recorded as typing/pane-<case>-<view>-p95 so that the worst p95 of typing holds them), format (the app's --measure-format: bold on one word and the alignment of one paragraph at the places of the
 // typing run, rows format/<kind>/<place>-<view>-median and -p95; the metric format is the worst p95), structure (the app's --measure-structure: three chapter moves, the heading numbering on and off and a numbered list toggle, rows structure/<case>-median and -p95, structure-refresh/<case>-ms; the metric structure is the worst median of the three move rows, a fixed 100 ms limit on every platform, the far-caret row recorded only), typing-sections-pane (the typing run with the Sections pane open, rows typing/sections-pane-<case>-<view>-p95: they count into typing), sections (the app's --measure-sections: Number pages from page 3, an appendix prefix, removing a section marker, the page setup of the whole document and of one section, a footer page number, rows sections/<case>-median and -p95, sections-full/<case>-median-ms and -max-ms (the full layout after the command), sections-refresh/<case>-ms; the metric sections is the worst median of the six rows and has NO limit yet: recorded, check says "not judged") and engine (the median of
 // objects (the app's --measure-objects: a table inserted, a row added, two cells merged, borders set, a picture inserted, pasted, resized and moved, a footnote inserted and deleted, rows objects/<case>-median and -p95, objects-refresh/<case>-ms; the metric objects is the worst median of the ten, a fixed limit on every platform), gesture (--measure-gesture: pointer moves of six drag kinds, rows gesture/<kind>-median and -p95; the metric gesture is the worst p95, the fixed 16 ms) and typing-objects (typing in a paragraph that holds a picture and in a table cell, rows typing/objects-<case>-<view>-p95: they count into typing),
+// fields (--measure-fields: the field commands and the field refresh, rows fields/<case>-median and -p95, fields-settle/<case>-..., fields-open/...; the metric fields is the worst median of the four commands, a fixed limit on every platform),
+// typing-fields (--measure-typing-fields: typing in a document with a table of contents while the field refresh runs at the pauses, rows typing/fields-<case>-<view>-p95: they count into typing; fields-refresh/... recorded) and engine (the median of
 // write-layout-bench run, one row). check --target write judges only the metrics that have a limit (see s_writeBudgets).
 //
 // Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for the binding
@@ -196,6 +198,55 @@ static class Lines
 
         name = a["case=".Length..];
         return name.Length > 0 && TryValue(c, "median-ms=", out median) && TryValue(d, "max-ms=", out max);
+    }
+
+    /// <summary>Reads <c>fields case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> of the Write app (the case is a name of <c>WriteRun.FieldsNames</c>; invariant culture).</summary>
+    public static bool TryParseFields(string line, out string name, out string view, out double median, out double p95, out double max) =>
+        TryParseRow("fields", line, out name, out view, out median, out p95, out max);
+
+    /// <summary>
+    /// Reads a line of the fields runs that is a word followed by key=value words (<c>fields-open</c>, <c>fields-settle</c>, <c>fields-refresh</c>): <c>case</c> (empty when the line has none) and <c>view</c> are names, every
+    /// other word a number (invariant culture). False for another kind of line, a word without a value or a value that is no finite number.
+    /// </summary>
+    public static bool TryParseWords(string kind, string line, out string name, out string view, out Dictionary<string, double> values)
+    {
+        name = view = string.Empty;
+        values = [];
+        var parts = line.Split(' ');
+        if (parts.Length < 2 || parts[0] != kind)
+        {
+            return false;
+        }
+
+        foreach (var part in parts.Skip(1))
+        {
+            var at = part.IndexOf('=', StringComparison.Ordinal);
+            if (at <= 0)
+            {
+                return false;
+            }
+
+            var key = part[..at];
+            var value = part[(at + 1)..];
+            if (key == "case")
+            {
+                name = value;
+            }
+            else if (key == "view")
+            {
+                view = value;
+            }
+            else if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && double.IsFinite(number))
+            {
+                values[key] = number;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        return values.Count > 0;
     }
 
     private static bool TryParseRefresh(string kind, string line, out string name, out double ms)
@@ -876,7 +927,7 @@ static class PdfRun
             List<(string Case, string Run, double Value)>? typing = null;
             try
             {
-                result = c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.StructureCase or WriteRun.SectionsCase or WriteRun.ObjectsCase or WriteRun.GestureCase or WriteRun.TypingObjectsCase or WriteRun.TypingSectionsPaneCase or WriteRun.TypingSnapshotCase
+                result = WriteRun.IsRowsCase(c.Name)
                     ? RunTyping(exe, c, settingsFile, testdata, out typing)
                     : c.Name == WriteRun.TypingBackgroundCase
                         ? RunTypingBackground(exe, c, settingsFile, testdata, out typing)
@@ -911,14 +962,14 @@ static class PdfRun
                     rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Run is "n" or "incomplete" ? "count" : "ms")));
                 }
             }
-            else if (c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.StructureCase or WriteRun.SectionsCase or WriteRun.ObjectsCase or WriteRun.GestureCase or WriteRun.TypingObjectsCase or WriteRun.TypingSectionsPaneCase or WriteRun.TypingSnapshotCase)
+            else if (WriteRun.IsRowsCase(c.Name))
             {
                 // Value: the worst 95th percentile of the cases (the number check judges), Second: the worst median.
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: worst p95 {result.Value:0.00} ms, worst median {result.Second:0.00} ms over {typing!.Count(t => t.Run.EndsWith("-p95", StringComparison.Ordinal))} cases"));
                 if (run > 0)
                 {
                     values.Add(result.Value!.Value);
-                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Case == "snapshot" && !t.Run.EndsWith("ms", StringComparison.Ordinal) ? "count" : "ms")));
+                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, (t.Case == "snapshot" && !t.Run.EndsWith("ms", StringComparison.Ordinal)) || t.Run.EndsWith("passes", StringComparison.Ordinal) ? "count" : "ms")));
                 }
             }
             else if (c.Name == "scroll")
@@ -965,7 +1016,7 @@ static class PdfRun
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.StructureCase or WriteRun.SectionsCase or WriteRun.ObjectsCase or WriteRun.GestureCase or WriteRun.TypingObjectsCase or WriteRun.TypingSectionsPaneCase or WriteRun.TypingSnapshotCase ? ", worst p95 in ms" : c.Name == WriteRun.TypingBackgroundCase ? ", median in ms" : string.Empty)})"));
+            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : WriteRun.IsRowsCase(c.Name) ? ", worst p95 in ms" : c.Name == WriteRun.TypingBackgroundCase ? ", median in ms" : string.Empty)})"));
         if (warning is not null)
         {
             Console.WriteLine($"Result with reservation: {warning}");
@@ -1038,6 +1089,8 @@ static class PdfRun
             : c.Name == WriteRun.GestureCase ? WriteRun.ParseGesture(output!, out parseError)
             : c.Name == WriteRun.TypingObjectsCase ? WriteRun.ParseTyping(output!, out parseError, "objects-", "typing", WriteRun.TypingObjectsPlaces)
             : c.Name == WriteRun.TypingSnapshotCase ? WriteRun.ParseTypingSnapshot(output!, out parseError)
+            : c.Name == WriteRun.FieldsCase ? WriteRun.ParseFields(output!, out parseError)
+            : c.Name == WriteRun.TypingFieldsCase ? WriteRun.ParseTypingFields(output!, out parseError)
             : WriteRun.ParseTyping(output!, out parseError, c.Name == WriteRun.TypingPaneCase ? "pane-" : c.Name == WriteRun.TypingSectionsPaneCase ? "sections-pane-" : string.Empty);
         if (rows is null)
         {
@@ -1248,6 +1301,116 @@ static class WriteRun
 
     /// <summary>The typing run while recovery snapshots are written back to back (<c>--measure-typing-snapshot</c>): rows <c>typing-snapshot/&lt;case&gt;-&lt;view&gt;-median|p95</c> count into the judged metric <c>typing</c>; <c>snapshot/lease-ms</c> and <c>snapshot/total-ms</c> are recorded, never judged.</summary>
     public const string TypingSnapshotCase = "typing-snapshot";
+
+    /// <summary>The fields run of the app (<c>--measure-fields</c>): the four field commands and the field refresh on the thesis with a table of contents of more than 100 entries added (page view). Rows <c>fields/&lt;case&gt;-median</c> and <c>-p95</c>; the metric <c>fields</c> is the worst median of the four command rows against a fixed limit (<see cref="CheckCommand.FieldsBudget"/>).</summary>
+    public const string FieldsCase = "fields";
+
+    /// <summary>The cases of the fields run, in the order of the app (<c>Measurement.Fields.cs</c>, <c>FieldPlaces.All</c>; the bench has the first seven, <c>FieldCases.Names</c>).</summary>
+    public static readonly string[] FieldsNames = ["caption-insert", "xref-insert", "toc-insert", "bookmark-add", "refresh-heading-edit", "refresh-pages", "first-settle", "refresh-heading-edit-far-view"];
+
+    /// <summary>The cases of the fields run that are commands (<c>FieldPlaces.Commands</c>): the judged ones.</summary>
+    public static readonly string[] FieldsCommandNames = ["caption-insert", "xref-insert", "toc-insert", "bookmark-add"];
+
+    /// <summary>The typing run with fields (<c>--measure-typing-fields</c>): typing in a document with a table of contents of more than 100 entries, the field refresh at a pause after every tenth key. The typing rows are recorded as <c>typing/fields-&lt;case&gt;-&lt;view&gt;-p95</c>, so the worst p95 of the metric <c>typing</c> holds them.</summary>
+    public const string TypingFieldsCase = "typing-fields";
+
+    /// <summary>The places of the typing run with fields (<c>Measurement.Fields.cs</c>, <c>FieldPlaces.TypingNames</c>).</summary>
+    public static readonly string[] TypingFieldsPlaces = ["middle", "numbered-heading", "caption", "table-cell"];
+
+    /// <summary>True for a case whose one launch prints rows of its own (typing and the other runs inside the document), as opposed to one value per run.</summary>
+    public static bool IsRowsCase(string name) => name is TypingCase or TypingPaneCase or FormatCase or StructureCase or SectionsCase or ObjectsCase or GestureCase or TypingObjectsCase or TypingSectionsPaneCase or TypingSnapshotCase or FieldsCase or TypingFieldsCase;
+
+    /// <summary>
+    /// The rows of a fields run from the output of the app: for every case of <see cref="FieldsNames"/> <c>fields/&lt;case&gt;-median</c> and <c>-p95</c> (the command, or for a refresh case the first refresh: the handler,
+    /// the render pass and the page draws), the recorded split of each in the family <c>fields-split</c>, the line of the case about the refresh that completes the change as <c>fields-settle/&lt;case&gt;-flush-median-ms</c>,
+    /// <c>-flush-max-ms</c>, <c>-full-median-ms</c>, <c>-full-max-ms</c> and <c>-passes</c>, and the first refresh of the file as it was opened as <c>fields-open/flush-ms</c>, <c>full-ms</c> and <c>passes</c>. Every case with
+    /// its settle line and the line of the opened file must be there, or the run failed (<paramref name="error"/>). The metric <c>fields</c> is the worst median of the four command rows (<see cref="CheckCommand.WorstFieldsMedian"/>).
+    /// </summary>
+    public static List<(string Case, string Run, double Value)>? ParseFields(string output, out string? error)
+    {
+        var rows = new List<(string, string, double)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var settled = new HashSet<string>(StringComparer.Ordinal);
+        var opened = false;
+        foreach (var line in output.Split((char)10).Select(l => l.Trim()))
+        {
+            if (Lines.TryParseFields(line, out var name, out _, out var median, out var p95, out _))
+            {
+                rows.Add(("fields", $"{name}-median", median));
+                rows.Add(("fields", $"{name}-p95", p95));
+                seen.Add(name);
+                foreach (var (key, value) in Lines.TypingSplit(line))
+                {
+                    rows.Add(("fields-split", $"{name}-{key}", value));
+                }
+            }
+            else if (Lines.TryParseWords("fields-settle", line, out var settleName, out _, out var settle) && Has(settle, "flush-median-ms", "flush-max-ms", "full-median-ms", "full-max-ms", "passes"))
+            {
+                foreach (var key in new[] { "flush-median-ms", "flush-max-ms", "full-median-ms", "full-max-ms", "passes" })
+                {
+                    rows.Add(("fields-settle", $"{settleName}-{key}", settle[key]));
+                }
+
+                settled.Add(settleName);
+            }
+            else if (Lines.TryParseWords("fields-open", line, out _, out _, out var open) && Has(open, "flush-ms", "full-ms", "passes"))
+            {
+                foreach (var key in new[] { "flush-ms", "full-ms", "passes" })
+                {
+                    rows.Add(("fields-open", key, open[key]));
+                }
+
+                opened = true;
+            }
+        }
+
+        var missing = FieldsNames.Where(n => !seen.Contains(n)).ToList();
+        var unsettled = FieldsNames.Where(n => !settled.Contains(n)).ToList();
+        error = missing.Count > 0 ? $"the fields run printed no row for {string.Join(", ", missing)}"
+            : unsettled.Count > 0 ? $"the fields run printed no settle row for {string.Join(", ", unsettled)}"
+            : !opened ? "the fields run printed no fields-open row"
+            : null;
+        return error is null ? rows : null;
+    }
+
+    private static bool Has(Dictionary<string, double> values, params string[] keys) => keys.All(values.ContainsKey);
+
+    /// <summary>
+    /// The rows of a typing run with fields: the typing rows as <c>typing/fields-&lt;case&gt;-&lt;view&gt;-median|p95</c> (every place of <see cref="TypingFieldsPlaces"/> in both views must be there) and, recorded and
+    /// never judged, the refresh at the pauses of every place and view as <c>fields-refresh/&lt;case&gt;-&lt;view&gt;-median-ms</c>, <c>-max-ms</c>, <c>-full-median-ms</c>, <c>-full-max-ms</c> and <c>-passes</c> (every one required).
+    /// </summary>
+    public static List<(string Case, string Run, double Value)>? ParseTypingFields(string output, out string? error)
+    {
+        var rows = ParseTyping(output, out error, "fields-", "typing", TypingFieldsPlaces);
+        if (rows is null)
+        {
+            return null;
+        }
+
+        string[] keys = ["median-ms", "max-ms", "full-median-ms", "full-max-ms", "passes"];
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in output.Split((char)10).Select(l => l.Trim()))
+        {
+            if (Lines.TryParseWords("fields-refresh", line, out var name, out var view, out var values) && Has(values, keys))
+            {
+                foreach (var key in keys)
+                {
+                    rows.Add(("fields-refresh", $"{name}-{view}-{key}", values[key]));
+                }
+
+                seen.Add($"{name}-{view}");
+            }
+        }
+
+        var missing = TypingViews.SelectMany(v => TypingFieldsPlaces.Select(c => $"{c}-{v}")).Where(k => !seen.Contains(k)).ToList();
+        if (missing.Count > 0)
+        {
+            error = $"the typing-fields run printed no refresh row for {string.Join(", ", missing)}";
+            return null;
+        }
+
+        return rows;
+    }
 
     /// <summary>The cases of the typing run, in the order of the app (<c>Measurement.Typing.cs</c>, <c>TypingPlaces.Names</c>).</summary>
     public static readonly string[] TypingCases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
@@ -1548,6 +1711,8 @@ static class WriteRun
         new(ObjectsCase, 3, 0, 500, "--measure-objects", ThesisFile, "first-page"),
         new(GestureCase, 3, 0, 500, "--measure-gesture", ThesisFile, "first-page"),
         new(TypingObjectsCase, 3, 0, 500, "--measure-typing-objects", ThesisFile, "first-page"),
+        new(FieldsCase, 3, 0, 500, "--measure-fields", ThesisFile, "first-page"),
+        new(TypingFieldsCase, 3, 0, 500, "--measure-typing-fields", ThesisFile, "first-page"),
         new(EngineCase, 10, 2, 0, string.Empty, ThesisFile, "median first page:"),
     ];
 
@@ -2074,6 +2239,7 @@ static class CheckCommand
         ("sections", "sections, worst command median (ms)"),
         ("objects", "objects, worst command median (ms)"),
         ("gesture", "gesture, worst move p95 (ms)"),
+        ("fields", "fields, worst command median (ms)"),
     ];
 
     // THE limit table of the Write app (target write), the only place for these numbers. The app rows (cold, warm, thesis, second, scroll, memory,
@@ -2085,9 +2251,9 @@ static class CheckCommand
     // format at 16 ms on every platform. A miss is a finding for the owner, never a loosened number; a change is a new decisions entry.
     private static readonly Dictionary<string, Dictionary<string, double>> s_writeBudgets = new()
     {
-        ["windows"] = new() { ["cold"] = 270, ["warm"] = 270, ["thesis"] = 280, ["second"] = 20, ["scroll"] = 20, ["memory"] = 115, ["size"] = 73, ["zip"] = 28, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget, ["sections"] = SectionsBudget, ["objects"] = ObjectsBudget, ["gesture"] = GestureBudget },
-        ["linux"] = new() { ["cold"] = 280, ["warm"] = 270, ["thesis"] = 300, ["second"] = 50, ["scroll"] = 20, ["memory"] = 210, ["size"] = 67, ["zip"] = 29, ["engine"] = 80, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget, ["sections"] = SectionsBudget, ["objects"] = ObjectsBudget, ["gesture"] = GestureBudget },
-        ["macos"] = new() { ["cold"] = 730, ["warm"] = 800, ["thesis"] = 800, ["second"] = 80, ["scroll"] = 20, ["memory"] = 155, ["size"] = 69, ["zip"] = 30, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget, ["sections"] = SectionsBudget, ["objects"] = ObjectsBudget, ["gesture"] = GestureBudget },
+        ["windows"] = new() { ["cold"] = 270, ["warm"] = 270, ["thesis"] = 280, ["second"] = 20, ["scroll"] = 20, ["memory"] = 115, ["size"] = 73, ["zip"] = 28, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget, ["sections"] = SectionsBudget, ["objects"] = ObjectsBudget, ["gesture"] = GestureBudget, ["fields"] = FieldsBudget },
+        ["linux"] = new() { ["cold"] = 280, ["warm"] = 270, ["thesis"] = 300, ["second"] = 50, ["scroll"] = 20, ["memory"] = 210, ["size"] = 67, ["zip"] = 29, ["engine"] = 80, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget, ["sections"] = SectionsBudget, ["objects"] = ObjectsBudget, ["gesture"] = GestureBudget, ["fields"] = FieldsBudget },
+        ["macos"] = new() { ["cold"] = 730, ["warm"] = 800, ["thesis"] = 800, ["second"] = 80, ["scroll"] = 20, ["memory"] = 155, ["size"] = 69, ["zip"] = 30, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget, ["sections"] = SectionsBudget, ["objects"] = ObjectsBudget, ["gesture"] = GestureBudget, ["fields"] = FieldsBudget },
     };
 
     /// <summary>
@@ -2138,6 +2304,14 @@ static class CheckCommand
     /// is recorded and not judged. Never loosened to make a run pass.
     /// </summary>
     public const double GestureBudget = 12.8;
+
+    /// <summary>
+    /// The budget of <c>fields</c> in the table: a FIXED limit, entered for every platform, the first measurement times 1.25 as the milestone 4.5b plan says (the worst median of the four commands of
+    /// <c>--measure-fields</c>, the CPU cost of the command: handler plus render pass plus page draws; the frame latency, the split, the refresh cases and the settle rows are recorded and never judged). The first measurement
+    /// on the Windows PC on 2026-11-27 (three launches) had a worst median of 52.79 ms (a table of contents of the levels 1 to 3 inserted), rounded up to a 60 ms budget (the M4.2 rule for time budgets); the limit is 75 ms
+    /// (Docs/DECISIONS.md, "Raffica Write: the fields limit (M4.5b)"). A regression guard and not an aim. Never loosened to make a run pass; a change is a new decisions entry.
+    /// </summary>
+    public const double FieldsBudget = 60;
 
     /// <summary>The message of a check of the Write app when none of the metrics it judges has a limit.</summary>
     public const string NoWriteLimits = "no limits recorded for target write";
@@ -2202,11 +2376,11 @@ static class CheckCommand
     /// </summary>
     public static List<Result> JudgeWrite(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only)
     {
-        // "engine", "typing", "format", "structure" and "sections" are fixed limits (the engine for Linux, the others for every platform), not the owner's 4.2 budgets: none makes a platform one with an app row.
+        // "engine", "typing", "format", "structure", "sections", "objects", "gesture" and "fields" are fixed limits (the engine for Linux, the others for every platform), not the owner's 4.2 budgets: none makes a platform one with an app row.
         // "sections" is a fixed regression guard of 600 ms since 2026-11-24 ("Raffica Write: the sections limit (M4.4b)"); a table without it (the selftest's) leaves it "not judged" and never "unrecorded".
-        var hasAppRow = s_writeMetrics.Any(m => m.Key is not ("engine" or "typing" or "format" or "structure" or "sections" or "objects" or "gesture") && LimitOf(WriteTable, platform, m.Key) is not null);
+        var hasAppRow = s_writeMetrics.Any(m => m.Key is not ("engine" or "typing" or "format" or "structure" or "sections" or "objects" or "gesture" or "fields") && LimitOf(WriteTable, platform, m.Key) is not null);
         return [.. Judge(WriteTable, s_writeMetrics, platform, measured, only, indicativeOnMac: false)
-            .Select(r => r.Verdict == "unrecorded" && (r.Key is "engine" or "typing" or "format" or "structure" or "sections" or "objects" or "gesture" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
+            .Select(r => r.Verdict == "unrecorded" && (r.Key is "engine" or "typing" or "format" or "structure" or "sections" or "objects" or "gesture" or "fields" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
     }
 
     private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only, bool indicativeOnMac)
@@ -2296,6 +2470,7 @@ static class CheckCommand
             ["sections"] = WorstSectionsMedian(rows),
             ["objects"] = WorstObjectsMedian(rows),
             ["gesture"] = WorstGestureP95(rows),
+            ["fields"] = WorstFieldsMedian(rows),
         };
         return JudgeWrite(platform, measured, [.. s_writeMetrics.Select(m => m.Key)]);
     }
@@ -2366,6 +2541,21 @@ static class CheckCommand
     {
         var perCase = rows
             .Where(r => r.Mode == "write" && r.Case == "objects" && r.Run.EndsWith("-median", StringComparison.Ordinal))
+            .GroupBy(r => r.Run, StringComparer.Ordinal)
+            .Select(g => Stats.Median([.. g.Select(r => r.Value)]))
+            .ToList();
+        return perCase.Count == 0 ? null : perCase.Max();
+    }
+
+    /// <summary>
+    /// The value of the metric <c>fields</c>: the worst median of the four field commands (<c>fields/&lt;command&gt;-median</c> of <see cref="WriteRun.FieldsCommandNames"/>, the median over the launches per row, then the
+    /// largest). The value is CPU cost (the key handler plus the render pass plus the page draws, the typing definition; the frame latency is not included). The refresh cases of the same run are never part of it. null
+    /// without such a row.
+    /// </summary>
+    public static double? WorstFieldsMedian(IReadOnlyList<BudgetsCommand.Row> rows)
+    {
+        var perCase = rows
+            .Where(r => r.Mode == "write" && r.Case == "fields" && WriteRun.FieldsCommandNames.Any(c => r.Run == c + "-median"))
             .GroupBy(r => r.Run, StringComparer.Ordinal)
             .Select(g => Stats.Median([.. g.Select(r => r.Value)]))
             .ToList();
@@ -2960,14 +3150,14 @@ static class SelfTest
         }
     }
 
-    private static readonly string[] s_writeKeys = ["cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine", "typing", "format", "structure", "sections", "objects", "gesture"];
+    private static readonly string[] s_writeKeys = ["cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine", "typing", "format", "structure", "sections", "objects", "gesture", "fields"];
 
     // TEST-ONLY numbers to exercise the verdict logic; they are budgets of nothing. The recorded table is s_writeBudgets in CheckCommand.
     private static Dictionary<string, Dictionary<string, double>> WriteTestTable() => new()
     {
-        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thesis"] = 120, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16, ["engine"] = 70, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget, ["sections"] = CheckCommand.SectionsBudget, ["objects"] = CheckCommand.ObjectsBudget, ["gesture"] = CheckCommand.GestureBudget },
-        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thesis"] = 140, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16, ["engine"] = 80, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget, ["sections"] = CheckCommand.SectionsBudget, ["objects"] = CheckCommand.ObjectsBudget, ["gesture"] = CheckCommand.GestureBudget },
-        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thesis"] = 160, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["engine"] = 90, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget, ["sections"] = CheckCommand.SectionsBudget, ["objects"] = CheckCommand.ObjectsBudget, ["gesture"] = CheckCommand.GestureBudget },
+        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thesis"] = 120, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16, ["engine"] = 70, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget, ["sections"] = CheckCommand.SectionsBudget, ["objects"] = CheckCommand.ObjectsBudget, ["gesture"] = CheckCommand.GestureBudget, ["fields"] = CheckCommand.FieldsBudget },
+        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thesis"] = 140, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16, ["engine"] = 80, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget, ["sections"] = CheckCommand.SectionsBudget, ["objects"] = CheckCommand.ObjectsBudget, ["gesture"] = CheckCommand.GestureBudget, ["fields"] = CheckCommand.FieldsBudget },
+        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thesis"] = 160, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["engine"] = 90, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget, ["sections"] = CheckCommand.SectionsBudget, ["objects"] = CheckCommand.ObjectsBudget, ["gesture"] = CheckCommand.GestureBudget, ["fields"] = CheckCommand.FieldsBudget },
     };
 
     /// <summary>Rows of the Write app with every metric at <c>limit + delta</c> of the platform in the table in force; <paramref name="only"/> restricts the delta to one metric, <paramref name="without"/> leaves a metric out.</summary>
@@ -3011,6 +3201,10 @@ static class SelfTest
             // The gesture rows (same reduction as typing): the kind "row" is the worst, its p95 over the launches is At("gesture"); the medians and the other families are never judged.
             new("pc", "write", "gesture", "row-p95", At("gesture") + 5, "ms"), new("pc", "write", "gesture", "row-p95", At("gesture") - 5, "ms"), new("pc", "write", "gesture", "row-p95", At("gesture"), "ms"),
             new("pc", "write", "gesture", "cell-range-p95", 1, "ms"), new("pc", "write", "gesture", "cell-range-median", 99, "ms"), new("pc", "write", "gesture-split", "row-frame-median-ms", 99, "ms"),
+
+            // The fields rows (same reduction as objects): the worst command row's median over the launches is At("fields"); the refresh cases, the p95 rows and the other families are never judged.
+            new("pc", "write", "fields", "toc-insert-median", At("fields"), "ms"), new("pc", "write", "fields", "toc-insert-median", At("fields") + 5, "ms"), new("pc", "write", "fields", "toc-insert-median", At("fields") - 5, "ms"),
+            new("pc", "write", "fields", "bookmark-add-median", 1, "ms"), new("pc", "write", "fields", "first-settle-median", 9999, "ms"), new("pc", "write", "fields", "refresh-pages-median", 9999, "ms"), new("pc", "write", "fields", "toc-insert-p95", 9999, "ms"), new("pc", "write", "fields-settle", "toc-insert-full-median-ms", 9999, "ms"),
         ];
         return without is null ? rows : [.. rows.Where(r => without == "size" ? !(r.Case == "size" && r.Run == "total") : without == "zip" ? !(r.Case == "size" && r.Run == "zip") : r.Case != without)];
     }
@@ -3045,10 +3239,10 @@ static class SelfTest
         Expect("write run: the second launch shares the settings file and opens poi-comment", string.Join(' ', WriteRun.SecondArguments("s.json", td)), $"--settings-file s.json {Path.Combine(td, "poi-comment/poi-comment.docx")}");
         Expect("write run: typing opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("typing", "s.json", td)), $"--measure-typing --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
         Expect("write run: every app run has a settings file of its own", WriteRun.Cases.Where(c => c.Name != "engine").All(c => WriteRun.Arguments(c.Name, "s.json", td).Contains("--settings-file")), true);
-        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,typing-background,typing-pane,typing-sections-pane,typing-snapshot,format,structure,sections,objects,gesture,typing-objects,engine");
+        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,typing-background,typing-pane,typing-sections-pane,typing-snapshot,format,structure,sections,objects,gesture,typing-objects,fields,typing-fields,engine");
         Expect("write run: the engine runs the benchmark on the thesis", string.Join(' ', WriteRun.EngineArguments(td, 7)), $"run --file {Path.Combine(td, "thesis/thesis.docx")} --runs 7 --warmup 2");
         Expect("write run: CSV mode is write", RunCommand.CsvMode("write", null), "write");
-        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing, typing-background, typing-pane, typing-sections-pane, typing-snapshot, format, structure, sections, objects, gesture, typing-objects or engine");
+        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing, typing-background, typing-pane, typing-sections-pane, typing-snapshot, format, structure, sections, objects, gesture, typing-objects, fields, typing-fields or engine");
         Expect("pdf run: the case list in the message is the old text", PdfRun.CaseList(PdfRun.Cases), "cold, warm, thousand, second, scroll or memory");
 
         TypingTests();
@@ -3097,8 +3291,8 @@ static class SelfTest
 
         // The production table: the app rows of the owner's runs of 2026-11-21, the fixed engine limit of the Linux laptop (100 ms = budget 80 x 1.25) and the fixed typing and format limits.
         Expect("write limits: linux engine is budget 80 x 1.25 = 100 ms", CheckCommand.LimitOf(CheckCommand.WriteTable, "linux", "engine"), 100.0);
-        Expect("write limits: linux holds the app rows, the engine, typing, format, structure, sections, objects and gesture", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "cold,warm,thesis,second,scroll,memory,size,zip,engine,typing,format,structure,sections,objects,gesture");
-        Expect("write limits: windows and macos hold the app rows, typing, format, structure and sections, no engine", string.Join('|', CheckCommand.WriteTable["windows"].Keys.Concat(CheckCommand.WriteTable["macos"].Keys)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure,sections,objects,gesture".Replace(",", "|") + "|" + "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure,sections,objects,gesture".Replace(",", "|"));
+        Expect("write limits: linux holds the app rows, the engine, typing, format, structure, sections, objects, gesture and fields", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "cold,warm,thesis,second,scroll,memory,size,zip,engine,typing,format,structure,sections,objects,gesture,fields");
+        Expect("write limits: windows and macos hold the app rows, typing, format, structure and sections, no engine", string.Join('|', CheckCommand.WriteTable["windows"].Keys.Concat(CheckCommand.WriteTable["macos"].Keys)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure,sections,objects,gesture,fields".Replace(",", "|") + "|" + "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure,sections,objects,gesture,fields".Replace(",", "|"));
 Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, limit = budget x 1.25", string.Join(' ', new[] { "windows", "linux", "macos" }.Select(p => string.Join(',', new[] { "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip" }.Select(k => CheckCommand.LimitOf(CheckCommand.WriteTable, p, k)?.ToString(CultureInfo.InvariantCulture))))), "337.5,337.5,350,25,25,143.75,91.25,35 350,337.5,375,62.5,25,262.5,83.75,36.25 912.5,1000,1000,100,25,193.75,86.25,37.5");
         Expect("write limits: typing is a fixed 16 ms on every platform (budget 12.8 x 1.25)", new[] { "windows", "linux", "macos" }.Select(p => CheckCommand.LimitOf(CheckCommand.WriteTable, p, "typing")).All(l => l == 16.0), true);
         Expect("write limits: the typing budget constant", CheckCommand.TypingBudget, 12.8);
@@ -3119,7 +3313,7 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
         {
             PdfCsv(csv, WriteRows(platform));
             Expect($"check write {platform} (recorded): the typing row at its limit exits 0", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 0);
-            Expect($"check write {platform} (recorded): every row but the engine is judged", string.Join(',', CheckCommand.EvaluateWrite(platform, WriteRows(platform)).Where(r => r.Verdict == "ok").Select(r => r.Key)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure,sections,objects,gesture");
+            Expect($"check write {platform} (recorded): every row but the engine is judged", string.Join(',', CheckCommand.EvaluateWrite(platform, WriteRows(platform)).Where(r => r.Verdict == "ok").Select(r => r.Key)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure,sections,objects,gesture,fields");
             PdfCsv(csv, WriteRows(platform, "typing", 0.1));
             Expect($"check write {platform} (recorded): a typing row 0.1 ms above 16 exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 1);
             PdfCsv(csv, WriteRows(platform, without: "typing"));
@@ -3189,13 +3383,13 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
             var partial = CheckCommand.EvaluateWrite("windows", WriteRows("windows"));
             Expect("check write: with one app row set, the other app metrics are unrecorded", string.Join(',', partial.Where(r => r.Verdict == "unrecorded").Select(r => r.Key)), "warm,thesis,second,scroll,memory,size,zip");
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["typing"] = CheckCommand.TypingBudget }, ["linux"] = [], ["macos"] = [] };
-            Expect("check write: a typing limit alone is no app row, the app metrics are not judged (the other 12 metrics, sections included: it is a fixed limit and no app row)", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+            Expect("check write: a typing limit alone is no app row, the app metrics are not judged (every other metric, sections included: it is a fixed limit and no app row)", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["format"] = CheckCommand.FormatBudget }, ["linux"] = [], ["macos"] = [] };
             Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone is no app row, the app metrics are not judged", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
             Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone judges the format row", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "format").Verdict, "ok");
             Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone, a format row above it is over", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "format", 0.1)).First(r => r.Key == "format").Verdict, "over");
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
-            Expect("check write: engine and typing without a limit stay not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine,typing,format,structure,sections,objects,gesture");
+            Expect("check write: engine and typing without a limit stay not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine,typing,format,structure,sections,objects,gesture,fields");
             Expect("check write: a half-filled table exits 1", CheckCommand.ExitCode(partial), 1);
             PdfCsv(csv, WriteRows("windows"));
             Expect("check command write: a half-filled table exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "windows", "--in", csv], out _)!), 1);
@@ -3445,6 +3639,61 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
         var sectionsPaneRows = WriteRun.ParseTyping(string.Join((char)10, WriteRun.TypingCases.SelectMany(c => WriteRun.TypingViews.Select(v => "typing case=middle view=page n=3 median-ms=1.00 p95-ms=2.00 max-ms=3.00".Replace("case=middle", $"case={c}").Replace("view=page", $"view={v}")))), out _, "sections-pane-");
         Expect("typing-sections-pane: the rows carry the prefix and count into the judged typing metric", string.Join('|', sectionsPaneRows!.Take(2).Select(r => $"{r.Case}/{r.Run}")), "typing/sections-pane-middle-page-median|typing/sections-pane-middle-page-p95");
         Expect("typing-sections-pane: the worst typing p95 holds them", CheckCommand.WorstTypingP95([.. sectionsPaneRows!.Select(r => new BudgetsCommand.Row("pc", "write", r.Case, r.Run, r.Case == "typing" && r.Run.StartsWith("sections-pane-footer-writing-p95", StringComparison.Ordinal) ? 9 : r.Value, "ms"))]), 9.0);
+        FieldsTests();
+    }
+
+    // The fields run (milestone 4.5b): the first refresh of the file as opened, one line and one settle line per case, every one required; the metric fields is the worst median of the four commands.
+    private static void FieldsTests()
+    {
+        var line = "fields case=caption-insert view=page n=8 median-ms=4.00 p95-ms=9.00 max-ms=12.00 handler-median-ms=3.00 frame-median-ms=20.00 frame-p95-ms=30.00 render-median-ms=1.00 render-p95-ms=2.00 draw-median-ms=0.50 draw-p95-ms=1.00";
+        var output = new StringBuilder("first-page\nfields-open view=page n=1 flush-ms=80.50 full-ms=600.00 passes=2\n");
+        foreach (var n in WriteRun.FieldsNames)
+        {
+            output.Append(CultureInfo.InvariantCulture, $"{line.Replace("caption-insert", n)}\nfields-settle case={n} view=page n=8 flush-median-ms=7.00 flush-max-ms=9.00 full-median-ms=40.00 full-max-ms=60.00 passes=2\n");
+        }
+
+        var rows = WriteRun.ParseFields(output.ToString(), out var error);
+        Expect("fields rows: a full run parses", error, (string?)null);
+        Expect("fields rows: the row names", string.Join('|', rows!.Where(r => r.Case == "fields").Take(2).Select(r => $"{r.Case}/{r.Run}")), "fields/caption-insert-median|fields/caption-insert-p95");
+        Expect("fields rows: the first refresh of the opened file is a family of its own", string.Join('|', rows!.Where(r => r.Case == "fields-open").Select(r => $"{r.Run}={r.Value.ToString(CultureInfo.InvariantCulture)}")), "flush-ms=80.5|full-ms=600|passes=2");
+        Expect("fields rows: the settle of a case is recorded", rows!.Single(r => r.Case == "fields-settle" && r.Run == "refresh-pages-flush-median-ms").Value, 7.0);
+        Expect("fields rows: a run with a case missing is refused", WriteRun.ParseFields(string.Join('\n', output.ToString().Split('\n').Where(l => !l.Contains("case=refresh-pages ", StringComparison.Ordinal))), out var missing), null);
+        Expect("fields rows: the refusal names the case", missing, "the fields run printed no row for refresh-pages");
+        Expect("fields rows: a run without the settle of a case is refused", WriteRun.ParseFields(string.Join('\n', output.ToString().Split('\n').Where(l => !l.StartsWith("fields-settle case=first-settle ", StringComparison.Ordinal))), out var noSettle), null);
+        Expect("fields rows: the refusal names the settle", noSettle, "the fields run printed no settle row for first-settle");
+        Expect("fields rows: a run without the row of the opened file is refused", WriteRun.ParseFields(output.ToString().Replace("fields-open ", "fields-other "), out var noOpen), null);
+        Expect("fields rows: the refusal names the opened file", noOpen, "the fields run printed no fields-open row");
+        Expect("fields: the arguments", string.Join(' ', WriteRun.Arguments("fields", "s.json", "t")), $"--measure-fields --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
+        Expect("fields: the eight cases in the order of the app (FieldPlaces.All; the bench has the first seven)", string.Join(',', WriteRun.FieldsNames), "caption-insert,xref-insert,toc-insert,bookmark-add,refresh-heading-edit,refresh-pages,first-settle,refresh-heading-edit-far-view");
+        Expect("fields: the four commands that are judged (FieldPlaces.Commands)", string.Join(',', WriteRun.FieldsCommandNames), "caption-insert,xref-insert,toc-insert,bookmark-add");
+        Expect("fields: the worst median of the command rows, never a refresh row", CheckCommand.WorstFieldsMedian([new("pc", "write", "fields", "caption-insert-median", 3, "ms"), new("pc", "write", "fields", "toc-insert-median", 1, "ms"), new("pc", "write", "fields", "toc-insert-median", 9, "ms"), new("pc", "write", "fields", "toc-insert-median", 5, "ms"), new("pc", "write", "fields", "first-settle-median", 999, "ms"), new("pc", "write", "fields", "refresh-heading-edit-far-view-median", 999, "ms")]), 5.0);
+        Expect("fields: no command row, no value", CheckCommand.WorstFieldsMedian([new("pc", "write", "fields", "first-settle-median", 999, "ms")]), (double?)null);
+        Expect("TheFieldsCaseIsJudgedAgainst75Ms: the limit is a fixed 75 ms on every platform (budget 60 x 1.25, the first measurement 52.79 ms rounded up to 60)", new[] { "windows", "linux", "macos" }.All(p => CheckCommand.LimitOf(CheckCommand.WriteTable, p, "fields") == 75.0), true);
+        Expect("TheFieldsCaseIsJudgedAgainst75Ms: the fields budget constant", CheckCommand.FieldsBudget, 60.0);
+        Expect("fields: a worst median above the limit is over and fails the check", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "fields", 0.1)).First(r => r.Key == "fields").Verdict, "over");
+        Expect("fields: a worst median at the limit is ok, the refresh and other rows do not count", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "fields").Verdict, "ok");
+        Expect("fields: no row is missing, not a pass", CheckCommand.EvaluateWrite("windows", WriteRows("windows", without: "fields")).First(r => r.Key == "fields").Verdict, "missing");
+
+        // The typing run with fields: four places in both views, each with the refresh of its pauses; its typing rows count into typing.
+        var typing = new StringBuilder("first-page\nfields-open view=page n=1 flush-ms=80.50 full-ms=600.00 passes=2\n");
+        foreach (var v in WriteRun.TypingViews)
+        {
+            foreach (var p in WriteRun.TypingFieldsPlaces)
+            {
+                typing.Append(CultureInfo.InvariantCulture, $"typing case={p} view={v} n=100 median-ms=1.00 p95-ms=2.00 max-ms=3.00\nfields-refresh case={p} view={v} n=10 median-ms=6.00 max-ms=9.00 full-median-ms=30.00 full-max-ms=50.00 passes=1\n");
+            }
+        }
+
+        var typingRows = WriteRun.ParseTypingFields(typing.ToString(), out var typingError);
+        Expect("typing-fields: a full run parses", typingError, (string?)null);
+        Expect("typing-fields: the rows carry the prefix and count into the judged typing metric", string.Join('|', typingRows!.Take(2).Select(r => $"{r.Case}/{r.Run}")), "typing/fields-middle-page-median|typing/fields-middle-page-p95");
+        Expect("typing-fields: the refresh rows are a family of their own", typingRows!.Single(r => r.Case == "fields-refresh" && r.Run == "numbered-heading-page-median-ms").Value, 6.0);
+        Expect("typing-fields: the worst typing p95 holds them", CheckCommand.WorstTypingP95([.. typingRows!.Select(r => new BudgetsCommand.Row("pc", "write", r.Case, r.Run, r.Case == "typing" && r.Run == "fields-caption-writing-p95" ? 9 : r.Value, "ms"))]), 9.0);
+        Expect("typing-fields: a run with a place missing is refused", WriteRun.ParseTypingFields(string.Join('\n', typing.ToString().Split('\n').Where(l => !l.StartsWith("typing case=caption view=writing ", StringComparison.Ordinal))), out _), null);
+        Expect("typing-fields: a run without the refresh of a place is refused", WriteRun.ParseTypingFields(string.Join('\n', typing.ToString().Split('\n').Where(l => !l.StartsWith("fields-refresh case=caption view=writing ", StringComparison.Ordinal))), out var noRefresh), null);
+        Expect("typing-fields: the refusal names the refresh", noRefresh, "the typing-fields run printed no refresh row for caption-writing");
+        Expect("typing-fields: the arguments", string.Join(' ', WriteRun.Arguments("typing-fields", "s.json", "t")), $"--measure-typing-fields --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
+        Expect("typing-fields: the four places in the order of the app (FieldPlaces.TypingNames)", string.Join(',', WriteRun.TypingFieldsPlaces), "middle,numbered-heading,caption,table-cell");
     }
 
     private static void WriteSizeCheckTests()

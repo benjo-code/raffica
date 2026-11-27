@@ -27,12 +27,15 @@ internal sealed class WriteOptions
     /// <summary>
     /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
     /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll ...</c>) or
-    /// <c>--measure-memory</c> (also <c>memory-bytes ...</c>) <c>--measure-typing</c> (also <c>typing ...</c> rows) or <c>--measure-typing-background</c> (also one <c>typing-background ...</c> row), <c>--measure-typing-pane</c> (the typing rows with the formatting pane open) or <c>--measure-format</c> (also <c>format ...</c> rows) or <c>--measure-structure</c> (also <c>structure ...</c> rows) or <c>--measure-sections</c> (also <c>sections ...</c> rows) or <c>--measure-typing-sections-pane</c> (the typing rows with the Sections pane open) or <c>--measure-objects</c> (also <c>objects ...</c> rows) or <c>--measure-gesture</c> (also <c>gesture ...</c> rows) or <c>--measure-typing-objects</c> (the typing rows at a picture and in a cell) or <c>--measure-typing-snapshot</c> (the typing rows while recovery snapshots are written back to back, also one <c>snapshot ...</c> row); null for a normal run. See <see cref="Measurement"/>.
+    /// <c>--measure-memory</c> (also <c>memory-bytes ...</c>) <c>--measure-typing</c> (also <c>typing ...</c> rows) or <c>--measure-typing-background</c> (also one <c>typing-background ...</c> row), <c>--measure-typing-pane</c> (the typing rows with the formatting pane open) or <c>--measure-format</c> (also <c>format ...</c> rows) or <c>--measure-structure</c> (also <c>structure ...</c> rows) or <c>--measure-sections</c> (also <c>sections ...</c> rows) or <c>--measure-typing-sections-pane</c> (the typing rows with the Sections pane open) or <c>--measure-objects</c> (also <c>objects ...</c> rows) or <c>--measure-gesture</c> (also <c>gesture ...</c> rows) or <c>--measure-typing-objects</c> (the typing rows at a picture and in a cell) or <c>--measure-typing-snapshot</c> (the typing rows while recovery snapshots are written back to back, also one <c>snapshot ...</c> row) or <c>--measure-fields</c> (the field commands and the field refresh, <c>fields ...</c> rows) or <c>--measure-typing-fields</c> (the typing rows in a document with a table of contents, with the field refresh between the keys); null for a normal run. See <see cref="Measurement"/>.
     /// </summary>
     public string? MeasureSwitch { get; private init; }
 
     /// <summary>True for a measurement run.</summary>
     public bool IsMeasuring => MeasureSwitch is not null;
+
+    /// <summary>True for the two measurement runs that follow the field refresh (every other measurement run has none).</summary>
+    public bool MeasuresFields => MeasureSwitch is "--measure-fields" or "--measure-typing-fields";
 
     /// <summary>The same options with other files to open (a window of the macOS host starts with the files it was given).</summary>
     public WriteOptions WithFiles(IReadOnlyList<string> files)
@@ -94,7 +97,7 @@ internal sealed class WriteOptions
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
-                case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory" or "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" or "--measure-structure" or "--measure-sections" or "--measure-objects" or "--measure-gesture" or "--measure-typing-objects" or "--measure-typing-sections-pane" or "--measure-typing-snapshot":
+                case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory" or "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" or "--measure-structure" or "--measure-sections" or "--measure-objects" or "--measure-gesture" or "--measure-typing-objects" or "--measure-typing-sections-pane" or "--measure-typing-snapshot" or "--measure-fields" or "--measure-typing-fields":
                     if (measure is not null)
                     {
                         throw new ArgumentException($"'{args[i]}' and '{measure}' cannot be combined (one measurement per run)");

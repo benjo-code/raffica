@@ -222,6 +222,20 @@ internal sealed class WriteTab : IDisposable
     internal FieldRefreshRunner EnsureFields() => _fields ??= new FieldRefreshRunner(this, FieldClock ?? new DispatcherFieldClock());
 
     /// <summary>
+    /// For the measurement runs of fields: drops the runner and makes one with <paramref name="clock"/> whose first refresh looks at the whole body again, as for a document that was just opened. UI thread.
+    /// </summary>
+    internal FieldRefreshRunner ResetFields(IFieldClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        _fields?.Dispose();
+        _fields = null;
+        FieldClock = clock;
+        var runner = EnsureFields();
+        runner.Notify(null);
+        return runner;
+    }
+
+    /// <summary>
     /// Raised on the UI thread after a whole-body field refresh with the number of fields Write left alone (a name or switch outside the support table, a field in a note, a header, a footer, a comment or a tracked change); the window offers its
     /// bar from it, once per document session.
     /// </summary>

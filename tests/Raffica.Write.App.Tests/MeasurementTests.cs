@@ -7,7 +7,7 @@ namespace Raffica.WriteApp.Tests;
 
 public sealed class MeasurementTests
 {
-    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format", "--measure-structure", "--measure-sections", "--measure-objects", "--measure-gesture", "--measure-typing-objects", "--measure-typing-sections-pane", "--measure-typing-snapshot"];
+    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format", "--measure-structure", "--measure-sections", "--measure-objects", "--measure-gesture", "--measure-typing-objects", "--measure-typing-sections-pane", "--measure-typing-snapshot", "--measure-fields", "--measure-typing-fields"];
 
     /// <summary>Collects the lines and the exit codes of a <see cref="Measurement"/>.</summary>
     private sealed class Probe
@@ -594,6 +594,85 @@ public sealed class MeasurementTests
         var rows = probe.Lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
         Assert.Equal(16, rows.Length);
         Assert.All(rows, r => Assert.Matches(@"^typing case=[a-z-]+ view=(page|writing) n=3 median-ms=", r));
+    }
+
+    [AvaloniaFact]
+    public async Task FieldsMeasurementWritesOneRowPerCaseAndLeavesTheDocumentAsPrepared()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        var error = new StringWriter();
+        var options = WriteOptions.Parse(["--measure-fields", "--settings-file", Path.Combine(f.Folder, "m.json"), WindowFixture.Thesis]);
+        using var measurement = new Measurement(options, f.Window, probe.Output, probe.Exits.Add, Timeout.InfiniteTimeSpan, error: error, typingKeys: 2);
+        measurement.Start();
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 9600 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal([0], probe.Exits);
+
+        // The cases of the fields run, in this order (measure.cs lists the same eight: WriteRun.FieldsNames; the bench has the first seven).
+        string[] names = ["caption-insert", "xref-insert", "toc-insert", "bookmark-add", "refresh-heading-edit", "refresh-pages", "first-settle", "refresh-heading-edit-far-view"];
+        Assert.Equal(names, FieldPlaces.All);
+        Assert.Equal(["caption-insert", "xref-insert", "toc-insert", "bookmark-add"], FieldPlaces.Commands);
+        var rows = probe.Lines.Where(l => l.StartsWith("fields case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(names.Length, rows.Length);
+        for (var i = 0; i < rows.Length; i++)
+        {
+            Assert.Matches($@"^fields case={names[i]} view=page n=2 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d", rows[i]);
+        }
+
+        var settles = probe.Lines.Where(l => l.StartsWith("fields-settle case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(names.Length, settles.Length);
+        Assert.All(settles, r => Assert.Matches(@"^fields-settle case=[a-z-]+ view=page n=2 flush-median-ms=\d+\.\d\d flush-max-ms=\d+\.\d\d full-median-ms=\d+\.\d\d full-max-ms=\d+\.\d\d passes=\d+$", r));
+        Assert.Single(probe.Lines, l => System.Text.RegularExpressions.Regex.IsMatch(l, @"^fields-open view=page n=1 flush-ms=\d+\.\d\d full-ms=\d+\.\d\d passes=[1-9]\d*$"));
+
+        // The prepared document stands at the end: a table of contents of more than 100 entries beside the file's own, one caption and one cross-reference, and the refresh followed every undo.
+        var tab = f.Window.Workspace.Active!;
+        var body = tab.Docx.Model.Body.Blocks.OfType<Raffica.Write.Model.Paragraph>().ToList();
+        Assert.True(body.Count(p => p.Properties.StyleId is "TOC1" or "TOC2") >= 130, "the prepared table of contents is there");
+        // The headings of the thesis are numbered already, so the preparation has three steps.
+        Assert.Equal(Raffica.Write.Editing.HeadingNumberingState.On, Raffica.Write.Editing.HeadingNumbering.StateOf(tab.Docx.Model));
+        Assert.Equal(3, tab.Editor!.Editor.History.UndoCount);
+        Assert.Equal(0, tab.Fields!.Failures);
+        Assert.False(Directory.Exists(f.Window.RecoveryFolder) && Directory.GetFiles(f.Window.RecoveryFolder).Length > 0, "a measurement run starts no autosave");
+    }
+
+    [AvaloniaFact]
+    public async Task TypingWithFieldsIsMeasuredWithARefreshAtEveryPause()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        var error = new StringWriter();
+        var options = WriteOptions.Parse(["--measure-typing-fields", "--settings-file", Path.Combine(f.Folder, "m.json"), WindowFixture.Thesis]);
+        using var measurement = new Measurement(options, f.Window, probe.Output, probe.Exits.Add, Timeout.InfiniteTimeSpan, error: error, typingKeys: Measurement.FieldKeysPerPause);
+        measurement.Start();
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 9600 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal([0], probe.Exits);
+        string[] names = ["middle", "numbered-heading", "caption", "table-cell"];
+        Assert.Equal(names, FieldPlaces.TypingNames);
+        var rows = probe.Lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(names.Concat(names), rows.Select(r => r.Split(' ')[1]["case=".Length..]));
+        Assert.All(rows, r => Assert.Matches(@"^typing case=[a-z-]+ view=(page|writing) n=10 median-ms=", r));
+        var refreshes = probe.Lines.Where(l => l.StartsWith("fields-refresh case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(8, refreshes.Length);
+        Assert.All(refreshes, r => Assert.Matches(@"^fields-refresh case=[a-z-]+ view=(page|writing) n=1 median-ms=\d+\.\d\d max-ms=\d+\.\d\d full-median-ms=\d+\.\d\d full-max-ms=\d+\.\d\d passes=[1-9]\d*$", r));
+        Assert.Equal(0, f.Window.Workspace.Active!.Fields!.Failures);
     }
 
     [Fact]

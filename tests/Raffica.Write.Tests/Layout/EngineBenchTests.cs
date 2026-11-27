@@ -180,6 +180,28 @@ public sealed class EngineBenchTests
     }
 
     [Fact]
+    public void FieldCasesExistInTheBenchAndRun()
+    {
+        // The app keeps a near copy (FieldPlaces in the Write app, which also has the far-view case; measure.cs WriteRun.FieldsNames): change them together.
+        string[] names = ["caption-insert", "xref-insert", "toc-insert", "bookmark-add", "refresh-heading-edit", "refresh-pages", "first-settle"];
+        Assert.Equal(names, FieldCases.Names);
+        using var error = new StringWriter(CultureInfo.InvariantCulture);
+        var rows = EditCommand.MeasureFields(Thesis, 2, error);
+
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(FieldCases.Names, rows.Select(r => r.Case));
+        Assert.All(rows, r =>
+        {
+            Assert.Equal("page", r.View);
+            Assert.Equal(2, r.Millis.Length);
+            Assert.All(r.Millis, ms => Assert.True(ms >= 0 && double.IsFinite(ms)));
+        });
+
+        var csv = EditCommand.Csv(rows);
+        Assert.All(FieldCases.Names, n => Assert.Contains("\n" + n + ",page,", csv, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SelectAllBoldIsMeasuredOnTheThesisAndUndone()
     {
         var result = EditCommand.MeasureSelectAll(Thesis);

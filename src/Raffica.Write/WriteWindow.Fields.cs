@@ -212,11 +212,11 @@ internal sealed partial class WriteWindow
     /// <summary>Whether the window watches the tab for the completion of its layout (tests).</summary>
     internal bool IsWatchingFields(WriteTab tab) => _fieldWatch.Contains(tab);
 
-    // Called when the tab's view is made: a measurement run follows no refresh. Any other tab starts to watch its layout only after its first sharp page (nothing of the refresh exists, and nothing is scanned, before it),
+    // Called when the tab's view is made: a measurement run follows no refresh (the two fields runs do, and drive it themselves). Any other tab starts to watch its layout only after its first sharp page (nothing of the refresh exists, and nothing is scanned, before it),
     // asks for its first whole-body look when the layout is complete (once), and offers the bar from the first count. Nothing here may break the layout's event, so every failure is counted and ignored.
     private void WatchFields(WriteTab tab, PageView view)
     {
-        tab.RefreshesFields = !_options.IsMeasuring;
+        tab.RefreshesFields = !_options.IsMeasuring || _options.MeasuresFields;
         if (!tab.RefreshesFields)
         {
             return;

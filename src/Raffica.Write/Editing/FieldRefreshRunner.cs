@@ -157,6 +157,16 @@ internal sealed class FieldRefreshRunner : IDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>Runs the tick of the timer now, as a pause of the user would (the measurement runs): nothing happens when nothing is pending or the refresh is held back.</summary>
+    internal void Flush()
+    {
+        if (!_disposed)
+        {
+            _timer.Stop();
+            OnTick();
+        }
+    }
+
     public void Dispose()
     {
         _disposed = true;

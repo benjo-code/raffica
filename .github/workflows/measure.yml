@@ -948,6 +948,20 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-objects --out ${{ env.OUT }}/typing-objects.csv
 
+      # Fields (milestone 4.5b): a caption, a cross-reference, a table of contents and a bookmark inserted, and the field refresh after a heading edit, after a pagination change and as the first look at a document with a
+      # stale table of contents, on the thesis with heading numbering and a table of contents of the levels 1 and 2 added (--measure-fields); rows fields/<case>-median and -p95, fields-settle/<case>-..., fields-open/....
+      # The metric fields (worst median of the four commands) is judged against a fixed regression limit on every platform (decisions entry "Raffica Write: the fields limit (M4.5b)"); the refresh rows are recorded and
+      # never judged. Three launches.
+      - name: Fields, captions and tables of contents in the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case fields --out ${{ env.OUT }}/fields.csv
+
+      # Typing with fields (--measure-typing-fields): typing in the same prepared document (a long paragraph, a numbered heading the table of contents lists, a caption, a table cell) in both views, the field refresh
+      # after every tenth key; the typing rows are typing/fields-<case>-<view>-p95, so the worst p95 of typing holds them (the same fixed 16 ms); fields-refresh/... is recorded and never judged.
+      - name: Typing in a document with a table of contents (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-fields --out ${{ env.OUT }}/typing-fields.csv
+
       # Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded for the owner, never judged.
       - name: Typing during the background layout (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
