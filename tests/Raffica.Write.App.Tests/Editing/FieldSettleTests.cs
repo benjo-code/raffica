@@ -216,6 +216,159 @@ public sealed class FieldSettleTests
         Assert.Equal(0, runner.SyncLayoutCompletions);
     }
 
+    // A rewrite that moves the pagination far from the page in view (the list at the start grows from two lines to sixty): the tick lays the pages out through the page in view only, the background layout goes on, and the next pass follows when it
+    // is complete. The end state equals a full layout.
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(5)]
+    public async Task ATimerRefreshThatMovesThePaginationLaysOutOnlyThroughThePageInView(int inView)
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.LongTocBytes());
+        var total = h.Tab.Runner.PageLayout.LaidOutPages;
+        Assert.True(total > 15, "the document is long: " + total);
+        if (inView > 0)
+        {
+            h.Tab.PageInView = _ => inView;
+        }
+
+        var runner = h.Tab.EnsureFields();
+        var applied = new List<(int Pages, bool Complete)>();
+        runner.AfterApply = layout => applied.Add((layout.LaidOutPages, layout.IsComplete));
+        runner.Notify(null);
+
+        await h.FireAsync();
+
+        // What the tick left behind, read under its lease: the pages through the one in view, never the rest of the document.
+        Assert.Equal(1, runner.Passes);
+        var after = Assert.Single(applied);
+        Assert.False(after.Complete, "the tick laid the document out to its end");
+        Assert.InRange(after.Pages, inView + 1, inView + 3);
+        Assert.True(runner.IsPending, "the next pass waits for the background layout");
+
+        // The background layout goes on and the next pass runs when it is complete (the tick waits for that and would time out if nothing resumed it).
+        await h.FireUntilIdleAsync();
+
+        Assert.InRange(runner.Passes, 2, FieldRefreshRunner.MaxPasses);
+        Assert.Equal(0, runner.Unsettled);
+        Assert.Equal(0, runner.Failures);
+        Assert.Equal(0, runner.SyncLayoutCompletions);
+        Assert.Equal(FieldTestDocument.LongChapters, Entries(h.Tab).Count);
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsSettled, 90000);
+        var (fresh, pageOf) = await FreshAsync(h.Tab);
+        Assert.EndsWith("\t" + pageOf("Chapter 60"), Entries(h.Tab)[^1], StringComparison.Ordinal);
+        var live = h.Tab.Runner.PageLayout;
+        Assert.Equal(fresh.LaidOutPages, live.LaidOutPages);
+        for (var p = 0; p < fresh.LaidOutPages; p++)
+        {
+            Assert.Equal(fresh.Page(p).Number, live.Page(p).Number);
+            Assert.Equal(fresh.Page(p).Text, live.Page(p).Text);
+        }
+    }
+
+    // The settle of a save goes the whole way at once: no tick follows it.
+    [AvaloniaFact]
+    public async Task ASaveSettlesALongDocumentInOneCall()
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.LongTocBytes());
+        var runner = h.Tab.EnsureFields();
+        runner.Notify(null);
+
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+
+        Assert.False(runner.IsPending);
+        Assert.Equal(0, runner.Unsettled);
+        Assert.Equal(0, runner.Failures);
+        var (_, pageOf) = await FreshAsync(h.Tab);
+        Assert.EndsWith("\t" + pageOf("Chapter 60"), Entries(h.Tab)[^1], StringComparison.Ordinal);
+    }
+
+    // A page reference inserted in the writing view stores "?" (there are no pages there). The refresh that ran there looked at the edit without pages, so the next burst in the pages view must look at the page results again, although the page
+    // table is the one the last page pass settled.
+    private static async Task<(FieldHarness Harness, Paragraph Reference)> InsertPageReferenceInTheWritingViewAsync()
+    {
+        var h = await OpenAsync();
+        h.Tab.EnsureFields().Notify(null);
+        await h.FireUntilIdleAsync();
+        var runner = h.Tab.Fields!;
+        Assert.Equal("see page 1", PagerefText(h.Tab));
+
+        var session = h.Tab.EnsureEditor();
+        session.ActiveMode = LayoutMode.Flow;
+        h.Tab.Runner.EnsureFlow();
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.FlowLayout is { IsComplete: true }, 30000);
+        var model = h.Tab.Docx.Model;
+        var reference = model.Body.Blocks.OfType<Paragraph>().First(p => TextOf(p) == "alpha text");
+        var target = CrossReferences.Targets(model, runner.Host, CrossRefTargetKind.Heading)[0];
+        var at = new TextPosition(StoryRef.Body, reference, TextOf(reference).Length);
+        Assert.NotNull(session.Apply(e => e.InsertCrossReference(at, target, CrossRefKind.Page, runner.Host), 0));
+        await h.FireUntilIdleAsync();
+        Assert.Equal("alpha text?", TextOf(reference));
+
+        session.ActiveMode = LayoutMode.Pages;
+        await ViewHarness.WaitAsync(() => session.ActiveLayout is { IsComplete: true }, 30000);
+        var plain = model.Body.Blocks.OfType<Paragraph>().First(p => TextOf(p) == "beta text");
+        var typed = new TextPosition(StoryRef.Body, plain, 0);
+        Assert.NotNull(session.Apply(e => e.InsertText(new TextRange(typed, typed), "x"), 0));
+        return (h, reference);
+    }
+
+    [AvaloniaFact]
+    public async Task APageResultInsertedInTheWritingViewIsFilledByTheNextBurstInThePagesView()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+
+        await h.FireUntilIdleAsync();
+
+        Assert.Equal("alpha text1", TextOf(reference));
+        Assert.Equal(0, h.Tab.Fields!.PagePassesSkipped);
+        Assert.Equal(0, h.Tab.Fields!.Failures);
+    }
+
+    [AvaloniaFact]
+    public async Task APageResultInsertedInTheWritingViewIsFilledByTheNextSaveInThePagesView()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+
+        Assert.Equal("alpha text1", TextOf(reference));
+        Assert.Equal(0, h.Tab.Fields!.Failures);
+    }
+
+    // The view says which page it shows last, for the layout of its mode; without a view there is no answer.
+    [AvaloniaFact]
+    public async Task TheViewTellsTheRefreshWhichPageIsInView()
+    {
+        var folder = Directory.CreateTempSubdirectory("raffica-write-inview-").FullName;
+        var path = System.IO.Path.Combine(folder, "long.docx");
+        File.WriteAllBytes(path, FieldTestDocument.LongTocBytes());
+        var view = new ViewHarness(path);
+        var tab = view.Tab;
+        try
+        {
+            tab.Runner.Start();
+            await ViewHarness.WaitAsync(() => tab.Runner.PageLayout.IsComplete, 30000);
+            ViewHarness.Pump();
+            Assert.NotNull(tab.PageInView);
+            Assert.Equal(0, tab.PageInView!(LayoutMode.Pages));
+
+            view.View.ScrollToPage(6);
+            ViewHarness.Pump();
+
+            Assert.InRange(tab.PageInView!(LayoutMode.Pages), 6, 8);
+            Assert.Equal(0, tab.PageInView!(LayoutMode.Flow));
+        }
+        finally
+        {
+            view.Dispose();
+            Directory.Delete(folder, recursive: true);
+        }
+
+        Assert.Null(tab.PageInView);
+    }
+
     [AvaloniaFact]
     public async Task ASaveSettlesFirstAndWritesTheSettledNumbers()
     {
@@ -293,7 +446,7 @@ public sealed class FieldSettleTests
         Assert.InRange(runner.Passes, 1, FieldRefreshRunner.MaxPasses);
         await AssertLiveLayoutEqualsFreshAsync(h);
 
-        // A second burst on the settled thesis (a letter that moves nothing): one pass, nothing written. The tick runs on the UI thread after the 250 ms delay, never in a key handler (about 130 ms on this thesis in the container: the whole body is walked, see the report of task 11).
+        // A second burst on the settled thesis (a letter that moves nothing): one pass, nothing written. The tick runs on the UI thread after the 250 ms delay, never in a key handler; it skips the page pass (nothing can have moved a page).
         var session = h.Tab.EnsureEditor();
         var derived = h.Tab.Docx.Model.Edits.DerivedVersion;
         var passes = runner.Passes;

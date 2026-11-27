@@ -78,11 +78,14 @@ internal sealed class FieldRefreshRunner : IDisposable
     /// <summary>True while edits wait for the timer (or for a condition that holds it back).</summary>
     public bool IsPending => _pending;
 
-    /// <summary>How many times the pages were laid out on the calling thread by a refresh (the save path only: the timer path waits for the background layout, tests).</summary>
+    /// <summary>How many times a refresh laid the whole rest of the document out on the calling thread (the save path only; telling a layout of a result lays out through the page in view on the timer path, tests).</summary>
     internal int SyncLayoutCompletions { get; private set; }
 
     /// <summary>How many first passes skipped the page pass because nothing could have moved a page (tests).</summary>
     internal int PagePassesSkipped { get; private set; }
+
+    /// <summary>Test seam: called under the lease after the results were told to a layout, while no background layout runs.</summary>
+    internal Action<DocumentLayout>? AfterApply { get; set; }
 
     /// <summary>The host the refresh asks for labels and notes (tests).</summary>
     internal FieldHost Host => _host;
@@ -169,6 +172,7 @@ internal sealed class FieldRefreshRunner : IDisposable
                 case Hold.Never:
                     _pending = false;
                     _touched.Clear();
+                    _settledSignature = null;
                     break;
                 case Hold.Later:
                     _timer.Restart(Delay);
@@ -249,6 +253,10 @@ internal sealed class FieldRefreshRunner : IDisposable
 
     private void RunPasses(bool forSettle, CancellationToken token)
     {
+        // The signature of the settled page results is only kept by a pass that leaves them current (below): whatever else takes the touched blocks from here on (a pass without pages, as in the writing view, a document without fields, a failure, a
+        // cancel) loses it, so the next burst looks at the page results again.
+        var settledBefore = _settledSignature;
+        _settledSignature = null;
         var model = _tab.Docx.Model;
         if (!ScanForFields(model))
         {
@@ -297,7 +305,7 @@ internal sealed class FieldRefreshRunner : IDisposable
                 // Page results need every block and a complete layout: such a pass looks at the whole body; any other pass at the touched blocks of the first pass. The first pass of a burst of plain edits skips the page pass when the layout's page
                 // table is the one the last settled page pass saw and no touched block carries something a page result points at (the editor decides: a skipped pass gives what a whole pass gives).
                 var complete = _wantPages && _host.IsComplete;
-                var skip = complete && pass == 0 && touched is not null && editor.PagePassCanBeSkipped(_host, touched, _settledSignature);
+                var skip = complete && pass == 0 && touched is not null && editor.PagePassCanBeSkipped(_host, touched, settledBefore);
                 var pagesOn = complete && !skip;
                 var scope = pagesOn ? RefreshScope.WithPages : skip ? RefreshScope.OrderBasedPagesCurrent : RefreshScope.OrderBased;
                 var blocks = pass == 0 && !pagesOn ? touched : null;
@@ -315,7 +323,7 @@ internal sealed class FieldRefreshRunner : IDisposable
                     // The walk wrote part of the results before it failed: the layout is told of them now (under the lease), then the failure is handled like any other and the refresh is tried again.
                     content.AddRange(partial.Content);
                     layoutFailed = true;
-                    ApplyToLayout(partial.Content);
+                    ApplyToLayout(partial.Content, forSettle);
                     layoutFailed = false;
                     if (partial.Structural is { } done)
                     {
@@ -345,7 +353,7 @@ internal sealed class FieldRefreshRunner : IDisposable
                 {
                     content.AddRange(last.Content);
                     layoutFailed = true;
-                    ApplyToLayout(last.Content);
+                    ApplyToLayout(last.Content, forSettle);
                     layoutFailed = false;
                 }
 
@@ -360,11 +368,8 @@ internal sealed class FieldRefreshRunner : IDisposable
                     WaitForRedo();
                 }
 
-                if (pagesOn)
-                {
-                    // The page table the settled numbers belong to: a later burst of plain edits that leaves it as it is cannot have moved a number.
-                    _settledSignature = last.Settled ? _host.PageSignature : null;
-                }
+                // The page table the page results are current for: the one a settled page pass read, or the one a settled skip was checked against. Any other pass (without pages, or one that may still change a page result) drops it.
+                _settledSignature = !last.Settled ? null : pagesOn ? _host.PageSignature : skip ? settledBefore : null;
 
                 if (_pending)
                 {
@@ -384,8 +389,8 @@ internal sealed class FieldRefreshRunner : IDisposable
                     break;
                 }
 
-                // Write, apply, repeat: the numbers are read again from a complete layout. A save lays the rest out here and now; the timer path never does (it would freeze the window for the length of the layout): it waits for the background
-                // layout like the first look does, and the next tick runs the next pass.
+                // Write, apply, repeat: the numbers are read again from a complete layout. A save lays the rest out here and now. The timer path does not lay the document out to its end on the UI thread: telling the layout of the results laid out through
+                // the page in view (as an edit does), the background layout goes on once the lease is released, and the next tick that finds it complete runs the next pass.
                 if (!_host.IsComplete)
                 {
                     if (!forSettle)
@@ -491,8 +496,9 @@ internal sealed class FieldRefreshRunner : IDisposable
         return FieldView.AnyIn(after) || FieldView.AnyIn(change.OldBlocks);
     }
 
-    // The new results are told to the layouts that exist: the one the session follows (the other is dropped and made again on its next use), or, while there is no session, the pages layout and the strips layout alike.
-    private void ApplyToLayout(IReadOnlyList<BlockChange> content)
+    // The new results are told to the layouts that exist: the one the session follows (the other is dropped and made again on its next use), or, while there is no session, the pages layout and the strips layout alike. A save keeps every page that was
+    // laid out; the timer path lays out through the page in view only and leaves the rest to the background.
+    private void ApplyToLayout(IReadOnlyList<BlockChange> content, bool forSettle)
     {
         var session = _tab.Editor;
         var runner = _tab.Runner;
@@ -500,7 +506,7 @@ internal sealed class FieldRefreshRunner : IDisposable
         {
             if (session.ActiveLayout is { } active)
             {
-                Apply(active, content);
+                Apply(active, content, forSettle);
             }
 
             session.DropInactiveLayout();
@@ -509,21 +515,24 @@ internal sealed class FieldRefreshRunner : IDisposable
 
         if (!runner.PageLayoutIsStale)
         {
-            Apply(runner.PageLayout, content);
+            Apply(runner.PageLayout, content, forSettle);
         }
 
         if (runner.FlowLayout is { } flow)
         {
-            Apply(flow, content);
+            Apply(flow, content, forSettle);
         }
     }
 
-    private static void Apply(DocumentLayout layout, IReadOnlyList<BlockChange> content)
+    private void Apply(DocumentLayout layout, IReadOnlyList<BlockChange> content, bool forSettle)
     {
+        var inView = forSettle ? 0 : _tab.PageInView?.Invoke(layout.Mode) ?? 0;
         foreach (var change in content)
         {
-            layout.ApplyEdit(change, Math.Max(0, layout.LaidOutPages - 1));
+            layout.ApplyEdit(change, forSettle ? Math.Max(0, layout.LaidOutPages - 1) : inView);
         }
+
+        AfterApply?.Invoke(layout);
     }
 
     // A structural result (the paragraph count of a table of contents changed) belongs to the newest history step of the session's editor. The refresh itself already left a table of contents alone while a redo was pending

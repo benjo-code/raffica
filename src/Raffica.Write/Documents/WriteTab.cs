@@ -200,6 +200,9 @@ internal sealed class WriteTab : IDisposable
     /// <summary>The refresh of the fields of this tab; null until it was needed (<see cref="EnsureFields"/>).</summary>
     public FieldRefreshRunner? Fields => _fields;
 
+    /// <summary>The last page (from 0) the tab's view shows of the layout of a mode, 0 when it shows the other mode or nothing yet; null without a view. A field refresh lays out through it at once, as an edit does, and leaves the rest to the background.</summary>
+    internal Func<LayoutMode, int>? PageInView { get; set; }
+
     /// <summary>False in a measurement run: no field refresh follows the edits there. The window sets it when it makes the tab.</summary>
     internal bool RefreshesFields { get; set; } = true;
 

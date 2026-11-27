@@ -132,7 +132,40 @@ internal static class FieldTestDocument
     /// A document for the page results: an empty first paragraph (the place for a table of contents), an "intro" paragraph, three Heading1 chapters (Alpha, Beta, Gamma) with a line of text each, a paragraph that holds the bookmark <c>Target</c> and a last one with a stale
     /// <c>PAGEREF Target</c> (stored "77"). Nothing starts a page of its own, so every block is on the first page until text is typed above them.
     /// </summary>
-    public static byte[] TocBytes()
+    public static byte[] TocBytes() => Package(
+        "<w:p/>" + Plain("intro") + Chapter("Alpha") + Plain("alpha text") + Chapter("Beta") + Plain("beta text") + Chapter("Gamma") + Plain("gamma text")
+            + "<w:p><w:bookmarkStart w:id=\"1\" w:name=\"Target\"/><w:r><w:t>the target</w:t></w:r><w:bookmarkEnd w:id=\"1\"/></w:p>"
+            + "<w:p><w:r><w:t xml:space=\"preserve\">see page </w:t></w:r>" + Field(" PAGEREF Target \\h ", Stale) + "</w:p>");
+
+    /// <summary>The chapters of <see cref="LongTocBytes"/>.</summary>
+    public const int LongChapters = 60;
+
+    /// <summary>
+    /// A long document (about twenty pages) that begins with a stale table of contents of two paragraphs, followed by <see cref="LongChapters"/> Heading1 chapters with fifteen lines each: the first refresh makes the list sixty lines long, so every page after it starts at
+    /// another line.
+    /// </summary>
+    public static byte[] LongTocBytes()
+    {
+        var body = new StringBuilder("<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-3\" \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:t>stale</w:t></w:r></w:p>");
+        body.Append("<w:p><w:r><w:t>stale too</w:t></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>");
+        for (var chapter = 1; chapter <= LongChapters; chapter++)
+        {
+            body.Append(Chapter("Chapter " + chapter.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            for (var line = 0; line < 15; line++)
+            {
+                body.Append(Plain("a line of text"));
+            }
+        }
+
+        return Package(body.ToString());
+    }
+
+    private static string Plain(string text) => "<w:p><w:r><w:t xml:space=\"preserve\">" + text + "</w:t></w:r></w:p>";
+
+    private static string Chapter(string text) => "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>" + text + "</w:t></w:r></w:p>";
+
+    // A document with the style sheet of the nine headings and the given body on Letter paper.
+    private static byte[] Package(string body)
     {
         using var stream = new MemoryStream();
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -159,11 +192,6 @@ internal static class FieldTestDocument
                 </Relationships>
                 """);
             Entry(zip, "word/styles.xml", Styles());
-            static string Plain(string text) => "<w:p><w:r><w:t xml:space=\"preserve\">" + text + "</w:t></w:r></w:p>";
-            static string Chapter(string text) => "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>" + text + "</w:t></w:r></w:p>";
-            var body = "<w:p/>" + Plain("intro") + Chapter("Alpha") + Plain("alpha text") + Chapter("Beta") + Plain("beta text") + Chapter("Gamma") + Plain("gamma text")
-                + "<w:p><w:bookmarkStart w:id=\"1\" w:name=\"Target\"/><w:r><w:t>the target</w:t></w:r><w:bookmarkEnd w:id=\"1\"/></w:p>"
-                + "<w:p><w:r><w:t xml:space=\"preserve\">see page </w:t></w:r>" + Field(" PAGEREF Target \\h ", Stale) + "</w:p>";
             Entry(zip, "word/document.xml", $"""
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
