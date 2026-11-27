@@ -240,6 +240,7 @@ pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit
 | `probe-seq-tracked.docx`, `probe-seq-moved.docx` | `SEQ` in tracked insertions, deletions and moves, and the list of figures over them. |
 | `probe-self-reference.docx` | A `REF` to a bookmark that holds the reference itself. |
 | `probe-picture-heading.docx` | A heading that is a picture and no text, in the thesis. |
+| `probe-foreign-bookmarks.docx` | Bookmarks Write does not read (between blocks, in a table row) and bookmarks of a footnote and a footer, with the highest ids and generated names, followed by Write's own bookmark, table of contents and cross-reference: every id and name in the saved file is used once. |
 | `probe-control.docx` | The negative control. |
 
 | Date | Word version and system | Files | Repair prompt | Field results | Notes |
@@ -251,6 +252,7 @@ pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit
 | 2026-11-27 | as above | fields-mixed.docx | none | 3 expected: `SEQ \h` shows nothing, `PAGEREF \p` shows "above", `REF \w` shows "0"; Write keeps the stored results and marks the fields | |
 | 2026-11-27 | as above | 36 files: the 27 and the first versions of the 9 for Remove table of contents and Delete bookmark | `probe-removed-contents-cell-ends-in-table.docx`: Word did not open it ("Die Datei ist möglicherweise beschädigt.") | not run on the refused file | Word also read the two tables of `probe-removed-contents-between-tables.docx` as one. Cause: Remove table of contents left a table last in the cell, or two tables together; fixed, an empty paragraph stays there. |
 | 2026-11-27 | as above | all 36 files, made again with the fix | none: all 36 opened (`word-open-check.ps1` exit 0) | `word-field-results.ps1` on 35 files: exit 0, no DIFFERENT result; `probe-control.docx`: exit 1 as it must. Of the new files only `probe-removed-contents.docx` has an expected difference: the `REF` to the bookmark that stood in the removed entry (Word: "Fehler! Verweisquelle konnte nicht gefunden werden."; Write keeps the stored result). | Word reads two tables in the between-tables file (Word automation). The references of `fields-deleted-bookmarks.docx` still work: they point at Write's own hidden bookmarks. |
+| 2026-11-27 | as above | all 37 files, made again after the fixes of the whole-branch review (`probe-foreign-bookmarks.docx` is new; a table of contents that would end its body, cell or control now leaves a paragraph after it) | none: all 37 opened (`word-open-check.ps1` exit 0) | `word-field-results.ps1` on 36 files: exit 0, no DIFFERENT result; the page and expected differences are those of the rows above (3 pages in `fields-contents`, 1 in `fields-cross-references`; 2 fields of `probe-foreign-bookmarks.docx` equal); `probe-control.docx`: exit 1 as it must (5 DIFFERENT, 1 page) | Word automation does not say which bookmarks it kept; that the ids and names are unique is checked on the saved XML by the test. |
 
 ### What Word does (found on 2026-11-27; Write follows unless said otherwise)
 
