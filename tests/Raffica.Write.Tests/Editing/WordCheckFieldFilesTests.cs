@@ -342,6 +342,174 @@ public sealed class WordCheckFieldFilesTests
         await SaveAsync(file, folder, name, pictureOnly ? ["TOC \\o \"1-1\" \\n \\h \\z \\u"] : []);
     }
 
+    // ---- removing ------------------------------------------------------------------------------------------------------------------
+
+    // Removes every table of contents of the body, one command each, as the app does with the caret in it; returns how many there were.
+    private static int RemoveEveryToc(TextEditor editor, DocxFile file)
+    {
+        var removed = 0;
+        while (BookmarkOperations.ParagraphsOf(file.Model.Body.Blocks).Select(p => new TextPosition(StoryRef.Body, p, 0)).Cast<TextPosition?>().FirstOrDefault(at => editor.RefusalForRemoveToc(at!.Value) is null) is { } inside)
+        {
+            Did(editor.RemoveToc(inside), "removing a table of contents");
+            removed++;
+            Assert.True(removed < 20, "the tables of contents do not go away");
+        }
+
+        return removed;
+    }
+
+    [Fact]
+    public async Task ARemovedTableOfContentsIsSavedForWord()
+    {
+        var folder = Folder();
+        var lines = new List<(string? Style, string Text)> { (null, "Contents stand here."), (null, "Figures stand here.") };
+        for (var chapter = 1; chapter <= 2; chapter++)
+        {
+            lines.Add(("Heading1", $"Chapter heading {chapter}"));
+            lines.AddRange(Filler($"Opening {chapter}", 20));
+            lines.Add(("Heading2", $"Section heading {chapter}"));
+            lines.Add((null, $"A picture of chapter {chapter}."));
+            lines.AddRange(Filler($"Closing {chapter}", 10));
+        }
+
+        lines.Add((null, "See the section: "));
+        var (file, editor) = Build([.. lines]);
+        using var _ = file;
+        Number(file, editor);
+        for (var chapter = 1; chapter <= 2; chapter++)
+        {
+            Did(editor.InsertCaption(End(Para(file, $"A picture of chapter {chapter}.")), "Figure", $": Picture {chapter}", CaptionPlace.Below, false, "Figure", HostOf(file)), "a caption");
+        }
+
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents");
+        Did(editor.InsertToc(End(Para(file, "Figures stand here.")), s_contents with { Label = "Figure" }, HostOf(file)), "a list of figures");
+        Settle(file, editor);
+        var target = CrossReferences.Targets(file.Model, HostOf(file), CrossRefTargetKind.Heading)[^1];
+        Did(editor.InsertCrossReference(End(Para(file, "See the section: ")), target, CrossRefKind.Text, HostOf(file)), "a reference to a heading");
+        Settle(file, editor);
+        Assert.Equal(2, TocRefresh.Find(file.Model.Body.Blocks).Count);
+
+        // The contents go, the list of figures stays: the headings lose the bookmarks of the contents, the captions keep theirs.
+        var first = BookmarkOperations.ParagraphsOf(file.Model.Body.Blocks).First(p => editor.RefusalForRemoveToc(new TextPosition(StoryRef.Body, p, 0)) is null);
+        var before = BookmarkOperations.AllNames(file.Model).Count(n => n.StartsWith("_Toc", StringComparison.Ordinal));
+        Did(editor.RemoveToc(new TextPosition(StoryRef.Body, first, 0)), "removing the table of contents");
+        Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        Assert.Equal(before - 4, BookmarkOperations.AllNames(file.Model).Count(n => n.StartsWith("_Toc", StringComparison.Ordinal)));
+        Settle(file, editor);
+        await SaveAsync(file, folder, "fields-removed-contents.docx");
+
+        // And the list of figures too: no list and no bookmark of a list is left.
+        Assert.Equal(1, RemoveEveryToc(editor, file));
+        Assert.DoesNotContain(BookmarkOperations.AllNames(file.Model), n => n.StartsWith("_Toc", StringComparison.Ordinal));
+        Settle(file, editor);
+        await SaveAsync(file, folder, "fields-removed-every-list.docx");
+    }
+
+    // A table of contents written by hand: the sentence of the field over two entry paragraphs, with the markers given inside the first entry.
+    private static string HandToc(string markers = "") =>
+        P(Mark("begin") + "<w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-1\" \\h \\z \\u </w:instrText></w:r>" + Mark("separate") + markers + Run("First entry"))
+        + P(Run("Second entry") + Mark("end"));
+
+    private static string TableOf(string cellContent) =>
+        "<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"6000\"/></w:tblGrid><w:tr><w:tc><w:tcPr/>" + cellContent + "</w:tc></w:tr></w:tbl>";
+
+    private static string Control(string content) => "<w:sdt><w:sdtPr><w:docPartObj><w:docPartGallery w:val=\"Table of Contents\"/><w:docPartUnique/></w:docPartObj></w:sdtPr><w:sdtContent>" + content + "</w:sdtContent></w:sdt>";
+
+    // Where a removal can leave a document Word does not take: a list that other fields point into, markers of other bookmarks in its entries, a control or a cell that holds nothing else, and a table before or around it.
+    [Theory]
+    [InlineData("probe-removed-contents.docx")]
+    [InlineData("probe-removed-contents-table-then-end.docx")]
+    [InlineData("probe-removed-contents-cell-ends-in-table.docx")]
+    [InlineData("probe-removed-contents-between-tables.docx")]
+    [InlineData("probe-removed-contents-control-ends-in-table.docx")]
+    public async Task HandWrittenTablesOfContentsAreRemovedAndSavedForWord(string name)
+    {
+        var folder = Folder();
+        var heading = P(Bookmarked(1, "_Toc100001", Run("A heading")), "Heading1");
+        var (body, expected) = name switch
+        {
+            "probe-removed-contents.docx" => (
+                heading + P(Run("Its page: ") + Field("PAGEREF _Toc100001 \\h", "1")) + HandToc("<w:bookmarkStart w:id=\"2\" w:name=\"Inside\"/>" + Run("marked ") + "<w:bookmarkEnd w:id=\"2\"/>")
+                    + P(Run("Its text: ") + Field("REF Inside \\h", "marked ")) + Control(HandToc()) + P(Run("Between.")) + TableOf(HandToc()) + P(Run("The end.")),
+                new[] { "REF Inside \\h" }),
+            "probe-removed-contents-table-then-end.docx" => (heading + TableOf(P(Run("cell"))) + HandToc(), []),
+            "probe-removed-contents-cell-ends-in-table.docx" => (heading + TableOf(P(Run("cell")) + TableOf(P(Run("inner"))) + HandToc()) + P(Run("The end.")), []),
+            "probe-removed-contents-between-tables.docx" => (heading + TableOf(P(Run("one"))) + HandToc() + TableOf(P(Run("two"))) + P(Run("The end.")), []),
+            _ => (heading + Control(TableOf(P(Run("cell"))) + HandToc()), (string[])[]),
+        };
+        using var file = Probe(body);
+        var editor = EditorOf(file);
+
+        Assert.Equal(name == "probe-removed-contents.docx" ? 3 : 1, RemoveEveryToc(editor, file));
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, name, expected);
+    }
+
+    [Fact]
+    public async Task DeletedBookmarksAreSavedForWord()
+    {
+        var folder = Folder();
+        var (file, editor) = Build(
+            [(null, "An important statement stands here."), (null, "A range starts in this paragraph."), (null, "And it ends in this one."), (null, "A point stands here."), (null, "A phrase that stays."), (null, "Values follow."), (null, "Text of the deleted: "), (null, "Page of the deleted: "), (null, "Text of the kept: "), (null, "The end.")]);
+        using var _ = file;
+        var statement = Para(file, "An important statement stands here.");
+        Did(editor.AddBookmark(new TextRange(new TextPosition(StoryRef.Body, statement, 3), new TextPosition(StoryRef.Body, statement, 22)), "Gone"), "a bookmark");
+        Did(editor.AddBookmark(new TextRange(new TextPosition(StoryRef.Body, Para(file, "A range starts in this paragraph."), 2), new TextPosition(StoryRef.Body, Para(file, "And it ends in this one."), 6)), "Range"), "a bookmark over two paragraphs");
+        Did(editor.AddBookmark(Caret(Start(file, "A point stands here.")), "Point"), "a point bookmark");
+        var stays = Para(file, "A phrase that stays.");
+        Did(editor.AddBookmark(new TextRange(new TextPosition(StoryRef.Body, stays, 2), new TextPosition(StoryRef.Body, stays, 8)), "Kept"), "a bookmark that stays");
+        Did(editor.InsertTable(Start(file, "Values follow."), 2, 2), "a table");
+        var cell = BookmarkOperations.ParagraphsOf([file.Model.Body.Blocks.OfType<Table>().Single()]).First();
+        Did(editor.InsertText(Caret(new TextPosition(StoryRef.Body, cell, 0)), "In a cell"), "text in a cell");
+        Did(editor.AddBookmark(new TextRange(new TextPosition(StoryRef.Body, cell, 0), End(cell)), "Cell"), "a bookmark in a cell");
+
+        void Refer(string line, string name, CrossRefKind kind)
+        {
+            var target = CrossReferences.Targets(file.Model, HostOf(file), CrossRefTargetKind.Bookmark).Single(t => string.Equals(t.Display, name, StringComparison.Ordinal));
+            Did(editor.InsertCrossReference(End(Para(file, line)), target, kind, HostOf(file)), "a reference to " + name);
+        }
+
+        Refer("Text of the deleted: ", "Gone", CrossRefKind.Text);
+        Refer("Page of the deleted: ", "Gone", CrossRefKind.Page);
+        Refer("Text of the kept: ", "Kept", CrossRefKind.Text);
+        Settle(file, editor);
+
+        foreach (var name in (string[])["Gone", "Range", "Point", "Cell"])
+        {
+            Did(editor.DeleteBookmark(name), "deleting the bookmark " + name);
+        }
+
+        Assert.Equal(["Kept"], editor.VisibleBookmarks().Select(b => b.Name));
+        Settle(file, editor);
+
+        // A reference points at Write's own hidden bookmark over the target, so the references to a deleted bookmark keep working, in Word too.
+        await SaveAsync(file, folder, "fields-deleted-bookmarks.docx");
+    }
+
+    // Bookmarks as files hold them: an end marker between two paragraphs (deleting it leaves that marker), markers inside a link and a content control.
+    [Fact]
+    public async Task DeletedBookmarksOfAFileAreSavedForWord()
+    {
+        var folder = Folder();
+        var body = P("<w:bookmarkStart w:id=\"5\" w:name=\"Across\"/>" + Run("Starts in the paragraph.")) + "<w:bookmarkEnd w:id=\"5\"/>"
+            + P("<w:hyperlink w:anchor=\"Across\">" + Bookmarked(6, "InLink", Run("a link")) + "</w:hyperlink>")
+            + P("<w:sdt><w:sdtPr/><w:sdtContent>" + Bookmarked(7, "InControl", Run("a control")) + "</w:sdtContent></w:sdt>")
+            + P(Run("The end."));
+        using var file = Probe(body);
+        var editor = EditorOf(file);
+
+        foreach (var name in (string[])["Across", "InLink", "InControl"])
+        {
+            Did(editor.DeleteBookmark(name), "deleting the bookmark " + name);
+        }
+
+        Assert.Empty(BookmarkOperations.AllNames(file.Model));
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, "probe-deleted-bookmarks.docx");
+    }
+
     // ---- fields Write leaves alone ------------------------------------------------------------------------------------------------
 
     [Fact]
