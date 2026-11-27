@@ -510,6 +510,66 @@ public sealed class WordCheckFieldFilesTests
         await SaveAsync(file, folder, "probe-deleted-bookmarks.docx");
     }
 
+    // Bookmarks Write holds only as kept content (between blocks, in a table row) and bookmarks of a footnote and a footer, with the highest ids and generated names, then Write's own inserts: no id and no name is used twice.
+    [Fact]
+    public async Task BookmarksBesideForeignOnesAreSavedForWord()
+    {
+        var folder = Folder();
+        var body = "<w:bookmarkStart w:id=\"500\" w:name=\"_Toc200000001\"/>" + P(Run("A paragraph in a range that starts between blocks.")) + "<w:bookmarkEnd w:id=\"500\"/>"
+            + "<w:bookmarkStart w:id=\"501\" w:name=\"BodyLevel\"/><w:bookmarkEnd w:id=\"501\"/>"
+            + "<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"3000\"/><w:gridCol w:w=\"3000\"/></w:tblGrid>"
+            + "<w:tr><w:bookmarkStart w:id=\"502\" w:name=\"RowLevel\"/><w:tc><w:tcPr/>" + P(Run("one")) + "</w:tc><w:tc><w:tcPr/>" + P(Run("two")) + "</w:tc><w:bookmarkEnd w:id=\"502\"/></w:tr></w:tbl>"
+            + P(Run("Contents stand here."))
+            + P(Run("Alpha"), "Heading1")
+            + P(Run("A sentence with a footnote."))
+            + P(Run("See: "))
+            + P(Run("The end."));
+        using var file = Probe(body);
+        var editor = EditorOf(file);
+        Number(file, editor);
+        Did(editor.InsertNote(End(Para(file, "A sentence with a footnote.")), NoteType.Footnote), "a footnote");
+        Did(editor.InsertPageNumber(Start(file, "The end."), PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Center, new PageNumberWords("Page", "of"), "1", "1"), "a page number in the footer");
+        AddForeign(file.Model.Footnotes!.Notes.Last(n => n.Kind == NoteKind.Normal).Content, 503, "_Ref200000005");
+        AddForeign(file.Model.HeadersFooters.Values.Single(p => p.Kind == HeaderFooterKind.Footer).Content, 504, "InFooter");
+
+        Assert.Null(editor.AddBookmark(Caret(Start(file, "The end.")), "RowLevel"));
+        Assert.Null(editor.AddBookmark(Caret(Start(file, "The end.")), "InFooter"));
+        Did(editor.AddBookmark(Caret(Start(file, "The end.")), "Mine"), "a bookmark of Write");
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents");
+        Settle(file, editor);
+        var heading = CrossReferences.Targets(file.Model, HostOf(file), CrossRefTargetKind.Heading)[0];
+        Did(editor.InsertCrossReference(End(Para(file, "See: ")), heading, CrossRefKind.Text, HostOf(file)), "a reference to the heading");
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, "probe-foreign-bookmarks.docx");
+
+        // In the saved bytes every bookmark of every part has an id and a name of its own.
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var starts = new List<XElement>();
+        using (var archive = ZipFile.OpenRead(Path.Combine(folder, "probe-foreign-bookmarks.docx")))
+        {
+            foreach (var entry in archive.Entries.Where(e => e.FullName.StartsWith("word/", StringComparison.Ordinal) && e.FullName.EndsWith(".xml", StringComparison.Ordinal)))
+            {
+                using var stream = entry.Open();
+                starts.AddRange(XDocument.Load(stream).Descendants(w + "bookmarkStart"));
+            }
+        }
+
+        Assert.Equal(8, starts.Count);
+        Assert.Equal(starts.Count, starts.Select(s => (string)s.Attribute(w + "id")!).Distinct().Count());
+        Assert.Equal(starts.Count, starts.Select(s => (string)s.Attribute(w + "name")!).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Contains(starts, s => (string?)s.Attribute(w + "name") == "_Toc200000002");
+        Assert.Contains(starts, s => (string?)s.Attribute(w + "name") == "_Ref200000006");
+    }
+
+    // A bookmark around the first paragraph of a story, as a file made by another program would hold it.
+    private static void AddForeign(Story story, int id, string name)
+    {
+        var paragraph = story.Blocks.OfType<Paragraph>().First();
+        paragraph.Inlines.Insert(0, new BookmarkStart(id, name));
+        paragraph.Inlines.Add(new BookmarkEnd(id));
+    }
+
     // ---- fields Write leaves alone ------------------------------------------------------------------------------------------------
 
     [Fact]

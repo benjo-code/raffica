@@ -183,7 +183,7 @@ public static class CrossReferences
         return true;
     }
 
-    /// <summary>A name for a new hidden bookmark: <c>_Ref</c> and the next number after the highest one a name of the document holds (nine digits at the least, as Word writes them). Null when the digits are used up.</summary>
+    /// <summary>A name for a new hidden bookmark: <c>_Ref</c> and the next number after the highest one among <paramref name="existing"/> (the names the document holds or points at, see <see cref="BookmarkOperations.TakenNames"/>; nine digits at the least, as Word writes them). Null when the digits are used up.</summary>
     internal static string? NextRefName(IReadOnlyCollection<string> existing)
     {
         var highest = 100_000_000L;

@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+using System.Xml.Linq;
 using Raffica.Write.Model;
 
 namespace Raffica.Write.Editing;
@@ -21,68 +24,260 @@ public static class BookmarkOperations
     internal static IReadOnlyList<BookmarkInfo> Visible(WordDocument document, Func<StoryRef, Paragraph, IProjectionHost> hosts) =>
         [.. Scan(document, hosts).Where(f => !BookmarkNames.IsHidden(f.Name)).Select(f => f.Info)];
 
-    /// <summary>The names of every bookmark of the body, hidden ones included (what a new name must not repeat).</summary>
+    /// <summary>
+    /// The names of every bookmark the document holds, hidden ones included (what a new name must not repeat): those of every story (body, headers, footers, footnotes, endnotes and comments), the markers of the paragraphs and
+    /// the ones Write keeps as content it does not read (between blocks, between the rows or cells of a table, in a wrapper, a drawing or a text box).
+    /// </summary>
     public static IReadOnlyList<string> AllNames(WordDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         var names = new List<string>();
-        foreach (var paragraph in ParagraphsOf(document.Body.Blocks))
-        {
-            foreach (var inline in InlinesOf(paragraph.Inlines))
+        Walk(
+            document,
+            (_, name) =>
             {
-                if (inline is BookmarkStart start)
+                if (name is not null)
                 {
-                    names.Add(start.Name);
+                    names.Add(name);
                 }
-            }
-        }
-
+            },
+            null);
         return names;
     }
 
-    /// <summary>One more than the highest bookmark id in any story of the document (body, headers, footers, notes and comments); 0 for a document with none. Null when the ids are used up.</summary>
+    /// <summary>
+    /// What a new cross-reference bookmark (<c>_Ref</c> and digits) must not repeat: <see cref="AllNames"/> and every generated name a field or a link of the document points at, also when its bookmark is gone, so that an old
+    /// reference never comes to mean a new target. A table of contents bookmark is named from <see cref="AllNames"/> alone (see <see cref="TocRefresh.TocBookmarks"/>).
+    /// </summary>
+    internal static List<string> TakenNames(WordDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var names = new List<string>();
+        Walk(
+            document,
+            (_, name) =>
+            {
+                if (name is not null)
+                {
+                    names.Add(name);
+                }
+            },
+            text => AddGeneratedNames(text, names));
+        return names;
+    }
+
+    /// <summary>One more than the highest bookmark id the document holds, in every place <see cref="AllNames"/> reads; 0 for a document with none. Null when the ids are used up.</summary>
     internal static int? NextId(WordDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         var highest = -1L;
-        void Look(IList<Block> blocks)
+        Walk(document, (id, _) => highest = Math.Max(highest, id ?? -1), null);
+        return highest >= int.MaxValue ? null : (int)(highest + 1);
+    }
+
+    private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+    // One walk over everything the document holds, for the commands that make a bookmark (never for a key). It reports each marker (its id when it is a number, and the name of a start) and, when asked, the text that can point at a
+    // bookmark: field instructions and the anchors of links. A stack of the walk's own, so no depth of tables and content controls is left out.
+    private static void Walk(WordDocument document, Action<int?, string?> marker, Action<string>? pointer)
+    {
+        var pending = new Stack<object>();
+        var notes = (document.Footnotes?.Notes ?? []).Concat(document.Endnotes?.Notes ?? []).Select(n => n.Content);
+        var stories = document.HeadersFooters.Values.Select(p => p.Content).Concat(notes).Concat((document.Comments?.Comments ?? []).Select(c => c.Content)).Prepend(document.Body);
+        foreach (var story in stories)
         {
-            foreach (var paragraph in ParagraphsOf(blocks))
+            foreach (var kept in story.LeadingContent.Concat(story.TrailingContent))
             {
-                foreach (var inline in InlinesOf(paragraph.Inlines))
-                {
-                    switch (inline)
-                    {
-                        case BookmarkStart start:
-                            highest = Math.Max(highest, start.Id);
-                            break;
-                        case BookmarkEnd end:
-                            highest = Math.Max(highest, end.Id);
-                            break;
-                        default:
-                            break;
-                    }
-                }
+                Kept(kept.Element, marker, pointer);
+            }
+
+            foreach (var block in story.Blocks)
+            {
+                pending.Push(block);
             }
         }
 
-        Look(document.Body.Blocks);
-        foreach (var part in document.HeadersFooters.Values)
+        while (pending.TryPop(out var item))
         {
-            Look(part.Content.Blocks);
+            switch (item)
+            {
+                case Paragraph paragraph:
+                    Read(paragraph, marker, pointer);
+                    break;
+                case Table table:
+                    foreach (var row in table.Rows)
+                    {
+                        pending.Push(row);
+                    }
+
+                    break;
+                case TableRow row:
+                    foreach (var child in row.Items)
+                    {
+                        pending.Push(child);
+                    }
+
+                    break;
+                case TableCell cell:
+                    foreach (var block in cell.Blocks)
+                    {
+                        pending.Push(block);
+                    }
+
+                    break;
+                case ContentControlBlock control:
+                    Frame(control.Frame, marker, pointer);
+                    foreach (var block in control.Content)
+                    {
+                        pending.Push(block);
+                    }
+
+                    break;
+                case UnknownBlock unknown:
+                    Kept(unknown.Content.Element, marker, pointer);
+                    break;
+                case UnknownRowItem unknown:
+                    Kept(unknown.Content.Element, marker, pointer);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    private static void Read(Paragraph paragraph, Action<int?, string?> marker, Action<string>? pointer)
+    {
+        // An instruction may be split over several runs: the pieces of the paragraph are read as one text.
+        StringBuilder? instruction = null;
+        foreach (var inline in InlinesOf(paragraph.Inlines))
+        {
+            switch (inline)
+            {
+                case BookmarkStart start:
+                    marker(start.Id, start.Name);
+                    break;
+                case BookmarkEnd end:
+                    marker(end.Id, null);
+                    break;
+                case Run run:
+                    foreach (var content in run.Content)
+                    {
+                        if (content is UnknownRunContent unknown)
+                        {
+                            Kept(unknown.Content.Element, marker, pointer);
+                        }
+                        else if (content is Picture picture)
+                        {
+                            Kept(picture.Raw, marker, pointer);
+                        }
+                        else if (pointer is not null && content is InstructionText text)
+                        {
+                            (instruction ??= new StringBuilder()).Append(text.Text);
+                        }
+                    }
+
+                    break;
+                case SimpleField field:
+                    pointer?.Invoke(field.Instruction);
+                    break;
+                case Hyperlink { Anchor: { } anchor }:
+                    pointer?.Invoke(anchor);
+                    break;
+                case ContentControlInline control:
+                    Frame(control.Frame, marker, pointer);
+                    break;
+                case UnknownInline unknown:
+                    Kept(unknown.Content.Element, marker, pointer);
+                    break;
+                default:
+                    break;
+            }
         }
 
-        foreach (var note in (document.Footnotes?.Notes ?? []).Concat(document.Endnotes?.Notes ?? []))
+        if (instruction is not null)
         {
-            Look(note.Content.Blocks);
+            pointer!(instruction.ToString());
+        }
+    }
+
+    private static void Frame(ContentControlFrame frame, Action<int?, string?> marker, Action<string>? pointer)
+    {
+        foreach (var other in frame.OtherChildren)
+        {
+            Kept(other.Element, marker, pointer);
         }
 
-        foreach (var comment in document.Comments?.Comments ?? [])
+        if (frame.EndProperties is { } end)
         {
-            Look(comment.Content.Blocks);
+            Kept(end.Element, marker, pointer);
+        }
+    }
+
+    // Content the model keeps as it was read: the markers anywhere inside it, and what points at a bookmark there.
+    private static void Kept(XElement element, Action<int?, string?> marker, Action<string>? pointer)
+    {
+        StringBuilder? instruction = null;
+        foreach (var inner in element.DescendantsAndSelf())
+        {
+            if (inner.Name.Namespace != W)
+            {
+                continue;
+            }
+
+            switch (inner.Name.LocalName)
+            {
+                case "bookmarkStart":
+                    marker(IdOf(inner), (string?)inner.Attribute(W + "name"));
+                    break;
+                case "bookmarkEnd":
+                    marker(IdOf(inner), null);
+                    break;
+                case "instrText" or "delInstrText" when pointer is not null:
+                    (instruction ??= new StringBuilder()).Append(inner.Value);
+                    break;
+                case "fldSimple" when pointer is not null && (string?)inner.Attribute(W + "instr") is { } instr:
+                    pointer(instr);
+                    break;
+                case "hyperlink" when pointer is not null && (string?)inner.Attribute(W + "anchor") is { } anchor:
+                    pointer(anchor);
+                    break;
+                default:
+                    break;
+            }
         }
 
-        return highest >= int.MaxValue ? null : (int)(highest + 1);
+        if (instruction is not null)
+        {
+            pointer!(instruction.ToString());
+        }
+    }
+
+    private static int? IdOf(XElement marker) =>
+        int.TryParse((string?)marker.Attribute(W + "id"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null;
+
+    // Every "_Ref" or "_Toc" followed by digits in the text.
+    private static void AddGeneratedNames(string text, List<string> into)
+    {
+        const int prefix = 4;
+        for (var at = text.IndexOf('_', StringComparison.Ordinal); at >= 0; at = text.IndexOf('_', at + 1))
+        {
+            var rest = text.AsSpan(at);
+            if (!rest.StartsWith("_Ref", StringComparison.OrdinalIgnoreCase) && !rest.StartsWith("_Toc", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var end = at + prefix;
+            while (end < text.Length && char.IsAsciiDigit(text[end]))
+            {
+                end++;
+            }
+
+            if (end > at + prefix)
+            {
+                into.Add(text[at..end]);
+            }
+        }
     }
 
     /// <summary>Every paragraph of the blocks in document order, through tables and block content controls.</summary>

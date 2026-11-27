@@ -91,7 +91,7 @@ public sealed partial class TextEditor
         string? name = reused?.Name;
         if (reused is null)
         {
-            name = CrossReferences.NextRefName(BookmarkOperations.AllNames(_document));
+            name = CrossReferences.NextRefName(BookmarkOperations.TakenNames(_document));
             id = BookmarkOperations.NextId(_document);
             if (name is null || id is null)
             {

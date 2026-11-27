@@ -610,7 +610,7 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
 
     /// <summary>
     /// The hidden bookmarks a refresh makes on headings (and captions): the bookmark of a paragraph is the first <c>_Toc</c> bookmark that starts and ends in it, else a new one over the whole paragraph, named <c>_Toc</c> and nine digits
-    /// that no bookmark of the document uses. The paragraphs it changed are kept with a clone from before.
+    /// that no bookmark of the document uses. A name that only the entries of a list still point at (after a redo, whose heading lacks its bookmark until the next refresh) is taken again, so the links heal. The paragraphs it changed are kept with a clone from before.
     /// </summary>
     internal sealed class TocBookmarks(WordDocument document)
     {
