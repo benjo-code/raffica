@@ -19,28 +19,28 @@ public sealed class TocEdgeTests
 
     // ---- helpers ------------------------------------------------------------------------------------------------------------------------
 
-    private static string Run(string text) => $"<w:r><w:t xml:space=\"preserve\">{text}</w:t></w:r>";
+    internal static string Run(string text) => $"<w:r><w:t xml:space=\"preserve\">{text}</w:t></w:r>";
 
-    private static string P(string inner, string? style = null) => $"<w:p>{(style is null ? string.Empty : $"<w:pPr><w:pStyle w:val=\"{style}\"/></w:pPr>")}{inner}</w:p>";
+    internal static string P(string inner, string? style = null) => $"<w:p>{(style is null ? string.Empty : $"<w:pPr><w:pStyle w:val=\"{style}\"/></w:pPr>")}{inner}</w:p>";
 
     private static string MarkXml(string kind) => $"<w:r><w:fldChar w:fldCharType=\"{kind}\"/></w:r>";
 
     private static string TocBegin() => MarkXml("begin") + "<w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-1\" \\h \\z \\u </w:instrText></w:r>" + MarkXml("separate");
 
     // A hand-written list of two entry paragraphs; the end mark is in the last entry, or (Word's shape) alone in a paragraph of its own.
-    private static string TocXml(bool endOwn = true, string endPPr = "", string afterEnd = "") =>
+    internal static string TocXml(bool endOwn = true, string endPPr = "", string afterEnd = "") =>
         P(TocBegin() + Run("Stale one"))
         + (endOwn
             ? P(Run("Stale two")) + $"<w:p>{endPPr}{MarkXml("end")}{afterEnd}</w:p>"
             : $"<w:p>{endPPr}{Run("Stale two")}{MarkXml("end")}{afterEnd}</w:p>");
 
-    private static string Cell(string content) =>
+    internal static string Cell(string content) =>
         "<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"6000\"/></w:tblGrid><w:tr><w:tc><w:tcPr/>" + content + "</w:tc></w:tr></w:tbl>";
 
-    private static string Control(string content, string properties = "") => $"<w:sdt><w:sdtPr>{properties}</w:sdtPr><w:sdtContent>{content}</w:sdtContent></w:sdt>";
+    internal static string Control(string content, string properties = "") => $"<w:sdt><w:sdtPr>{properties}</w:sdtPr><w:sdtContent>{content}</w:sdtContent></w:sdt>";
 
     // A blank document of Write whose body is replaced by the XML given (its styles and section properties stay).
-    private static DocxFile File(string body)
+    internal static DocxFile File(string body)
     {
         using var buffer = new MemoryStream();
         buffer.Write(BlankDocument.Create(PaperSize.A4));

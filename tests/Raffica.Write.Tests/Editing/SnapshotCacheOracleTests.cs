@@ -490,6 +490,131 @@ public sealed class SnapshotCacheOracleTests
         Refresh("refresh after the redos");
     }
 
+    [Theory]
+    [InlineData("body")]
+    [InlineData("cell")]
+    [InlineData("control")]
+    public void ATableOfContentsInsertedLastInItsContainerGivesTheBytesOfAFullWriteWithItsUndoAndRedo(string kind)
+    {
+        var inner = TocEdgeTests.P(TocEdgeTests.Run("Inside."));
+        var end = TocEdgeTests.P(TocEdgeTests.Run("The end."));
+        // The host of the insert is the last paragraph of the body, or the only paragraph of a cell or a control.
+        var rest = kind switch
+        {
+            "cell" => TocEdgeTests.Cell(inner) + end,
+            "control" => TocEdgeTests.Control(inner) + end,
+            _ => end + inner,
+        };
+        using var file = TocEdgeTests.File(TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1") + rest);
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var host = Support.ModelWalk.Blocks(file.Model.Body.Blocks).OfType<Paragraph>().Single(p => TestEdit.TextOf(p) == "Inside.");
+        var container = TextEditor.FindIn(file.Model.Body.Blocks, host)!.Value.Container;
+        var at = new TextPosition(StoryRef.Body, host, TestEdit.TextOf(host).Length);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.InsertToc(at, new TocOptions(1, 3, true, true, TocLeader.Dots, null), new Support.FakeFieldHost(file.Model)));
+
+        // The shape the case is about: nothing followed the list, so the insert added an empty paragraph after it.
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        Assert.Same(container, site.Container);
+        Assert.Equal(container.Count - 2, site.Last);
+        Assert.Empty(Assert.IsType<Paragraph>(container[^1]).Inlines);
+    }
+
+    [Theory]
+    [InlineData("body")]
+    [InlineData("cell")]
+    [InlineData("control")]
+    public void EnterAtTheEndEdgeOfATableOfContentsGivesTheBytesOfAFullWriteWithItsUndoAndRedo(string kind)
+    {
+        var inner = TocEdgeTests.P(TocEdgeTests.Run("Above.")) + TocEdgeTests.TocXml();
+        var end = TocEdgeTests.P(TocEdgeTests.Run("The end."));
+        var rest = kind switch
+        {
+            "cell" => TocEdgeTests.Cell(inner) + end,
+            "control" => TocEdgeTests.Control(inner) + end,
+            _ => inner,
+        };
+        using var file = TocEdgeTests.File(TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1") + rest);
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        var last = Assert.IsType<Paragraph>(site.Container[site.Last]);
+        var at = new TextPosition(StoryRef.Body, last, TestEdit.TextOf(last).Length);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.SplitParagraph(new TextRange(at, at)));
+
+        Assert.Equal(site.Last + 2, site.Container.Count);
+        Assert.Empty(Assert.IsType<Paragraph>(site.Container[^1]).Inlines);
+    }
+
+    [Theory]
+    [InlineData("body")]
+    [InlineData("cell")]
+    [InlineData("control")]
+    public void EnterAtTheStartEdgeOfATableOfContentsThatIsFirstGivesTheBytesOfAFullWriteWithItsUndoAndRedo(string kind)
+    {
+        var inner = TocEdgeTests.TocXml() + TocEdgeTests.P(TocEdgeTests.Run("Below."));
+        var rest = kind switch
+        {
+            "cell" => TocEdgeTests.Cell(inner),
+            "control" => TocEdgeTests.Control(inner),
+            _ => inner,
+        };
+        using var file = TocEdgeTests.File(rest + TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1"));
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        Assert.Equal(0, site.First);
+        var first = Assert.IsType<Paragraph>(site.Container[0]);
+        var at = new TextPosition(StoryRef.Body, first, 0);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.SplitParagraph(new TextRange(at, at)));
+
+        Assert.Empty(Assert.IsType<Paragraph>(site.Container[0]).Inlines);
+        Assert.Same(first, site.Container[1]);
+    }
+
+    [Fact]
+    public void EnterAtTheEndEdgeOfATableOfContentsThatEndsASectionGivesTheBytesOfAFullWriteWithItsUndoAndRedo()
+    {
+        const string section = "<w:pPr><w:sectPr><w:type w:val=\"nextPage\"/><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr></w:pPr>";
+        using var file = TocEdgeTests.File(TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1") + TocEdgeTests.TocXml(endPPr: section) + TocEdgeTests.P(TocEdgeTests.Run("Next section.")));
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        var last = Assert.IsType<Paragraph>(site.Container[site.Last]);
+        Assert.NotNull(last.SectionBreak);
+        var at = new TextPosition(StoryRef.Body, last, TestEdit.TextOf(last).Length);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.SplitParagraph(new TextRange(at, at)));
+
+        // The break went to the new paragraph, so the list's end paragraph changed in place: a range that missed it would leave its old bytes in the cache.
+        Assert.Null(Assert.IsType<Paragraph>(site.Container[site.Last]).SectionBreak);
+        Assert.NotNull(Assert.IsType<Paragraph>(site.Container[site.Last + 1]).SectionBreak);
+    }
+
+    // An operation on a warm cache, then its undo and its redo. After each one the cached main part is the full write's, and the pass reused blocks: after a raise that nobody attributed the cache writes the whole body again, which
+    // gives the same bytes, so the byte comparison alone would not see a missing attribution.
+    private static void AssertTheWarmCacheFollows(DocxFile file, TextEditor editor, Func<EditResult?> run)
+    {
+        file.SerialiseMainForTest(cached: true);
+        file.SerialiseMainForTest(cached: true);
+        Assert.Equal(0, file.LastSnapshotPass.Written);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+            Assert.True(file.LastSnapshotPass.Reused > 0, label + ": the whole body was written again");
+        }
+
+        var result = run();
+        Assert.NotNull(result);
+        Assert.NotEmpty(result.Changes);
+        Check("operation");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo");
+    }
+
     [Fact]
     public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
