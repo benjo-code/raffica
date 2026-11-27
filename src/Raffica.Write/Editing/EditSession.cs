@@ -239,6 +239,7 @@ internal sealed partial class EditSession
             if (value == LayoutMode.Pages && !_tab.IsDisposed)
             {
                 _tab.Runner.RebuildPageLayoutIfStale();
+                WakeFields();
             }
         }
     }
@@ -738,6 +739,25 @@ internal sealed partial class EditSession
         if (result.DerivedChanges is { } derived)
         {
             _fieldTouched.AddRange(derived);
+        }
+    }
+
+    // The pages view is back: a refresh runner the tab already has (a mode switch makes none) brings the page results current that it could not read in the writing view. It only restarts its timer; nothing is refreshed here.
+    private void WakeFields()
+    {
+        if (!_tab.RefreshesFields)
+        {
+            return;
+        }
+
+        try
+        {
+            _tab.Fields?.PagesBack();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The refresh is a convenience: it must never break the switch of the view.
+            _tab.FieldWiringFailures++;
         }
     }
 

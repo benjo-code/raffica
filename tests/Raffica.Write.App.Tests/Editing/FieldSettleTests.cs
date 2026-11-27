@@ -303,13 +303,18 @@ public sealed class FieldSettleTests
         Assert.NotNull(session.Apply(e => e.InsertCrossReference(at, target, CrossRefKind.Page, runner.Host), 0));
         await h.FireUntilIdleAsync();
         Assert.Equal("alpha text?", TextOf(reference));
+        return (h, reference);
+    }
 
+    // Back in the pages view, the layout of the pages made again and complete, and a letter in a plain paragraph.
+    private static async Task SwitchBackAndTypeAsync(FieldHarness h)
+    {
+        var session = h.Tab.Editor!;
         session.ActiveMode = LayoutMode.Pages;
         await ViewHarness.WaitAsync(() => session.ActiveLayout is { IsComplete: true }, 30000);
-        var plain = model.Body.Blocks.OfType<Paragraph>().First(p => TextOf(p) == "beta text");
+        var plain = h.Tab.Docx.Model.Body.Blocks.OfType<Paragraph>().First(p => TextOf(p) == "beta text");
         var typed = new TextPosition(StoryRef.Body, plain, 0);
         Assert.NotNull(session.Apply(e => e.InsertText(new TextRange(typed, typed), "x"), 0));
-        return (h, reference);
     }
 
     [AvaloniaFact]
@@ -317,6 +322,7 @@ public sealed class FieldSettleTests
     {
         var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
         using var harness = h;
+        await SwitchBackAndTypeAsync(h);
 
         await h.FireUntilIdleAsync();
 
@@ -330,11 +336,97 @@ public sealed class FieldSettleTests
     {
         var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
         using var harness = h;
+        await SwitchBackAndTypeAsync(h);
 
         await h.Tab.SettleFieldsAsync(CancellationToken.None);
 
         Assert.Equal("alpha text1", TextOf(reference));
         Assert.Equal(0, h.Tab.Fields!.Failures);
+    }
+
+    // Switching back is enough: the page results the writing view left owed are brought current by the next tick, without an edit. Nothing is refreshed in the switch itself, and the refresh is no edit.
+    [AvaloniaFact]
+    public async Task SwitchingBackWithNoEditFillsThePageResultsAtTheNextTick()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var runner = h.Tab.Fields!;
+        var edits = h.Tab.Docx.Model.Edits;
+        var revision = edits.Revision;
+        var passes = runner.Passes;
+        Assert.False(h.Clock.IsArmed);
+
+        h.Tab.Editor!.ActiveMode = LayoutMode.Pages;
+
+        Assert.Equal(passes, runner.Passes);
+        Assert.Equal("alpha text?", TextOf(reference));
+        Assert.True(h.Clock.IsArmed, "the switch wakes the refresh");
+
+        await h.FireUntilIdleAsync();
+
+        Assert.Equal("alpha text1", TextOf(reference));
+        Assert.Equal(revision, edits.Revision);
+        Assert.False(runner.IsPending);
+        Assert.False(h.Clock.IsArmed);
+        Assert.Equal(0, runner.Failures);
+
+        // Nothing is owed any more: another switch to and fro asks for nothing.
+        var settled = runner.Passes;
+        h.Tab.Editor!.ActiveMode = LayoutMode.Flow;
+        h.Tab.Editor!.ActiveMode = LayoutMode.Pages;
+        Assert.False(h.Clock.IsArmed);
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+        Assert.Equal(settled, runner.Passes);
+    }
+
+    [AvaloniaFact]
+    public async Task SwitchingBackWithNoEditThenSavingWritesThePageNumbers()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+        var edits = h.Tab.Docx.Model.Edits;
+        var revision = edits.Revision;
+        h.Tab.Editor!.ActiveMode = LayoutMode.Pages;
+
+        // No tick: the settle of the save brings the numbers up to date before the file is written.
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+        var copy = System.IO.Path.Combine(h.Folder, "switched.docx");
+        await h.Tab.Docx.SaveAsync(copy);
+
+        Assert.Equal("alpha text1", TextOf(reference));
+        Assert.Equal(revision, edits.Revision);
+        Assert.False(h.Tab.Fields!.IsPending);
+        using var again = DocxFile.Open(copy);
+        Assert.Contains("alpha text1", again.Model.Body.Blocks.OfType<Paragraph>().Select(TextOf));
+    }
+
+    // A save made while the writing view is still followed has no pages to read: the results stay owed, and the save after the switch back writes them.
+    [AvaloniaFact]
+    public async Task ASaveInTheWritingViewKeepsThePageResultsOwed()
+    {
+        var (h, reference) = await InsertPageReferenceInTheWritingViewAsync();
+        using var harness = h;
+
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+        Assert.Equal("alpha text?", TextOf(reference));
+
+        h.Tab.Editor!.ActiveMode = LayoutMode.Pages;
+        await h.Tab.SettleFieldsAsync(CancellationToken.None);
+        Assert.Equal("alpha text1", TextOf(reference));
+    }
+
+    [AvaloniaFact]
+    public async Task AModeSwitchAloneMakesNoRefreshRunner()
+    {
+        using var h = await OpenAsync();
+        var session = h.Tab.EnsureEditor();
+
+        session.ActiveMode = LayoutMode.Flow;
+        session.ActiveMode = LayoutMode.Pages;
+
+        Assert.Null(h.Tab.Fields);
+        Assert.Equal(0, h.Clock.Created);
+        Assert.False(h.Tab.IsDirty);
     }
 
     // The view says which page it shows last, for the layout of its mode; without a view there is no answer.

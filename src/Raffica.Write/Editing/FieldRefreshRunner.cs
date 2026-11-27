@@ -44,6 +44,7 @@ internal sealed class FieldRefreshRunner : IDisposable
     private bool _wantPages = true;
     private int _roundPasses;
     private long? _settledSignature;
+    private bool _pagesOwed;
     private int _consecutiveFailures;
     private TextEditor? _bare;
     private WordDocument? _bareModel;
@@ -117,19 +118,31 @@ internal sealed class FieldRefreshRunner : IDisposable
     }
 
     /// <summary>
+    /// The pages view is followed again: when a pass that ran without pages (in the writing view) left page results owed, the timer is started so that they are brought current after the delay. Nothing is read or refreshed here.
+    /// </summary>
+    public void PagesBack()
+    {
+        if (!_disposed && _pagesOwed)
+        {
+            _timer.Restart(Delay);
+        }
+    }
+
+    /// <summary>
     /// Brings the results up to date now, before a save reads the model: the same passes as the timer's, run synchronously (the task is complete when this returns; it is a task for the passes that may yield later). A refresh that is blocked
     /// (a prefix document, a stale layout, an IME composition, a faulted session) is skipped, and so is one when the token is cancelled or the runner disposed; nothing is thrown for any of them.
     /// </summary>
     public Task SettleAsync(CancellationToken token)
     {
-        if (_disposed || token.IsCancellationRequested || !_pending || _running)
+        if (_disposed || token.IsCancellationRequested || _running)
         {
             return Task.CompletedTask;
         }
 
         try
         {
-            if (Blocked(forSettle: true) == Hold.None)
+            ClaimOwedPages();
+            if (_pending && Blocked(forSettle: true) == Hold.None)
             {
                 _timer.Stop();
                 RunPasses(forSettle: true, token);
@@ -160,13 +173,19 @@ internal sealed class FieldRefreshRunner : IDisposable
 
     private void OnTick()
     {
-        if (_disposed || !_pending || _running)
+        if (_disposed || _running)
         {
             return;
         }
 
         try
         {
+            ClaimOwedPages();
+            if (!_pending)
+            {
+                return;
+            }
+
             switch (Blocked(forSettle: false))
             {
                 case Hold.Never:
@@ -186,6 +205,16 @@ internal sealed class FieldRefreshRunner : IDisposable
         {
             // The timer runs on the dispatcher and Write has no crash guard here: nothing may escape.
             Failed();
+        }
+    }
+
+    // Page results owed since a pass without pages are work again once there are pages (for the tick and for the settle of a save). The touched blocks stay as they are: that pass dropped the signature of the settled page results, so the next one
+    // reads every page result. They stay owed until a pass with pages ran.
+    private void ClaimOwedPages()
+    {
+        if (_pagesOwed && !_tab.IsDisposed && _host.HasPages)
+        {
+            _pending = true;
         }
     }
 
@@ -347,6 +376,16 @@ internal sealed class FieldRefreshRunner : IDisposable
                 {
                     // A pass over the whole body saw every page field; one over some blocks can only find new ones.
                     _wantPages = last.PageFields > 0;
+                }
+
+                // A pass without pages (the writing view) leaves the page results the document has, or may have, owed; a pass with pages pays them.
+                if (!_host.HasPages)
+                {
+                    _pagesOwed = _wantPages;
+                }
+                else if (pagesOn)
+                {
+                    _pagesOwed = false;
                 }
 
                 if (last.Content.Count > 0)
