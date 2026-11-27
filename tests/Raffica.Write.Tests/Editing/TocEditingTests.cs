@@ -343,6 +343,58 @@ public sealed class TocEditingTests
         Assert.False(editor.History.CanUndo);
     }
 
+    // Word does not open a file whose cell ends in a table, adds a paragraph to a body that ends in one and reads two tables with nothing between them as one (Docs/write-word-check.md): where a removal would leave that, an empty paragraph stays.
+    [Theory]
+    [InlineData("body after a table", "P,T,P")]
+    [InlineData("cell after a table", "P,T,P")]
+    [InlineData("between two tables", "P,T,P,T,P")]
+    [InlineData("control after a table", "T,P")]
+    [InlineData("cell after a control that ends in a table", "P,C,P")]
+    [InlineData("before a control that starts with a table", "T,P,C,P")]
+    [InlineData("a kept marker after the table", "P,T,P,U")]
+    [InlineData("a table follows a paragraph", "P,T,P")]
+    [InlineData("a paragraph follows the list", "P,T,P")]
+    public void RemoveTocNeverLeavesATableLastOrTwoTablesTogether(string place, string shape)
+    {
+        const string Toc = "<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-1\" </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:t>One</w:t></w:r></w:p>"
+            + "<w:p><w:r><w:t>Two</w:t></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>";
+        static string TableXml(string content) => "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid><w:tr><w:tc><w:tcPr/>" + content + "</w:tc></w:tr></w:tbl>";
+        static string Control(string content) => "<w:sdt><w:sdtPr/><w:sdtContent>" + content + "</w:sdtContent></w:sdt>";
+        var table = TableXml(Text("cell"));
+        var document = Doc(place switch
+        {
+            "body after a table" => Text("a") + table + Toc,
+            "cell after a table" => TableXml(Text("a") + table + Toc) + Text("tail"),
+            "between two tables" => Text("a") + table + Toc + table + Text("tail"),
+            "control after a table" => Control(table + Toc) + Text("tail"),
+            "cell after a control that ends in a table" => TableXml(Text("a") + Control(table) + Toc) + Text("tail"),
+            "before a control that starts with a table" => table + Toc + Control(table + Text("in")) + Text("tail"),
+            "a kept marker after the table" => Text("a") + table + Toc + "<w:bookmarkEnd w:id=\"77\"/>",
+            "a table follows a paragraph" => Text("a") + Toc + table + Text("tail"),
+            _ => Text("a") + table + Toc + Text("tail"),
+        });
+        var editor = Editor(document);
+
+        IList<Block> Container() => place switch
+        {
+            "cell after a table" or "cell after a control that ends in a table" => ((TableCell)((TableRow)((Table)document.Body.Blocks[0]).Rows[0]).Items[0]).Blocks,
+            "control after a table" => ((ContentControlBlock)document.Body.Blocks[0]).Content,
+            _ => document.Body.Blocks,
+        };
+
+        var inside = BookmarkOperations.ParagraphsOf(document.Body.Blocks).Single(p => TextOf(p) == "One");
+        var before = BodyBytes(document);
+
+        var result = editor.RemoveToc(new TextPosition(StoryRef.Body, inside, 0));
+
+        Assert.NotNull(result);
+        Assert.Equal(shape, string.Join(",", Container().Select(b => b switch { Paragraph => "P", Table => "T", ContentControlBlock => "C", _ => "U" })));
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(before, BodyBytes(document));
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(shape, string.Join(",", Container().Select(b => b switch { Paragraph => "P", Table => "T", ContentControlBlock => "C", _ => "U" })));
+    }
+
     [Fact]
     public void TheFileHasNoDirtyOrUpdateFields()
     {

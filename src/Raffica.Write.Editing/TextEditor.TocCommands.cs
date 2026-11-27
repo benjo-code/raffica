@@ -164,7 +164,8 @@ public sealed partial class TextEditor
 
     /// <summary>
     /// Removes the table of contents the position is in (an edge of the field counts) as one history step: the field, its entries and the hidden <c>_Toc</c> bookmarks no link or page reference points at any more (the headings
-    /// that lose one are derived changes of the step). A body, cell or content control that would be left with no block gets an empty paragraph. The caret goes to the paragraph that follows (or the last one before). Returns null,
+    /// that lose one are derived changes of the step). An empty paragraph stays where the list was when its body, cell or content control would be left with no paragraph, or when a table would then end it or stand right
+    /// before another table. The caret goes to that paragraph, else to the paragraph that follows (or the last one before). Returns null,
     /// and changes nothing, when there is no table of contents at the position or one of its paragraphs ends a section (<see cref="LastTocRefusal"/>). Markers of other bookmarks that stand in the entries go with them.
     /// </summary>
     public EditResult? RemoveToc(TextPosition at)
@@ -198,8 +199,9 @@ public sealed partial class TextEditor
                 container.RemoveAt(site.First);
             }
 
-            // A list with no paragraph left (a cell, a control, a body of tables) gets an empty one: a caret needs a paragraph and a body that ends in a table is one Word repairs.
-            if (!container.OfType<Paragraph>().Any())
+            // A list of blocks with no paragraph left (a cell, a control, a body of tables) gets an empty one, as a caret needs a paragraph. So does a place where the removal leaves a table last or two tables together:
+            // Word does not open a cell that ends in a table, adds a paragraph to a body that ends in one and reads two adjacent tables as one.
+            if (!container.OfType<Paragraph>().Any() || LeavesATableOpen(container, site.First))
             {
                 container.Insert(Math.Min(site.First, container.Count), new Paragraph());
                 added = 1;
@@ -240,6 +242,17 @@ public sealed partial class TextEditor
 
         return result;
     }
+
+    // Whether the block before the place of a removal ends in a table and what follows it is a table or nothing. Markers between blocks (content the model does not read) are looked past.
+    private static bool LeavesATableOpen(IList<Block> container, int at) =>
+        container.Take(at).LastOrDefault(b => b is not UnknownBlock) is { } before && EndsInATable(before, 0)
+        && (container.Skip(at).FirstOrDefault(b => b is not UnknownBlock) is not { } after || StartsWithATable(after, 0));
+
+    private static bool EndsInATable(Block block, int depth) =>
+        block is Table || (block is ContentControlBlock control && depth < BookmarkOperations.MaxDepth && control.Content.LastOrDefault(b => b is not UnknownBlock) is { } last && EndsInATable(last, depth + 1));
+
+    private static bool StartsWithATable(Block block, int depth) =>
+        block is Table || (block is ContentControlBlock control && depth < BookmarkOperations.MaxDepth && control.Content.FirstOrDefault(b => b is not UnknownBlock) is { } first && StartsWithATable(first, depth + 1));
 
     // The table of contents of the body (any list of it) that holds the paragraph of the position, or null.
     private TocSite? SiteAt(TextPosition at)
