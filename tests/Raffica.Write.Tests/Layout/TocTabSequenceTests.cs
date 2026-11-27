@@ -18,8 +18,9 @@ namespace Raffica.Write.Tests.Layout;
 /// <list type="bullet">
 /// <item>two stops of the entry style (its left tab stops and its hanging indent) behind the number: the second takes the tab before the page number, in Word too, and Write does not take stops from a style;</item>
 /// <item>a stop of the entry style behind the title of an entry without a number, for the same reason;</item>
-/// <item>a stop of the entry's own at Word's place for its number behind a stop of the style or of the hanging indent: Word writes it there and draws the page number of a short entry at it, and Write keeps it, as in a list Word made (a stop
-/// that is not at that place, left over from another number or other letters, must go);</item>
+/// <item>a stop of the entry's own, Write's or Word's, at Word's place for its number behind a single left tab stop of the entry style: Word writes that stop in its own list of such a document and draws the page number of a short entry at it,
+/// so Write keeps it, also one it wrote for larger letters or a longer number that stands there now. Nothing else of this kind is excused: a stop that is not at that place must go, and so must every one behind a hanging indent that takes
+/// the number on a first line at the margin, where Word writes none (every hanging indent of these sequences starts its first line there);</item>
 /// <item>a stop of the user's that Write keeps and that takes the tab before the page number: in front of a style stop, beside the stop of the number, or behind the title of an entry without a number. A stop that ever stood behind one of the
 /// user's in the same entry counts as one of them from then on: once the number or its letters change, which of the two is the number's cannot be told;</item>
 /// <item>an entry that is not short: its number ends more than 250 points into the line.</item>
@@ -174,6 +175,7 @@ public sealed class TocTabSequenceTests
             var style = Model.Styles!.Find(entry.Properties.StyleId!)!;
             var design = (style.ParagraphProperties.Get(W + "tabs")?.Elements(W + "tab") ?? [])
                 .Where(t => (string)t.Attribute(W + "val")! == "left").Select(t => (int)t.Attribute(W + "pos")!).ToList();
+            var tabStops = design.ToList();
             if (style.ParagraphProperties.Get(W + "ind") is { } indent && (int?)indent.Attribute(W + "hanging") > 0)
             {
                 design.Add((int)indent.Attribute(W + "left")!);
@@ -197,9 +199,9 @@ public sealed class TocTabSequenceTests
                 return design.Count > 0 || user.Count > 0;
             }
 
-            // Two stops of the style; Word's own stop behind one; the user's stop in front of a style stop; the user's stop beside the stop of the number.
+            // Two stops of the style; Word's own stop behind its single tab stop; the user's stop in front of a style stop; the user's stop beside the stop of the number.
             return design.Count >= 2
-                || (design.Count == 1 && direct.Any(position => position > design[0] && AtWordsPlace(position, anchor)))
+                || (design.Count == 1 && tabStops.Contains(design[0]) && direct.Any(position => position > design[0] && AtWordsPlace(position, anchor)))
                 || user.Any(u => design.Any(d => d > u))
                 || (design.Count == 0 && user.Count > 0 && direct.Count >= 2);
         }

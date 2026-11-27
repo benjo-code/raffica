@@ -38,8 +38,9 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
     /// The tab stops of an entry that stands in the list already, written as <paramref name="current"/> (its paragraph gives the indents and holds the stops <paramref name="tabs"/>, not changed); <paramref name="oldNumber"/> is the number
     /// that a tab followed in it, or null. The stops stay as they are, with these exceptions, each of which takes away a stop that would catch the tab before the page number of a short entry (or push the title out of the line):
     /// <list type="bullet">
-    /// <item>A left stop of the paragraph behind a stop of its style (or of its hanging indent) that stands behind the number goes, unless it stands at Word's place for the number (Word writes its stop there also behind such a stop): the
-    /// style's stop takes the tab after the number, and a stop left over from another number or other letters would only catch the tab before the page number.</item>
+    /// <item>A left stop of the paragraph behind a stop of its style (or of its hanging indent) that stands behind the number goes: the style's stop takes the tab after the number, and the other would only catch the tab before the page number.
+    /// It stays when it stands at Word's place for the number, where Word writes a stop of its own too, but not where a hanging indent takes the number on a first line that starts at the margin: Word writes none there. So a stop left over
+    /// from other letters or another number can stay when it stands at that place; over a style stop Word writes it there itself and draws the page number of a short entry at it.</item>
     /// <item>The left stop of the paragraph that took the tab after the old number is the number's own: when the new number differs and the tab after it would not go to the stop, or the stop stands where Word puts one for the old number and not
     /// where it puts one for the new, it goes. So does a left stop far to the right of Word's place, in the right half of the line, that leaves the title and the page number no room (one written for much larger letters). In its place the stop for the new number is written,
     /// unless a stop of the style or of the hanging indent takes the text then, or one of the paragraph at or before that place, or one that stood in front of the stop that went.</item>
@@ -125,7 +126,8 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
 
     // Takes from the paragraph's stops the left ones that stand behind a stop of the style or of the hanging indent which is itself behind the number, as far as a right stop follows to take the page number: the style's stop takes the tab
     // after the number, and one of the paragraph's behind it catches the tab before the page number of a short entry. Word writes its stop for a number also behind such a stop, so with <paramref name="keepsWords"/> one that stands at Word's
-    // place for this number stays; any other is left over from another number or other letters. One in front of the style's stop takes the number's tab and stays. Answers how the number lies with the stops that remain.
+    // place for this number stays, except where a hanging indent takes the number on a first line that starts at the margin (or in front of it): Word writes none there. One in front of the style's stop takes the number's tab and stays.
+    // Answers how the number lies with the stops that remain.
     private LineGeometry MeasureWithoutStaleStops(Paragraph owner, XElement tabs, string number, bool keepsWords)
     {
         var line = Measure(owner, tabs, number);
@@ -143,7 +145,9 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
         }
 
         var end = behind[right].Position;
-        var surplus = LeftStops(tabs).Where(t => PositionOf(t) is { } position && position > style && position < end && !(keepsWords && IsWordsPlace(position, line))).ToList();
+        // Only a hanging indent can stand behind a number whose line starts at the margin or in front of it.
+        var takenAtMargin = line.FirstLineStart <= 0 && line.LeftIndent > line.TextEnd;
+        var surplus = LeftStops(tabs).Where(t => PositionOf(t) is { } position && position > style && position < end && !(keepsWords && !takenAtMargin && IsWordsPlace(position, line))).ToList();
         if (surplus.Count == 0)
         {
             return line;

@@ -167,6 +167,80 @@ public sealed class TocEntryLayoutTests
         Assert.Equal("right:9072/dot", TabText(Entries(file.Model)[0]));
     }
 
+    [Theory]
+    [InlineData(1200)]
+    [InlineData(1320)]
+    public void AShortEntryOverAHangingIndentKeepsNoStopOfItsOwnWhenItsLettersGrowAndShrink(int second)
+    {
+        // Word's own list over these styles (probe of 2026-11-28, Docs/write-word-check.md) writes the right stop only on the level-1 entry, whose number the hanging indent takes, and draws its page number at the right edge.
+        var (file, editor) = Numbered([(null, "Contents."), ("Heading1", "A"), ("Heading2", "Beta")]);
+        using var _ = file;
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        XElement Indent(int left, int hanging = 0) => new(w + "ind", new XAttribute(w + "left", left), hanging == 0 ? null : new XAttribute(w + "hanging", hanging));
+        var first = file.Model.Styles!.Find("TOC1")!;
+        first.ParagraphProperties.Set(w + "ind", Indent(400, 400));
+        file.Model.Styles!.Find("TOC2")!.ParagraphProperties.Set(w + "ind", Indent(second));
+        file.Model.Styles!.Find("TOC3")!.ParagraphProperties.Set(w + "ind", Indent(1800));
+        file.Model.Edits.Raise();
+        var host = new FakeFieldHost(file.Model);
+        var at = (Paragraph)file.Model.Body.Blocks[0];
+        Assert.NotNull(editor.InsertToc(new TextPosition(StoryRef.Body, at, "Contents.".Length), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host));
+        Assert.Equal("right:9072/dot", TabText(Entries(file.Model)[0]));
+        AssertAtTheRightEdge(file.Model);
+
+        first.RunProperties.Set(w + "sz", new XElement(w + "sz", new XAttribute(w + "val", "96")));
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        // The large number passes the hanging indent: it needs a stop of the entry's own.
+        Assert.Single(Tabs(Entries(file.Model)[0]), t => t.Kind == "left");
+
+        first.RunProperties.Remove(w + "sz");
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        AssertAtTheRightEdge(file.Model);
+        Assert.Equal("right:9072/dot", TabText(Entries(file.Model)[0]));
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+    }
+
+    [Theory]
+    [InlineData(1200)]
+    [InlineData(1320)]
+    public void AShortEntryOverAStyleStopKeepsTheStopWordWritesThereWhenItsLettersGrowAndShrink(int second)
+    {
+        // Intended, because it is Word's look: over a TOC1 with a left stop at 600 and a TOC2 indented further, Word's own list (freshly made and after "Update table") writes a left stop at the TOC2 indent on the level-1 entry and draws
+        // the page number of "1. A" at that stop, in the middle of the line (probe of 2026-11-28, Docs/write-word-check.md). The stop written for the large letters is that very stop, so a refresh keeps it. (Write itself writes none there in a
+        // list it makes: the style's stop serves.)
+        var (file, editor) = Numbered([(null, "Contents."), ("Heading1", "A"), ("Heading2", "Beta")]);
+        using var _ = file;
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var first = file.Model.Styles!.Find("TOC1")!;
+        first.ParagraphProperties.Set(w + "tabs", new XElement(w + "tabs", new XElement(w + "tab", new XAttribute(w + "val", "left"), new XAttribute(w + "pos", "600"))));
+        file.Model.Styles!.Find("TOC2")!.ParagraphProperties.Set(w + "ind", new XElement(w + "ind", new XAttribute(w + "left", second)));
+        file.Model.Styles!.Find("TOC3")!.ParagraphProperties.Set(w + "ind", new XElement(w + "ind", new XAttribute(w + "left", 1800)));
+        file.Model.Edits.Raise();
+        var host = new FakeFieldHost(file.Model);
+        var at = (Paragraph)file.Model.Body.Blocks[0];
+        Assert.NotNull(editor.InsertToc(new TextPosition(StoryRef.Body, at, "Contents.".Length), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host));
+
+        first.RunProperties.Set(w + "sz", new XElement(w + "sz", new XAttribute(w + "val", "96")));
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        first.RunProperties.Remove(w + "sz");
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        var entry = Entries(file.Model)[0];
+        Assert.Equal($"left:{second} right:9072/dot", TabText(entry));
+        var layout = Finish(DocumentLayout.Create(file.Model, Fonts, new LayoutOptions()));
+        var margin = layout.Caret(new TextPosition(StoryRef.Body, at, 0), 0)!.Value.X;
+        var text = ParagraphProjection.Build(entry, ProjectionHost.Plain).Text;
+        var page = At(layout, entry, text.LastIndexOf('\t') + 1);
+        Assert.Equal(At(layout, entry, 0).Top, page.Top);
+        Assert.Equal(second / 20f, page.X - margin, 0.5f);
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+    }
+
     // Two numbered headings and their list over a TOC1 that has a left stop of its own, the entries as an insert over such a style leaves them.
     private static (DocxFile File, TextEditor Editor, FakeFieldHost Host) OverAStyleStop(int position)
     {

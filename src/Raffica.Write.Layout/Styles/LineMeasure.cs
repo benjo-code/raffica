@@ -57,7 +57,7 @@ public sealed class LineMeasure(WordDocument document, FontCatalog fonts)
         stops.Sort((a, b) => a.Position.CompareTo(b.Position));
         // The layout takes a stop that lies more than 0.01 points behind the text. The end in whole twips is the last position at which one is not taken, so that both answer the same.
         var end = (int)MathF.Floor(((start + width) * 20f) + 0.2f);
-        return new LineGeometry(Twips(owner.LeftIndent), end, stops);
+        return new LineGeometry(Twips(owner.LeftIndent), Twips(start), end, stops);
     }
 
     private static int Twips(float points) => (int)MathF.Round(points * 20f);

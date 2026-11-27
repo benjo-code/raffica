@@ -196,6 +196,37 @@ public sealed class TocEntryShapeTests
     }
 
     [Theory]
+    // What Word 16 wrote itself for "1. A" and "1.1. Beta" (probes of 2026-11-28; the left indent of TOC3 is 1800). Over a left stop of TOC1 at 600 it writes a stop at the TOC2 indent on the level-1 entry, and no right stop (the style has a
+    // tab stop): the page number is drawn at that stop, in the middle of the line, and that is intended. Over a hanging indent of TOC1 that takes the number it writes no stop when the first line starts at the margin, and one when the first
+    // line starts 240 twips behind it. A refresh with nothing changed leaves each of the four as it is.
+    [InlineData("<w:tabs><w:tab w:val=\"left\" w:pos=\"600\"/></w:tabs>", 1200, 1200, false, 1800)]
+    [InlineData("<w:tabs><w:tab w:val=\"left\" w:pos=\"600\"/></w:tabs>", 1320, 1320, false, 1894)]
+    [InlineData("<w:ind w:left=\"400\" w:hanging=\"400\"/>", 1200, 0, true, 1800)]
+    [InlineData("<w:ind w:left=\"600\" w:hanging=\"360\"/>", 1200, 1200, true, 1800)]
+    public void AListAsWordWritesItWithAStopAtTheNextLevelsIndentIsLeftAlone(string toc1, int indent, int one, bool rightOnOne, int two)
+    {
+        var tocStyles = $"<w:style w:type=\"paragraph\" w:styleId=\"TOC1\"><w:name w:val=\"toc 1\"/><w:basedOn w:val=\"Normal\"/><w:pPr>{toc1}</w:pPr></w:style>"
+            + $"<w:style w:type=\"paragraph\" w:styleId=\"TOC2\"><w:name w:val=\"toc 2\"/><w:basedOn w:val=\"Normal\"/><w:pPr><w:ind w:left=\"{indent}\"/></w:pPr></w:style>"
+            + "<w:style w:type=\"paragraph\" w:styleId=\"TOC3\"><w:name w:val=\"toc 3\"/><w:basedOn w:val=\"Normal\"/><w:pPr><w:ind w:left=\"1800\"/></w:pPr></w:style>";
+        const string right = "<w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/>";
+        string Stops(int left, bool withRight) => "<w:tabs>" + (left == 0 ? string.Empty : $"<w:tab w:val=\"left\" w:pos=\"{left}\"/>") + (withRight ? right : string.Empty) + "</w:tabs>";
+        var document = Doc(
+            Marked("A", 1) + Marked("Beta", 2, "Heading2")
+            + Entry("TOC1", Stops(one, rightOnOne), "TOC \\o \"1-3\" \\h \\z \\u", "1.", "A", 1)
+            + Entry("TOC2", Stops(two, true), null, "1.1.", "Beta", 2) + End(),
+            numbered: true,
+            tocStyles: tocStyles);
+        var before = Bytes(document);
+        var stops = Entries(document).Select(TabText).ToList();
+
+        var result = Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        Assert.Equal(stops, Entries(document).Select(TabText));
+        Assert.Empty(result.Content);
+        Assert.Equal(before, Bytes(document));
+    }
+
+    [Theory]
     // Word's stop for the old number is also its stop for the new one: over a style stop behind it, and at the hanging indent. It stays, as Word writes it again.
     [InlineData("<w:tabs><w:tab w:val=\"left\" w:pos=\"567\"/></w:tabs>", 440)]
     [InlineData("<w:ind w:left=\"4000\" w:hanging=\"2000\"/>", 4000)]
