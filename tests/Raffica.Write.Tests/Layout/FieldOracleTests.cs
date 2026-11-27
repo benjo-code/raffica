@@ -165,7 +165,8 @@ public sealed class FieldOracleTests
         Assert.True(steps.RefusedPerKind[(int)FieldStepKind.TypeInToc] > 0, "no step typed into a table of contents");
     }
 
-    // Numbered headings (the style carries the list): the chapter caption is possible here, and every caption step ends in an exact layout and the independent count.
+    // Numbered headings (the style carries the list, and the level text has words around the number): the chapter caption is possible here, and every caption step ends in an exact layout and the independent count. The first chapter
+    // holds a hidden SEQ field and one in a tracked insertion: Write updates neither, both count.
     private static WordDocument WithNumberedHeadings()
     {
         var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style><w:style w:type=\"paragraph\" w:styleId=\"Caption\"><w:name w:val=\"caption\"/></w:style>";
@@ -175,8 +176,13 @@ public sealed class FieldOracleTests
             styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{number}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
         }
 
-        var numbering = "<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
-        return LayoutModel.Document(FieldsBody(), LayoutModel.StylesPart(styles), LayoutModel.NumberingPart(numbering));
+        var numbering = "<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"Chapter %1:\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
+        var chapterOne = P(Run("Chapter one"), "Heading1");
+        var notUpdated = P(Run("Hidden ") + Field("SEQ Figure \\h \\s 1", string.Empty))
+            + P(Run("Inserted ") + "<w:ins w:id=\"90\" w:author=\"a\" w:date=\"2026-01-01T00:00:00Z\">" + Field("SEQ Figure \\s 1", "2") + "</w:ins>");
+        var body = FieldsBody();
+        Assert.StartsWith(chapterOne, body, StringComparison.Ordinal);
+        return LayoutModel.Document(body.Insert(chapterOne.Length, notUpdated), LayoutModel.StylesPart(styles), LayoutModel.NumberingPart(numbering));
     }
 
     [Theory]

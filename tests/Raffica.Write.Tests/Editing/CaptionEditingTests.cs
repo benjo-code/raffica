@@ -30,7 +30,7 @@ public sealed class CaptionEditingTests
     private static string Text(string text, string? style = null) => P(Run(text), style);
 
     // The styles of a plain document; with numbered headings Heading1 carries the list of the numbering part, as the heading switch of the Home tab leaves it.
-    private static WordDocument Doc(string body, bool captionStyle = true, bool numberedHeadings = false, string? language = null)
+    private static WordDocument Doc(string body, bool captionStyle = true, bool numberedHeadings = false, string? language = null, string levelText = "%1.")
     {
         var lang = language is null ? string.Empty : $"<w:rPr><w:lang w:val=\"{language}\"/></w:rPr>";
         var styles = $"<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/>{lang}</w:style>";
@@ -45,7 +45,7 @@ public sealed class CaptionEditingTests
             styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{number}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
         }
 
-        var numbering = "<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
+        var numbering = $"<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"{levelText}\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
         return LayoutModel.Document(body + Section, LayoutModel.StylesPart(styles), LayoutModel.NumberingPart(numbering));
     }
 
@@ -182,6 +182,27 @@ public sealed class CaptionEditingTests
         Assert.Equal("Figure 1-2", TextOf(Para(document, 3)));
         Refresh(editor, document, host);
         Assert.Equal(["Figure 1-1: a", "Figure 1-2", "Figure 2-1: b"], document.Body.Blocks.OfType<Paragraph>().Select(TextOf).Where(t => t.StartsWith("Figure", StringComparison.Ordinal)).ToArray());
+    }
+
+    // The number a new caption stores is the one the refresh and Word give: the number of the chapter without the text of its level around it, and a count that includes the fields Write does not update (a hidden one, one in a tracked insertion).
+    [Fact]
+    public void AChapterCaptionStoresTheChapterNumberAloneAndCountsHiddenAndInsertedFields()
+    {
+        var inserted = "<w:ins w:id=\"9\" w:author=\"a\" w:date=\"2026-01-01T00:00:00Z\">" + Field("SEQ Figure \\s 1", "2") + "</w:ins>";
+        var document = Doc(
+            Text("Chapter one", "Heading1") + P(Run("hidden ") + Field("SEQ Figure \\h \\s 1", string.Empty)) + P(Run("inserted ") + inserted) + Text("pic"),
+            numberedHeadings: true,
+            levelText: "Chapter %1:");
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+        Assert.Equal("Chapter 1:", host.NumberLabel(Para(document, 0)));
+
+        Assert.NotNull(editor.InsertCaption(At(document, 3), "Figure", ": c", CaptionPlace.Below, chapterNumber: true, "Figure", host));
+
+        Assert.Equal("Figure 1-3: c", TextOf(Para(document, 4)));
+        Assert.Equal(0, editor.RefreshFields(host, RefreshScope.OrderBased).Written);
+        ReferenceFields.AssertStoredEqualsExpected(document, host, "after the insert");
+        Assert.Equal("Figure 1-3: c", TextOf(Para(document, 4)));
     }
 
     [Fact]
