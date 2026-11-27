@@ -6,7 +6,7 @@
   For the milestone 4.5b Word check (Docs/write-word-check.md): each file is copied to a temporary file and opened visibly through Word's COM automation with repair switched off. The result of every field of the
   body is read as stored (before any update), then the tables of contents and of figures are updated, then all fields twice (a reference may stand before what it refers to), and the results are read again. The
   fields inside a table of contents are compared as part of its lines. Differences are printed with the field's instruction and both results, and classed:
-    page      only a page number differs (a PAGEREF result, or the number after the last tab of a table of contents line); counted, never a failure, because Word's pagination may differ;
+    page      only a page number differs (a PAGEREF result, or the number after the last tab, or the last separator that \p names, of a table of contents line); counted, never a failure, because Word's pagination may differ;
     expected  the instruction is listed in <file>.skip.json (a field Write does not update, or a recorded difference; WordCheckFieldFilesTests writes the list); never a failure;
     DIFFERENT everything else.
   The copy is closed without saving. The exit code is 1 when a file has a DIFFERENT result, a different number of fields or could not be read, 2 on bad input, else 0. It prints result texts, so run it on the
@@ -119,6 +119,12 @@ try {
                     continue
                 }
                 if ($before.Code -match '^TOC\b') {
+                    # What stands before the page number of a line: a tab, or the first character of the value of \p (a space for an empty one).
+                    $separator = "`t"
+                    if ($before.Code -match '(?i)\\p ?"([^"])') { $separator = $Matches[1] }
+                    elseif ($before.Code -match '(?i)\\p ?""') { $separator = ' ' }
+                    elseif ($before.Code -match '(?i)\\p ([^\\" ])') { $separator = $Matches[1] }
+                    $split = '^(.*)' + [regex]::Escape($separator) + '(.*)$'
                     $mine = @($before.Result -split "`n")
                     $theirs = @($after.Result -split "`n")
                     if ($mine.Count -ne $theirs.Count) {
@@ -129,8 +135,8 @@ try {
                         $a = if ($line -lt $mine.Count) { $mine[$line] } else { '(no line)' }
                         $b = if ($line -lt $theirs.Count) { $theirs[$line] } else { '(no line)' }
                         if ($a -ceq $b) { continue }
-                        $left = if ($a -match '^(.*)\t([^\t]*)$') { , @($Matches[1], $Matches[2]) } else { $null }
-                        $right = if ($b -match '^(.*)\t([^\t]*)$') { , @($Matches[1], $Matches[2]) } else { $null }
+                        $left = if ($a -match $split) { , @($Matches[1], $Matches[2]) } else { $null }
+                        $right = if ($b -match $split) { , @($Matches[1], $Matches[2]) } else { $null }
                         if ($left -and $right -and $left[0] -ceq $right[0] -and $left[1] -cmatch $pageNumber -and $right[1] -cmatch $pageNumber) {
                             $pages++
                             '{0}: field {1} page, line {2} "{3}": stored {4}, Word {5}' -f $name, ($i + 1), ($line + 1), (Format-Shown $left[0]), $left[1], $right[1]
