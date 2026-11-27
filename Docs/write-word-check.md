@@ -204,6 +204,66 @@ pwsh tools/word-object-counts.ps1 <folder>\picture-wrap.docx                    
 
 What is not read by the scripts and stays open for a person: the look of the rendered pages (a table's borders, shading, widths and repeated header; a picture's place, a floating picture's position and the text around it; the note numbers at the page bottom and at the end), whether "Review > Compare" of a file against its saved copy shows only what was made, a picture pasted from a real clipboard, a picture in a header or footer (not made by Write), and whether Word's picture "Format" pane shows the same alt text.
 
+## Fields, captions and tables of contents (milestone 4.5b)
+
+The question for what 4.5b writes: **does Word open a file with bookmarks, captions, cross-references and tables of contents without a repair prompt, and does Word's own field update give the same results as the ones Write stored, apart from page numbers?** CI proves that after every field command and its undo and redo the stored results equal an independent count made from the model, the layout equals a full layout and the saved file read again agrees (`FieldOracleTests`, `SnapshotCacheOracleTests`, `TocStructuralRefreshTests`). It does not run Word.
+
+The files are made by a test through the editor (the calls the app makes), the app's refresh over the layout's labels and pages, and `DocxFile.SaveAsync`. The files named `probe-*` are written by hand and ask Word how it computes a case. A file's `<name>.skip.json` lists the instructions where a difference is expected (a field Write does not update, or a recorded difference). Nothing is written without the folder variable:
+
+```
+$env:RAFFICA_WORD_CHECK_DIR = '<folder>'
+dotnet test tests/Raffica.Write.Tests -c Release --filter-class "*WordCheckFieldFilesTests"
+pwsh tools/word-open-check.ps1 (Get-ChildItem <folder> -Filter *.docx).FullName
+pwsh tools/word-field-results.ps1 (Get-ChildItem <folder> -Filter *.docx -Exclude probe-control.docx).FullName
+pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit 1 (see below)
+```
+
+`tools/word-field-results.ps1` opens a copy of each file visibly through Word automation with repair off, reads the result of every field of the body as stored, updates the tables of contents and of figures and then all fields twice, and compares. A difference is classed as **page** (a `PAGEREF` result, or the number after the last tab of a list line: Word's pagination may differ), **expected** (listed in the skip file) or **DIFFERENT**; the exit code is 1 for a DIFFERENT result, a different number of fields or a file it could not read. **Negative control:** `probe-control.docx` stores a wrong result for every supported field kind and the script must report each (5 DIFFERENT and 1 page difference); this shows that the "stored" values are read before Word updates anything. A field that Word updates by itself while it opens a file (`DATE` in `fields-mixed.docx`) shows no difference for that reason.
+
+| File | What it holds |
+| --- | --- |
+| `fields-captions.docx` | Figure, table and equation captions with and without chapter numbers, a table caption above a table, captions inserted before others (renumbered). |
+| `fields-cross-references.docx` | A cross-reference of every kind to every target: heading (number, text, page), caption (label and number, number, text, page), footnote and endnote (number, page), bookmark (text, page). |
+| `fields-contents.docx` | A table of contents of the levels 1 to 3, a list of figures and a list of tables (hyphen leader) over three numbered chapters. |
+| `fields-contents-options.docx` | Contents without page numbers, with a plain tab and no right alignment, and of level 2 alone with an underscore leader. |
+| `fields-stale-contents.docx` | A table of contents after a heading was added, one renamed, one removed and the pages moved. |
+| `fields-bookmarks.docx` | A bookmark, references to its text and page after the text changed, chapter captions. |
+| `fields-thesis.docx` | The corpus thesis with one more heading, its table of contents brought current. |
+| `fields-mixed.docx` | Supported fields beside unsupported ones (`DATE`, `SEQ \h`, `PAGEREF \p`, `REF \w`). |
+| `probe-chapter-numbers-*.docx` | `SEQ` restarts with `\s`, `\r`, `\c`, `\n`, formats, `STYLEREF 1 \s` and `REF \n`, `\r` over heading labels with a trailing period, a word and brackets. |
+| `probe-label-*.docx` | `STYLEREF 1 \s` over level texts and number formats (`Chapter %1:` in capital Roman, `Appendix %1`, `Part 2.%1:`, `A-%1-`, `[ %1 ] .`, `%1.0`, and headings on a second list level). |
+| `probe-seq-restarts.docx`, `probe-seq-odd.docx` | When a number restarts, what counts, hidden and unsupported switches, bookmark arguments, nested fields, headings in cells, deleted and inserted headings. |
+| `probe-seq-tracked.docx`, `probe-seq-moved.docx` | `SEQ` in tracked insertions, deletions and moves, and the list of figures over them. |
+| `probe-self-reference.docx` | A `REF` to a bookmark that holds the reference itself. |
+| `probe-picture-heading.docx` | A heading that is a picture and no text, in the thesis. |
+| `probe-control.docx` | The negative control. |
+
+| Date | Word version and system | Files | Repair prompt | Field results | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 2026-11-27 | Word 16.0 (build 16.0.20625.20142, Microsoft 365, German), Windows 11, read through Word automation (not a person looking), repair off | all 27 files | none: all 27 opened (`word-open-check.ps1` exit 0) | `word-field-results.ps1` on 26 files: exit 0, no DIFFERENT result; `probe-control.docx`: exit 1 as it must | After the engine was changed to follow the findings below (the first run of this day found them). |
+| 2026-11-27 | as above | fields-captions, fields-bookmarks, fields-contents-options, fields-stale-contents, fields-thesis, all `probe-chapter-numbers-*` and `probe-label-*`, probe-seq-tracked | none | every result equal (probe-seq-tracked: the fields inside the changes are listed as expected and Word left the deleted one unchanged) | |
+| 2026-11-27 | as above | fields-contents.docx | none | 3 page differences (two headings and a figure: Write puts them on page 7 or 8, Word one page earlier), everything else equal | |
+| 2026-11-27 | as above | fields-cross-references.docx | none | 1 page difference (`PAGEREF`, Write 3, Word 2), everything else equal | |
+| 2026-11-27 | as above | fields-mixed.docx | none | 3 expected: `SEQ \h` shows nothing, `PAGEREF \p` shows "above", `REF \w` shows "0"; Write keeps the stored results and marks the fields | |
+
+### What Word does (found on 2026-11-27; Write follows unless said otherwise)
+
+| Case | Word 16 | Write |
+| --- | --- | --- |
+| `STYLEREF 1 \s` | The heading's number from the first to the last placeholder of its level text, without the text around it: `Chapter I:` gives `I`, `(1)` gives `1`, `Part 2.1:` gives `1`, `01.0` gives `01`, `Sec 1 - 2)` gives `1 - 2`. | Follows (it showed the whole label without a trailing period before this check). |
+| `REF \n` and `\r` to a numbered heading | The whole label without trailing periods (`Chapter 1:` stays, `1.1.` gives `1.1`). | Follows (as before). |
+| `SEQ \s n` | Restarts only when a heading of level n or higher (a lower number) stands between the field and the previous field of the same label; a heading of a deeper level does not restart. `\r` or any other field of the label in between uses up the heading. | Follows (before: any heading of exactly level n since the last field with `\s`). |
+| `SEQ \c` | Repeats the current number; at a new start it shows 0 and the next field shows 1. With `\n \c` Word counts on. | Follows. |
+| `SEQ \r abc`, `\s 0`, `\s abc` | `\r` with no number sets 0; an unreadable `\s` restarts nothing. | Follows. |
+| Which `SEQ` fields count | Every one of the label that is not deleted or moved away: hidden ones (`\h`), other formats (`\* CardText`, `\* Ordinal`, `\#`), fields nested in another field, fields in a tracked insertion or in moved-in text. One that names a bookmark (`SEQ T Mark`) or has an unknown switch (`\q`, Word shows an error) does not count. | Follows for counting; fields Write does not update keep their stored result (the results of hidden, other-format, nested and tracked fields differ from Word's, the numbers after them agree). |
+| A list of figures | Lists captions in tracked insertions and moved-in text; not deleted ones, not hidden ones (`\h` without a format). | Follows. |
+| A heading that is only a picture | Listed in the table of contents with a copy of the picture. | **Differs:** a heading with no text is left out (recorded, `probe-picture-heading.docx`). |
+| A `REF` to a bookmark that holds the reference | "Error! Not a valid bookmark self-reference." (German: "Fehler! Ungültiger Eigenverweis auf Textmarke."). | **Differs:** the stored result stays and the field counts as not updated. |
+| A heading in a deleted or inserted paragraph, a heading in a table cell, an outline level without a heading style | The first three restart `\s`; the outline level does not. | Follows. |
+| Fields inside a tracked change | Updated by Word. | **Differs:** Write keeps their stored results (spec limit). |
+
+What is not read by the scripts and stays open for a person: the look of the rendered pages (a table of contents' leaders and indents, the links), clicking a link of a list or a reference, Word's own "Update field" on a page someone looks at, and a thesis-sized comparison of page numbers (the pagination differs, see the thesis rows of 4.4b).
+
 ## Checking a file from a script
 
 On a Windows machine with Word, `pwsh tools/word-open-check.ps1 <files>` opens each file through Word's COM automation (read-only, repair off, on a temporary copy) and prints whether Word accepted it; the exit code is the number of files Word refused. It answers the repair-prompt question for any number of files at once and is how the cause of the first finding was bisected (`Docs/DECISIONS.md`, "one paragraph in a text, combo box, drop-down list or date control"). It does not look at the result, so the "looks as in Write" columns stay the owner's. `pwsh tools/word-object-counts.ps1 <file>` (4.5a) goes one step further for the files that have a `.facts.txt`: it compares the tables, notes and pictures Word reports with the model's (see the section above); `tools/word-page-numbers.ps1` does it for page numbers (4.4b).
