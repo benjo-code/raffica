@@ -130,8 +130,8 @@ internal sealed record TocSpec(int FirstLevel, int LastLevel, bool Outline, stri
 }
 
 /// <summary>
-/// One line of a table of contents: the paragraph it stands for, its level, the number label (empty when there is none), the text (empty only after a label) and whether a tab follows the label (<paramref name="LabelTab"/>; a list
-/// level can have a space or nothing there, which the entry shows as a space).
+/// One line of a table of contents: the paragraph it stands for, its level, the number label (empty when there is none; in a list of figures the text of a caption before its first tab), the text (empty only after a label) and whether a tab
+/// follows the label (<paramref name="LabelTab"/>; a list level can have a space or nothing there, which the entry shows as a space).
 /// </summary>
 internal sealed record TocEntry(Paragraph Source, int Level, string Label, string Text, bool LabelTab = false)
 {
@@ -146,7 +146,7 @@ internal sealed record TocEntry(Paragraph Source, int Level, string Label, strin
 /// Reads the entries of a table of contents from the body and makes the paragraphs of one, in Word's own shape: every entry is a paragraph of the style <c>TOC1</c> to <c>TOC9</c> (<c>TableofFigures</c> for a list) that holds a
 /// <c>w:hyperlink</c> to a hidden <c>_Toc</c> bookmark on the heading, with the number label, what follows it (a tab or a space), the text, the separator before the page number (a tab unless <c>\p</c> names another) and a
 /// <c>PAGEREF</c> field. The rules of an entry: a heading is a paragraph of the style <c>Heading1</c> to <c>Heading9</c> (by id, never by name), with <c>\u</c> also a paragraph with an outline level (its own or its style's); its text
-/// is the visible text with line breaks and tabs read as spaces, hidden text and tracked deletions left out; the label is the number label the host shows, and a heading without one has none; a heading with no text left is listed as its
+/// is the visible text with line breaks and tabs read as spaces (the first tab of a caption stays, and what stands before it takes the place of a number), hidden text and tracked deletions left out; the label is the number label the host shows, and a heading without one has none; a heading with no text left is listed as its
 /// label alone, as Word does (see <see cref="IsListedWithoutText"/>), and left out without one; a heading in a table or a content control counts; the entries of a table of contents are not headings of another. The tab stops of the
 /// entries are <see cref="TocTabs"/>.
 /// </summary>
@@ -196,10 +196,16 @@ internal static class TocBuilder
                 tab = label.Length > 0 && host.LabelEndsInTab(paragraph);
             }
 
-            var text = VisibleText(paragraph);
+            var text = VisibleText(paragraph, keepFirstTab: spec.IsFigureList);
             if (text.Length == 0 && (label.Length == 0 || !IsListedWithoutText(paragraph)))
             {
                 continue;
+            }
+
+            // The text of a caption before its tab stands where a number stands: it gets the tab stop behind it, as Word writes it.
+            if (spec.IsFigureList && text.IndexOf('\t', StringComparison.Ordinal) is var split and > 0)
+            {
+                (label, text, tab) = (text[..split], text[(split + 1)..], true);
             }
 
             entries.Add(new TocEntry(paragraph, level, label, text, tab));
@@ -274,12 +280,17 @@ internal static class TocBuilder
     private static int? ReadOutline(XElement? element) =>
         element is not null && int.TryParse((string?)element.Attribute(W + "val"), NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value is >= 0 and <= 8 ? value + 1 : null;
 
-    /// <summary>The visible text of a paragraph as an entry shows it: trimmed, a tab or a line break read as one space, hidden text, instruction text and tracked deletions left out, field results kept.</summary>
-    public static string VisibleText(Paragraph paragraph)
+    /// <summary>
+    /// The visible text of a paragraph as an entry shows it: trimmed, a tab or a line break read as one space, hidden text, instruction text and tracked deletions left out, field results kept. With <paramref name="keepFirstTab"/>, as Word reads
+    /// a caption, the first tab inside the trimmed text stays one.
+    /// </summary>
+    public static string VisibleText(Paragraph paragraph, bool keepFirstTab = false)
     {
-        var text = new StringBuilder();
-        Append(text, paragraph.Inlines);
-        return text.ToString().Trim();
+        var read = new StringBuilder();
+        Append(read, paragraph.Inlines);
+        var text = read.ToString().Trim();
+        var kept = keepFirstTab ? text.IndexOf('\t', StringComparison.Ordinal) : -1;
+        return kept < 0 ? text.Replace('\t', ' ') : text[..(kept + 1)] + text[(kept + 1)..].Replace('\t', ' ');
     }
 
     private static void Append(StringBuilder text, IEnumerable<Inline> inlines)
@@ -296,7 +307,10 @@ internal static class TocBuilder
                             case TextContent t:
                                 text.Append(t.Text);
                                 break;
-                            case TabContent or BreakContent:
+                            case TabContent:
+                                text.Append('\t');
+                                break;
+                            case BreakContent:
                                 text.Append(' ');
                                 break;
                             default:

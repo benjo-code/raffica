@@ -216,6 +216,12 @@ public sealed class TocEntryShapeTests
     // The numbering goes: its stop goes with it, the user's behind it stays.
     [InlineData("<w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"left\" w:pos=\"3000\"/>", "1.", "", "left:3000 right:9062/dot")]
     [InlineData("<w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"left\" w:pos=\"880\"/>", "Chapter 1:", "", "right:9062/dot")]
+    // A stop in front of the one the old number took takes the new number: no stop is added in front of it, which would leave it to the page number.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"880\"/><w:tab w:val=\"left\" w:pos=\"3000\"/>", "Chapter 1:", "%1.", "left:880 right:9062/dot")]
+    // The number stays, but its stop lies so far to the right (written for much larger letters) that the title and the page number do not fit behind it.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"8600\"/>", "1.", "%1.", "left:440 right:9062/dot")]
+    // A stop far to the right that leaves them room stays.
+    [InlineData("<w:tab w:val=\"left\" w:pos=\"5011\"/>", "1.", "%1.", "left:5011 right:9062/dot")]
     public void ANumberThatChangesTakesItsStopWithIt(string stops, string number, string level, string expected)
     {
         var tabs = "<w:tabs>" + stops + "<w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
@@ -308,6 +314,43 @@ public sealed class TocEntryShapeTests
         var entry = Assert.Single(Entries(document));
         Assert.Equal("Figure 1: New words|1", Line(entry));
         Assert.Equal("left:2000 right:9062/dot", TabText(entry));
+    }
+
+    [Theory]
+    // What Word 16 lists for these captions: the first tab stays, with a stop behind the text before it; a later one is a space; a tab at the start or the end is trimmed away.
+    [InlineData(": |Words", "Figure 1: |Words|?", true)]
+    [InlineData(": A|B|C", "Figure 1: A|B C|?", true)]
+    [InlineData(":||Double", "Figure 1:| Double|?", true)]
+    [InlineData(": Trailing|", "Figure 1: Trailing|?", false)]
+    [InlineData(": |", "Figure 1:|?", false)]
+    public void AListOfFiguresKeepsTheFirstTabOfACaption(string after, string line, bool stop)
+    {
+        var rest = string.Concat(after.Split('|').Select((part, i) => (i == 0 ? string.Empty : "<w:r><w:tab/></w:r>") + (part.Length == 0 ? string.Empty : Run(part))));
+        var caption = "<w:p>" + Run("Figure ") + Start("SEQ Figure") + Run("1") + Mark("end") + rest + "</w:p>";
+        var document = Doc(caption + Text(string.Empty));
+        var host = new FakeFieldHost(document);
+
+        Insert(Editor(document), document, 1, new TocOptions(1, 1, true, true, TocLeader.Dots, "Figure"), host);
+
+        var entry = Assert.Single(Entries(document));
+        Assert.Equal(line, Line(entry));
+        Assert.Equal(stop ? 1 : 0, Tabs(entry).Count(t => t.Kind == "left"));
+        Assert.Empty(Editor(document).RefreshFields(host, RefreshScope.OrderBased).Content);
+        ReferenceToc.AssertEqualToExpected(document, host, line);
+    }
+
+    [Fact]
+    public void AListOfFiguresWithATabInItsCaptionsAsWordWritesItIsLeftAlone()
+    {
+        const string tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"1100\"/><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        var caption = "<w:p><w:bookmarkStart w:id=\"1\" w:name=\"_Toc100000001\"/>" + Run("Figure ") + Start("SEQ Figure") + Run("1") + Mark("end") + Run(":") + "<w:r><w:tab/></w:r>" + Run("Words") + "<w:bookmarkEnd w:id=\"1\"/></w:p>";
+        var document = Doc(caption + Entry("TableofFigures", tabs, "TOC \\h \\z \\c \"Figure\"", "Figure 1:", "Words", 1) + End());
+        var before = Bytes(document);
+
+        var result = Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        Assert.Empty(result.Content);
+        Assert.Equal(before, Bytes(document));
     }
 
     [Fact]

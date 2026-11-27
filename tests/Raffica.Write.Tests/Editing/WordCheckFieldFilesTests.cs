@@ -412,6 +412,59 @@ public sealed class WordCheckFieldFilesTests
         await SaveAsync(file, folder, "fields-contents-style-stops.docx");
     }
 
+    // A TOC1 with a left stop of its own, and numbers that grow past it and shrink again: the stop written for the long numbers must not come back in front of the style's.
+    [Fact]
+    public async Task ARenumberedTableOfContentsOverAStyleStopIsSavedForWord()
+    {
+        var folder = Folder();
+        var (file, editor) = Build([(null, "Contents stand here."), ("Heading1", "FAQ"), ("Heading1", "A"), ("Heading1", "Notes"), (null, "The end.")]);
+        using var _ = file;
+        Number(file, editor);
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents");
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        XElement Stop(string kind, int position) => new(w + "tab", new XAttribute(w + "val", kind), new XAttribute(w + "pos", position));
+        file.Model.Styles!.Find("TOC1")!.ParagraphProperties.Set(w + "tabs", new XElement(w + "tabs", Stop("left", 600), Stop("right", 9072)));
+        file.Model.Edits.Raise();
+        var list = TocRefresh.Find(file.Model.Body.Blocks)[0];
+        Did(editor.RemoveToc(new TextPosition(StoryRef.Body, (Paragraph)list.Container[list.First], 0)), "removing the table of contents");
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents, HostOf(file)), "a table of contents over a style stop");
+        Settle(file, editor);
+
+        var level = file.Model.Numbering!.Abstracts.SelectMany(a => a.Levels).First(l => l.Level == 0 && l.Text?.Contains("%1", StringComparison.Ordinal) == true);
+        level.Text = "Chapter %1.%1.%1:";
+        level.Start = 100;
+        file.Model.Edits.Raise();
+        Settle(file, editor);
+        level.Text = "%1.";
+        level.Start = 1;
+        file.Model.Edits.Raise();
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, "fields-contents-renumbered-style-stops.docx");
+    }
+
+    // Captions with tabs: the list keeps the first of each, with a stop behind the text before it, and reads a later one as a space.
+    [Fact]
+    public async Task AListOfFiguresOverCaptionsWithTabsIsSavedForWord()
+    {
+        var folder = Folder();
+        var (file, editor) = Build([(null, "Figures stand here."), (null, "First picture."), (null, "Second picture."), (null, "Third picture."), (null, "Fourth picture."), (null, "The end.")]);
+        using var _ = file;
+        // The caption command takes no tab in its text: the rest is typed behind the caption.
+        var captions = new[] { ("First picture.", "\tAfter a tab"), ("Second picture.", " One\tTwo\tThree"), ("Third picture.", "\t\tAfter two tabs"), ("Fourth picture.", " Ends in a tab\t") };
+        foreach (var (number, (at, rest)) in captions.Index())
+        {
+            Did(editor.InsertCaption(End(Para(file, at)), "Figure", ":", CaptionPlace.Below, false, "Figure", HostOf(file)), "a caption");
+            var end = End(Para(file, string.Create(CultureInfo.InvariantCulture, $"Figure {number + 1}:")));
+            Did(editor.InsertText(new TextRange(end, end), rest), "a tab in a caption");
+        }
+
+        Did(editor.InsertToc(End(Para(file, "Figures stand here.")), new TocOptions(1, 1, true, true, TocLeader.Dots, "Figure"), HostOf(file)), "a list of figures");
+        Settle(file, editor);
+
+        await SaveAsync(file, folder, "fields-contents-caption-tabs.docx");
+    }
+
     [Fact]
     public async Task AStaleTableOfContentsIsBroughtCurrentAndSavedForWord()
     {

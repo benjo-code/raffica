@@ -160,10 +160,11 @@ internal static class ReferenceToc
                     continue;
                 }
 
-                var whole = VisibleText(paragraph);
+                // The first tab of a caption stays, with a stop of the entry's behind what stands before it.
+                var whole = VisibleText(paragraph, keepFirstTab: true);
                 if (whole.Length > 0)
                 {
-                    entries.Add(new ExpectedEntry(paragraph, 1, whole, !noPages && !(noRange is { } r && r.From <= 1 && r.To >= 1)));
+                    entries.Add(new ExpectedEntry(paragraph, 1, whole, !noPages && !(noRange is { } r && r.From <= 1 && r.To >= 1), whole.Contains('\t', StringComparison.Ordinal)));
                 }
 
                 continue;
@@ -297,11 +298,12 @@ internal static class ReferenceToc
         int.TryParse((string?)element.Attribute(W + "val"), NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value is >= 0 and <= 8 ? value + 1 : null;
 
     /// <summary>The visible text of a paragraph by the entry rules.</summary>
-    public static string VisibleText(Paragraph paragraph)
+    public static string VisibleText(Paragraph paragraph, bool keepFirstTab = false)
     {
         var text = new StringBuilder();
         Read(paragraph.Inlines, deleted: false, text);
-        return text.ToString().Trim();
+        var parts = text.ToString().Trim().Split('\t');
+        return keepFirstTab && parts.Length > 1 ? parts[0] + "\t" + string.Join(' ', parts.Skip(1)) : string.Join(' ', parts);
     }
 
     private static void Read(IEnumerable<Inline> inlines, bool deleted, StringBuilder text)
@@ -322,7 +324,11 @@ internal static class ReferenceToc
                         {
                             text.Append(t.Text);
                         }
-                        else if (content is TabContent or BreakContent)
+                        else if (content is TabContent)
+                        {
+                            text.Append('\t');
+                        }
+                        else if (content is BreakContent)
                         {
                             text.Append(' ');
                         }

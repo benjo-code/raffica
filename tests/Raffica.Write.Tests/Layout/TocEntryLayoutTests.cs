@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
@@ -85,6 +86,119 @@ public sealed class TocEntryLayoutTests
         var margin = layout.Caret(new TextPosition(StoryRef.Body, at, 0), 0)!.Value.X;
         var end = At(layout, entry, ParagraphProjection.Build(entry, ProjectionHost.Plain).Text.Length);
         Assert.True(end.Top == At(layout, entry, 0).Top && Math.Abs(end.X - margin - TextWidth) < 1f, $"the page number does not end at the right edge: {end.X - margin}");
+    }
+
+    [Theory]
+    [InlineData(600)]
+    [InlineData(1320)]
+    public void AShortEntryOverAStyleWithAStopOfItsOwnKeepsItsPageNumberWhenItsNumberGrowsAndShrinks(int styleStop)
+    {
+        // The style's stop serves the short number. The long one passes it and gets a stop of the entry's own, which must not come back in front of the style's stop for the short number.
+        var (file, editor, host) = OverAStyleStop(styleStop);
+        using var _ = file;
+        AssertAtTheRightEdge(file.Model);
+
+        Renumber(file.Model, "Chapter %1.%1.%1:", 100);
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        AssertAtTheRightEdge(file.Model);
+
+        Renumber(file.Model, "%1.", 1);
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        AssertAtTheRightEdge(file.Model);
+        Assert.All(Entries(file.Model), entry => Assert.Equal("right:9072/dot", TabText(entry)));
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AShortEntryOverAStyleWithAStopOfItsOwnKeepsItsPageNumberWhenItsLettersGrowAndShrink(bool renumberedAfterwards)
+    {
+        // The number stays the same: only the larger letters take it past the style's stop, and the stop written for them is of no use once they are small again.
+        var (file, editor, host) = OverAStyleStop(600);
+        using var _ = file;
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var style = file.Model.Styles!.Find("TOC1")!;
+        style.RunProperties.Set(w + "sz", new XElement(w + "sz", new XAttribute(w + "val", "96")));
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Assert.All(Entries(file.Model), entry => Assert.Single(Tabs(entry), t => t.Kind == "left"));
+
+        style.RunProperties.Remove(w + "sz");
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        if (renumberedAfterwards)
+        {
+            Renumber(file.Model, "%1)", 3);
+            editor.RefreshFields(host, RefreshScope.OrderBased);
+        }
+
+        AssertAtTheRightEdge(file.Model);
+        Assert.All(Entries(file.Model), entry => Assert.Equal("right:9072/dot", TabText(entry)));
+        Assert.Empty(editor.RefreshFields(host, RefreshScope.OrderBased).Content);
+    }
+
+    [Fact]
+    public void AStyleStopRightBehindTheNumberServesAsItDoesOnThePage()
+    {
+        // The number ends a fraction of a twip in front of the stop: the page takes the stop, so no stop of the entry's own may be written, which would leave the style's to the page number.
+        var (file, editor, host) = OverAStyleStop(5000);
+        using var _ = file;
+        Renumber(file.Model, "Chapter %1:", 1);
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        var layout = Finish(DocumentLayout.Create(file.Model, Fonts, new LayoutOptions()));
+        var margin = layout.Caret(new TextPosition(StoryRef.Body, (Paragraph)file.Model.Body.Blocks[0], 0), 0)!.Value.X;
+        var entry = Entries(file.Model)[0];
+        var end = (At(layout, entry, "Chapter 1:".Length).X - margin) * 20f;
+        var stop = (int)MathF.Floor(end) + 1;
+        Assert.InRange(stop - end, 0.25f, 0.95f);
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        file.Model.Styles!.Find("TOC1")!.ParagraphProperties.Set(w + "tabs", new XElement(w + "tabs", new XElement(w + "tab", new XAttribute(w + "val", "left"), new XAttribute(w + "pos", stop))));
+        foreach (var each in Entries(file.Model))
+        {
+            each.Properties.Set(w + "tabs", new XElement(w + "tabs", new XElement(w + "tab", new XAttribute(w + "val", "right"), new XAttribute(w + "leader", "dot"), new XAttribute(w + "pos", "9072"))));
+        }
+
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+
+        AssertAtTheRightEdge(file.Model);
+        Assert.Equal("right:9072/dot", TabText(Entries(file.Model)[0]));
+    }
+
+    // Two numbered headings and their list over a TOC1 that has a left stop of its own, the entries as an insert over such a style leaves them.
+    private static (DocxFile File, TextEditor Editor, FakeFieldHost Host) OverAStyleStop(int position)
+    {
+        var (file, editor) = Numbered([(null, "Contents."), ("Heading1", "A"), ("Heading1", "B")]);
+        var host = new FakeFieldHost(file.Model);
+        var at = (Paragraph)file.Model.Body.Blocks[0];
+        Assert.NotNull(editor.InsertToc(new TextPosition(StoryRef.Body, at, "Contents.".Length), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host));
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        file.Model.Styles!.Find("TOC1")!.ParagraphProperties.Set(w + "tabs", new XElement(w + "tabs", new XElement(w + "tab", new XAttribute(w + "val", "left"), new XAttribute(w + "pos", position))));
+        foreach (var entry in Entries(file.Model))
+        {
+            entry.Properties.Set(w + "tabs", new XElement(w + "tabs", new XElement(w + "tab", new XAttribute(w + "val", "right"), new XAttribute(w + "leader", "dot"), new XAttribute(w + "pos", "9072"))));
+        }
+
+        file.Model.Edits.Raise();
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        return (file, editor, host);
+    }
+
+    private static void AssertAtTheRightEdge(WordDocument document)
+    {
+        var at = (Paragraph)document.Body.Blocks[0];
+        var layout = Finish(DocumentLayout.Create(document, Fonts, new LayoutOptions()));
+        var margin = layout.Caret(new TextPosition(StoryRef.Body, at, 0), 0)!.Value.X;
+        var entries = Entries(document);
+        Assert.Equal(2, entries.Count);
+        foreach (var entry in entries)
+        {
+            var text = ParagraphProjection.Build(entry, ProjectionHost.Plain).Text;
+            var end = At(layout, entry, text.Length);
+            Assert.True(end.Top == At(layout, entry, 0).Top && Math.Abs(end.X - margin - TextWidth) < 1f, $"the page number of '{text}' does not end at the right edge: {end.X - margin} ({TabText(entry)})");
+        }
     }
 
     // Every entry is one line: the title right after the number (the next TOC level indent, 11 points apart, or the number and its 12 points of room), the page number at the right edge.
