@@ -12,15 +12,11 @@ public enum NumberSuffix
 }
 
 /// <summary>The label of a numbered paragraph: its text, the formatting of that text and what follows it.</summary>
-public sealed record NumberingLabel(string Text, ResolvedRun Run, NumberSuffix Suffix)
-{
-    /// <summary>The label from its first to its last number, without the text of the level before and after them (<c>Chapter I:</c> gives <c>I</c>); empty for a bullet and for a level whose text has no number.</summary>
-    public string Numbers { get; init; } = string.Empty;
-}
+public sealed record NumberingLabel(string Text, ResolvedRun Run, NumberSuffix Suffix);
 
 /// <summary>
 /// Counts list numbers in document order. Lists that share an abstract definition share their counters, as in Word; a
-/// <c>w:startOverride</c> restarts a level the first time its list is used. Call <see cref="Next"/> once per paragraph, in
+/// <c>w:startOverride</c> restarts a level the first time its list is used. Call <see cref="Next(ResolvedParagraph)"/> once per paragraph, in
 /// document order, and for every paragraph (a paragraph without a list gives null and changes nothing).
 /// </summary>
 public sealed class NumberingCounter
@@ -38,9 +34,18 @@ public sealed class NumberingCounter
     public NumberingCounter(NumberingDefinitions? numbering) => _numbering = numbering;
 
     /// <summary>The label of a numbered paragraph, advancing the counters; null when the paragraph has no list, or the list or level does not exist.</summary>
-    public NumberingLabel? Next(ResolvedParagraph paragraph)
+    public NumberingLabel? Next(ResolvedParagraph paragraph) => Advance(paragraph, withNumbers: false, out _);
+
+    /// <summary>
+    /// As <see cref="Next(ResolvedParagraph)"/>, and the numbers of the label alone: the label from its first to its last number, without the text of the level before and after them (<c>Chapter I:</c> gives <c>I</c>);
+    /// empty for a bullet, for a level whose text has no number and for a paragraph with no label. The numbers cost a second formatting of the level text, which only a field result asks for (the layout calls the other form).
+    /// </summary>
+    public NumberingLabel? Next(ResolvedParagraph paragraph, out string numbers) => Advance(paragraph, withNumbers: true, out numbers);
+
+    private NumberingLabel? Advance(ResolvedParagraph paragraph, bool withNumbers, out string numbers)
     {
         ArgumentNullException.ThrowIfNull(paragraph);
+        numbers = string.Empty;
         if (_numbering is null || paragraph.NumberingId <= 0 || paragraph.NumberingLevel is < 0 or >= Levels)
         {
             return null;
@@ -80,7 +85,11 @@ public sealed class NumberingCounter
         ResetDeeper(numId, state, level);
 
         var label = Format(numId, state, level, value, facts, facts.Text);
-        var numbers = facts.Bullet || NumberSpan(facts.Text) is not { } span ? string.Empty : Format(numId, state, level, value, facts, span).Text;
+        if (withNumbers && !facts.Bullet && NumberSpan(facts.Text) is { } span)
+        {
+            numbers = Format(numId, state, level, value, facts, span).Text;
+        }
+
         var run = paragraph.MarkRun.Clone();
         run.Overlay(facts.Level.RunProperties.Children);
         if (facts.Bullet && label.FromSymbolFont)
@@ -89,11 +98,11 @@ public sealed class NumberingCounter
             run.Font = paragraph.MarkRun.Font;
         }
 
-        return new NumberingLabel(label.Text, run.ToResolved(paragraphMarkOnly: true), facts.Suffix) { Numbers = numbers };
+        return new NumberingLabel(label.Text, run.ToResolved(paragraphMarkOnly: true), facts.Suffix);
     }
 
     /// <summary>
-    /// Everything that changes while <see cref="Next"/> runs: the counters and started flags of every list, and the set of levels whose
+    /// Everything that changes while <see cref="Next(ResolvedParagraph)"/> runs: the counters and started flags of every list, and the set of levels whose
     /// start override was applied. (The facts cache is derived from the immutable definitions and is not state.)
     /// </summary>
     /// <remarks>
