@@ -438,7 +438,7 @@ internal static class FieldRefresh
         // The top-level PAGEREF fields and TOC fields seen in the whole body (a table of contents wraps its own PAGEREF fields, which the scanner shows as top-level in their paragraphs: they count as page fields too).
         public int PageFields { get; private set; }
 
-        // Keep in step with CaptionBuilder.Results: it counts a new caption's SEQ number and chapter label with the same walk (headings restart, usable SEQ fields count); a change here needs the same change there and a case in CaptionEditingTests.
+        // Keep in step with CaptionBuilder.Results: it counts a new caption's SEQ number and chapter label with the same walk (headings are noted for the restarts, the SEQ fields SeqCounter.Counts accepts are counted); a change here needs the same change there and a case in CaptionEditingTests.
         public void Walk()
         {
             _paragraphs = [];

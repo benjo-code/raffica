@@ -45,7 +45,7 @@ namespace Raffica.Write.Commands;
  *   table.deleteRows -> list-x, table.deleteColumns -> delete, table.delete -> trash-2, table.merge -> table-cells-merge, table.split -> table-cells-split
  *   table.borders -> grid-3x3, table.shading -> paint-bucket, table.headerRow -> panel-top-dashed, table.properties -> table-properties, table.distributeColumns -> columns-3
  *   table.rowUp -> move-up, table.rowDown -> move-down, table.selectRow -> grip-horizontal, table.selectColumn -> grip-vertical, table.selectTable -> grid-2x2
-  *   picture.insert -> image-plus, picture.properties -> sliders-horizontal, picture.wrap -> text-wrap, picture.reset -> image-upscale, picture.delete -> image-off
+ *   picture.insert -> image-plus, picture.properties -> sliders-horizontal, picture.wrap -> text-wrap, picture.reset -> image-upscale, picture.delete -> image-off
  *   bookmark.insert -> bookmark, caption.insert -> captions, xref.insert -> external-link, toc.insert -> table-of-contents, toc.remove -> list-minus
  */
 

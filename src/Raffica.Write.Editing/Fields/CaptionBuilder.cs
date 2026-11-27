@@ -74,7 +74,7 @@ internal static class CaptionBuilder
 
     /// <summary>
     /// What a new caption at the place of <paramref name="placeholder"/> (a paragraph already in the document where the caption will stand) shows: the number of its <c>SEQ</c> field, counted like the refresh does (in document
-    /// order, a heading of level n restarts the numbers that have <c>\s n</c>), and, for a chapter number, the label of the last Heading 1 above it (<c>Chapter</c> is null when there is none, which the caller refuses).
+    /// order; <c>\s n</c> restarts the number when a heading of level n or higher, a lower level number, stands since the previous field of the label), and, for a chapter number, the label of the last Heading 1 above it (<c>Chapter</c> is null when there is none, which the caller refuses).
     /// </summary>
     // Keep in step with FieldRefresh.State.Walk: the same walk and the same fields counted (SeqCounter.Counts), so the number a new caption carries equals the number the refresh gives.
     public static (string Number, string? Chapter) Results(WordDocument document, Paragraph placeholder, string label, bool chapterNumber, IFieldHost? host)
