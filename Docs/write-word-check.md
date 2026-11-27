@@ -230,6 +230,10 @@ pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit
 | `fields-bookmarks.docx` | A bookmark, references to its text and page after the text changed, chapter captions. |
 | `fields-thesis.docx` | The corpus thesis with one more heading, its table of contents brought current. |
 | `fields-mixed.docx` | Supported fields beside unsupported ones (`DATE`, `SEQ \h`, `PAGEREF \p`, `REF \w`). |
+| `fields-removed-contents.docx`, `fields-removed-every-list.docx` | Remove table of contents: the table of contents removed while the list of figures stays, then the list of figures too; a cross-reference to a heading stays. |
+| `probe-removed-contents*.docx` | Removing hand-written lists: a `_Toc` bookmark a `PAGEREF` outside still uses, another bookmark inside an entry with a `REF` to it, a list alone in a content control and in a table cell, a list after a table at the end of the body, of a cell and of a content control, and a list between two tables. |
+| `fields-deleted-bookmarks.docx` | Delete bookmark: a bookmark in a paragraph (with references to its text and page), one over two paragraphs, a point and one in a table cell; one bookmark stays. |
+| `probe-deleted-bookmarks.docx` | Deleting bookmarks as files hold them: an end marker between two paragraphs, markers inside a link and a content control. |
 | `probe-chapter-numbers-*.docx` | `SEQ` restarts with `\s`, `\r`, `\c`, `\n`, formats, `STYLEREF 1 \s` and `REF \n`, `\r` over heading labels with a trailing period, a word and brackets. |
 | `probe-label-*.docx` | `STYLEREF 1 \s` over level texts and number formats (`Chapter %1:` in capital Roman, `Appendix %1`, `Part 2.%1:`, `A-%1-`, `[ %1 ] .`, `%1.0`, and headings on a second list level). |
 | `probe-seq-restarts.docx`, `probe-seq-odd.docx` | When a number restarts, what counts, hidden and unsupported switches, bookmark arguments, nested fields, headings in cells, deleted and inserted headings. |
@@ -240,11 +244,13 @@ pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit
 
 | Date | Word version and system | Files | Repair prompt | Field results | Notes |
 | --- | --- | --- | --- | --- | --- |
-| 2026-11-27 | Word 16.0 (build 16.0.20625.20142, Microsoft 365, German), Windows 11, read through Word automation (not a person looking), repair off | all 27 files | none: all 27 opened (`word-open-check.ps1` exit 0) | `word-field-results.ps1` on 26 files: exit 0, no DIFFERENT result; `probe-control.docx`: exit 1 as it must | After the engine was changed to follow the findings below (the first run of this day found them). |
+| 2026-11-27 | Word 16.0 (build 16.0.20625.20142, Microsoft 365, German), Windows 11, read through Word automation (not a person looking), repair off | the 27 files that existed then (no removal cases) | none: all 27 opened (`word-open-check.ps1` exit 0) | `word-field-results.ps1` on 26 files: exit 0, no DIFFERENT result; `probe-control.docx`: exit 1 as it must | After the engine was changed to follow the findings below (the first run of this day found them). |
 | 2026-11-27 | as above | fields-captions, fields-bookmarks, fields-contents-options, fields-stale-contents, fields-thesis, all `probe-chapter-numbers-*` and `probe-label-*`, probe-seq-tracked | none | every result equal (probe-seq-tracked: the fields inside the changes are listed as expected and Word left the deleted one unchanged) | |
 | 2026-11-27 | as above | fields-contents.docx | none | 3 page differences (two headings and a figure: Write puts them on page 7 or 8, Word one page earlier), everything else equal | |
 | 2026-11-27 | as above | fields-cross-references.docx | none | 1 page difference (`PAGEREF`, Write 3, Word 2), everything else equal | |
 | 2026-11-27 | as above | fields-mixed.docx | none | 3 expected: `SEQ \h` shows nothing, `PAGEREF \p` shows "above", `REF \w` shows "0"; Write keeps the stored results and marks the fields | |
+| 2026-11-27 | as above | 36 files: the 27 and the first versions of the 9 for Remove table of contents and Delete bookmark | `probe-removed-contents-cell-ends-in-table.docx`: Word did not open it ("Die Datei ist möglicherweise beschädigt.") | not run on the refused file | Word also read the two tables of `probe-removed-contents-between-tables.docx` as one. Cause: Remove table of contents left a table last in the cell, or two tables together; fixed, an empty paragraph stays there. |
+| 2026-11-27 | as above | all 36 files, made again with the fix | none: all 36 opened (`word-open-check.ps1` exit 0) | `word-field-results.ps1` on 35 files: exit 0, no DIFFERENT result; `probe-control.docx`: exit 1 as it must. Of the new files only `probe-removed-contents.docx` has an expected difference: the `REF` to the bookmark that stood in the removed entry (Word: "Fehler! Verweisquelle konnte nicht gefunden werden."; Write keeps the stored result). | Word reads two tables in the between-tables file (Word automation). The references of `fields-deleted-bookmarks.docx` still work: they point at Write's own hidden bookmarks. |
 
 ### What Word does (found on 2026-11-27; Write follows unless said otherwise)
 
@@ -261,6 +267,9 @@ pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit
 | A `REF` to a bookmark that holds the reference | "Error! Not a valid bookmark self-reference." (German: "Fehler! Ungültiger Eigenverweis auf Textmarke."). | **Differs:** the stored result stays and the field counts as not updated. |
 | A heading in a deleted or inserted paragraph, a heading in a table cell, an outline level without a heading style | The first three restart `\s`; the outline level does not. | Follows. |
 | Fields inside a tracked change | Updated by Word. | **Differs:** Write keeps their stored results (spec limit). |
+| A table last in a table cell | Word does not open the file. | Follows: Remove table of contents leaves an empty paragraph (before the second check it left the table last). |
+| Two tables with nothing between them | Read as one table. | Follows: Remove table of contents leaves an empty paragraph between them. |
+| A table last in the body or in a content control | Opens, with a paragraph after the table. | Remove table of contents leaves an empty paragraph there too. |
 
 What is not read by the scripts and stays open for a person: the look of the rendered pages (a table of contents' leaders and indents, the links), clicking a link of a list or a reference, Word's own "Update field" on a page someone looks at, and a thesis-sized comparison of page numbers (the pagination differs, see the thesis rows of 4.4b).
 
