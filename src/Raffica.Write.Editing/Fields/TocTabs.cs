@@ -38,9 +38,10 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
     /// The tab stops of an entry that stands in the list already, written as <paramref name="current"/> (its paragraph gives the indents and holds the stops <paramref name="tabs"/>, not changed); <paramref name="oldNumber"/> is the number
     /// that a tab followed in it, or null. The stops stay as they are, with these exceptions, each of which takes away a stop that would catch the tab before the page number of a short entry (or push the title out of the line):
     /// <list type="bullet">
-    /// <item>A left stop of the paragraph behind a stop of its style (or of its hanging indent) that stands behind the number goes: the style's stop takes the tab after the number.</item>
-    /// <item>The left stop of the paragraph that took the tab after the old number is the number's own: when the new number differs and the stop stands where Word puts one for the old number, or the tab after the new number would not go to it,
-    /// it goes. So does a left stop far to the right of Word's place, in the right half of the line, that leaves the title and the page number no room (one written for much larger letters). In its place the stop for the new number is written,
+    /// <item>A left stop of the paragraph behind a stop of its style (or of its hanging indent) that stands behind the number goes, unless it stands at Word's place for the number (Word writes its stop there also behind such a stop): the
+    /// style's stop takes the tab after the number, and a stop left over from another number or other letters would only catch the tab before the page number.</item>
+    /// <item>The left stop of the paragraph that took the tab after the old number is the number's own: when the new number differs and the tab after it would not go to the stop, or the stop stands where Word puts one for the old number and not
+    /// where it puts one for the new, it goes. So does a left stop far to the right of Word's place, in the right half of the line, that leaves the title and the page number no room (one written for much larger letters). In its place the stop for the new number is written,
     /// unless a stop of the style or of the hanging indent takes the text then, or one of the paragraph at or before that place, or one that stood in front of the stop that went.</item>
     /// <item>When no tab follows a number any more, the stop that took the tab after it goes, with any left stop before it.</item>
     /// <item>When the tab after a number would go to a right-aligned stop (a list saved without the stop, a number or a font grown past it), the stop after the number is added.</item>
@@ -55,7 +56,8 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
         int? moved = null;
         if (copy is not null && oldNumber is not null && !(entry.HasLabelTab && entry.Label == oldNumber))
         {
-            var before = MeasureWithoutStopsBehindTheStyle(current, copy, oldNumber);
+            // Without a number Word writes no stop at all, so none behind the style's stays either.
+            var before = entry.HasLabelTab ? Measure(current, copy, oldNumber) : MeasureWithoutStaleStops(current, copy, oldNumber, keepsWords: false);
             var taken = Next(before);
             if (!entry.HasLabelTab)
             {
@@ -64,11 +66,15 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
                 return OrNone(copy);
             }
 
-            if (taken is { Right: false } old && LeftStops(copy).Any(t => PositionOf(t) == old.Position)
-                && (Math.Abs(old.Position - PlaceBehind(before)) <= Tolerance || Next(Measure(current, copy, entry.Label))?.Position != old.Position))
+            if (taken is { Right: false } old && LeftStops(copy).Any(t => PositionOf(t) == old.Position))
             {
-                moved = old.Position;
-                RemoveLeftStops(copy, position => position == old.Position);
+                var after = Measure(current, copy, entry.Label);
+                // It moves when the new number's tab does not go to it, or when it was Word's stop for the old number and is not Word's stop for the new one.
+                if (Next(after)?.Position != old.Position || Math.Abs(old.Position - PlaceBehind(before)) <= Tolerance && !IsWordsPlace(old.Position, after))
+                {
+                    moved = old.Position;
+                    RemoveLeftStops(copy, position => position == old.Position);
+                }
             }
         }
 
@@ -77,7 +83,7 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
             return OrNone(copy);
         }
 
-        var line = copy is null ? Measure(current, null, entry.Label) : MeasureWithoutStopsBehindTheStyle(current, copy, entry.Label);
+        var line = copy is null ? Measure(current, null, entry.Label) : MeasureWithoutStaleStops(current, copy, entry.Label, keepsWords: true);
         var next = Next(line);
         var place = PlaceBehind(line);
         // A stop of the paragraph's own far to the right of Word's place, as one written for much larger letters is, goes like the stop of an old number when the title and the page number no longer fit behind it.
@@ -118,8 +124,9 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
     }
 
     // Takes from the paragraph's stops the left ones that stand behind a stop of the style or of the hanging indent which is itself behind the number, as far as a right stop follows to take the page number: the style's stop takes the tab
-    // after the number, so one of the paragraph's behind it only catches the tab before the page number. One in front of the style's stop takes the number's tab and stays. Answers how the number lies with the stops that remain.
-    private LineGeometry MeasureWithoutStopsBehindTheStyle(Paragraph owner, XElement tabs, string number)
+    // after the number, and one of the paragraph's behind it catches the tab before the page number of a short entry. Word writes its stop for a number also behind such a stop, so with <paramref name="keepsWords"/> one that stands at Word's
+    // place for this number stays; any other is left over from another number or other letters. One in front of the style's stop takes the number's tab and stays. Answers how the number lies with the stops that remain.
+    private LineGeometry MeasureWithoutStaleStops(Paragraph owner, XElement tabs, string number, bool keepsWords)
     {
         var line = Measure(owner, tabs, number);
         var behind = line.Stops.Where(s => s.Position > line.TextEnd).ToList();
@@ -136,7 +143,7 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
         }
 
         var end = behind[right].Position;
-        var surplus = LeftStops(tabs).Where(t => PositionOf(t) is { } position && position > style && position < end).ToList();
+        var surplus = LeftStops(tabs).Where(t => PositionOf(t) is { } position && position > style && position < end && !(keepsWords && IsWordsPlace(position, line))).ToList();
         if (surplus.Count == 0)
         {
             return line;
@@ -145,6 +152,10 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
         surplus.Remove();
         return Measure(owner, tabs, number);
     }
+
+    // Whether Word's stop for a number that ends as the line does could stand there: Word measures a text a little differently, so the end is taken a few twips shorter and longer too.
+    private bool IsWordsPlace(int position, LineGeometry number) =>
+        new[] { -Tolerance, 0, Tolerance }.Any(by => Math.Abs(position - PlaceBehind(number with { TextEnd = number.TextEnd + by })) <= Tolerance);
 
     // A w:tabs element without a stop is not one.
     private static XElement? OrNone(XElement? tabs) => tabs is { HasElements: true } ? tabs : null;

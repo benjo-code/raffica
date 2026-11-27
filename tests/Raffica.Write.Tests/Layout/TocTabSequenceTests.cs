@@ -14,10 +14,12 @@ namespace Raffica.Write.Tests.Layout;
 /// <summary>
 /// Random sequences of changes to a table of contents (milestone 4.5b): numbers, level texts, numbering on and off, titles, levels and the size of the entry styles, one to three of them between two refreshes, over entry styles
 /// with and without tab stops and hanging indents of their own, with and without a stop of the user's. After every refresh every short entry ends its page number at the right edge on Write's page, and a second refresh changes
-/// nothing. Four cases are not asked for the right edge:
+/// nothing. Five cases are not asked for the right edge:
 /// <list type="bullet">
 /// <item>two stops of the entry style (its left tab stops and its hanging indent) behind the number: the second takes the tab before the page number, in Word too, and Write does not take stops from a style;</item>
 /// <item>a stop of the entry style behind the title of an entry without a number, for the same reason;</item>
+/// <item>a stop of the entry's own at Word's place for its number behind a stop of the style or of the hanging indent: Word writes it there and draws the page number of a short entry at it, and Write keeps it, as in a list Word made (a stop
+/// that is not at that place, left over from another number or other letters, must go);</item>
 /// <item>a stop of the user's that Write keeps and that takes the tab before the page number: in front of a style stop, beside the stop of the number, or behind the title of an entry without a number. A stop that ever stood behind one of the
 /// user's in the same entry counts as one of them from then on: once the number or its letters change, which of the two is the number's cannot be told;</item>
 /// <item>an entry that is not short: its number ends more than 250 points into the line.</item>
@@ -195,11 +197,24 @@ public sealed class TocTabSequenceTests
                 return design.Count > 0 || user.Count > 0;
             }
 
-            // Two stops of the style; the user's stop in front of a style stop; the user's stop beside the stop of the number.
+            // Two stops of the style; Word's own stop behind one; the user's stop in front of a style stop; the user's stop beside the stop of the number.
             return design.Count >= 2
+                || (design.Count == 1 && direct.Any(position => position > design[0] && AtWordsPlace(position, anchor)))
                 || user.Any(u => design.Any(d => d > u))
                 || (design.Count == 0 && user.Count > 0 && direct.Count >= 2);
         }
+
+        // Where Word writes the stop behind a number that ends at the anchor (the rule found in Word, Docs/write-word-check.md): the left indent of the first of TOC1 to TOC9 more than 12 points behind it (11 points per level without the
+        // style), else that place; a few twips either way, as the two measure a text a little differently.
+        private bool AtWordsPlace(int position, float anchor) => new[] { -20f, 0f, 20f }.Any(by =>
+        {
+            var behind = anchor + by + 240f;
+            var indent = Enumerable.Range(1, 9).Select(level => Model.Styles!.Find("TOC" + level.ToString(CultureInfo.InvariantCulture)) is { } style
+                    ? (int?)style.ParagraphProperties.Get(W + "ind")?.Attribute(W + "left") ?? 0
+                    : (level - 1) * 220)
+                .Where(left => left > behind).Select(left => (int?)left).FirstOrDefault();
+            return Math.Abs(position - (indent ?? behind)) <= 21f;
+        });
 
         private string StyleText(Paragraph entry)
         {

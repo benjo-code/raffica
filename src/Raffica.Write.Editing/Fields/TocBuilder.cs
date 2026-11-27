@@ -429,7 +429,8 @@ internal static class TocBuilder
             if (bookmark is not null && spec.ShowsPage(entry.Level))
             {
                 target.Add(spec.Separator == "\t" ? TabRun() : TextRun(spec.Separator));
-                foreach (var inline in FieldWriter.Make("PAGEREF " + bookmark + (spec.Links ? @" \h" : string.Empty), pageOf(entry, bookmark), null))
+                // Word writes \h into the page reference also where the entry is no link (a TOC field without \h).
+                foreach (var inline in FieldWriter.Make("PAGEREF " + bookmark + @" \h", pageOf(entry, bookmark), null))
                 {
                     target.Add(inline);
                 }

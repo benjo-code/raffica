@@ -152,6 +152,82 @@ public sealed class TocEntryShapeTests
         Assert.Equal(before, Bytes(document));
     }
 
+    [Theory]
+    // What Word 16 wrote itself over TOC styles with hanging indents (left indents of TOC1 to TOC3 and the hanging indent in twips; the level texts "%1." or "Chapter %1:"): also where the hanging stop takes the number it writes a stop behind it,
+    // or one at it. 0 is no stop. A refresh with nothing changed leaves each such list as it is.
+    [InlineData(720, 1080, 1440, 720, "", 0, 0, 1540)]
+    [InlineData(360, 580, 800, 360, "", 0, 800, 1320)]
+    [InlineData(440, 880, 1320, 440, "", 0, 1320, 1760)]
+    [InlineData(280, 560, 840, 280, "", 0, 880, 1320)]
+    [InlineData(2000, 4000, 6000, 2000, "", 0, 4000, 6000)]
+    [InlineData(720, 1080, 1440, 720, "Chapter ", 1440, 1760, 2228)]
+    [InlineData(2000, 4000, 6000, 2000, "Chapter ", 0, 4000, 6000)]
+    public void AListAsWordWritesItOverHangingIndentsIsLeftAlone(int first, int second, int third, int hanging, string word, int one, int two, int three)
+    {
+        var tocStyles = string.Concat(new[] { first, second, third }.Select((left, i) =>
+            $"<w:style w:type=\"paragraph\" w:styleId=\"TOC{i + 1}\"><w:name w:val=\"toc {i + 1}\"/><w:basedOn w:val=\"Normal\"/><w:pPr><w:ind w:left=\"{left}\" w:hanging=\"{hanging}\"/></w:pPr></w:style>"));
+        string Stops(int left) => "<w:tabs>" + (left == 0 ? string.Empty : $"<w:tab w:val=\"left\" w:pos=\"{left}\"/>") + "<w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        string Said(string number) => word.Length == 0 ? number + "." : word + number + ":";
+        var document = Doc(
+            Marked("Alpha", 1) + Marked("Beta", 2, "Heading2") + Marked("Gamma", 3, "Heading3")
+            + Entry("TOC1", Stops(one), "TOC \\o \"1-3\" \\h \\z \\u", Said("1"), "Alpha", 1)
+            + Entry("TOC2", Stops(two), null, Said("1.1"), "Beta", 2)
+            + Entry("TOC3", Stops(three), null, Said("1.1.1"), "Gamma", 3) + End(),
+            numbered: true,
+            tocStyles: tocStyles);
+        if (word.Length > 0)
+        {
+            foreach (var level in document.Numbering!.Abstracts[0].Levels)
+            {
+                level.Text = word + level.Text![..^1] + ":";
+            }
+
+            document.Edits.Raise();
+        }
+
+        var before = Bytes(document);
+        var stops = Entries(document).Select(TabText).ToList();
+
+        var result = Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        Assert.Equal(stops, Entries(document).Select(TabText));
+        Assert.Empty(result.Content);
+        Assert.Equal(before, Bytes(document));
+    }
+
+    [Theory]
+    // Word's stop for the old number is also its stop for the new one: over a style stop behind it, and at the hanging indent. It stays, as Word writes it again.
+    [InlineData("<w:tabs><w:tab w:val=\"left\" w:pos=\"567\"/></w:tabs>", 440)]
+    [InlineData("<w:ind w:left=\"4000\" w:hanging=\"2000\"/>", 4000)]
+    public void AStopThatIsWordsPlaceForTheNewNumberTooStays(string properties, int stop)
+    {
+        var toc1 = $"<w:style w:type=\"paragraph\" w:styleId=\"TOC1\"><w:name w:val=\"toc 1\"/><w:basedOn w:val=\"Normal\"/><w:pPr>{properties}</w:pPr></w:style>";
+        var tabs = $"<w:tabs><w:tab w:val=\"left\" w:pos=\"{stop}\"/><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        // The list says "3." and the heading is "1." now.
+        var document = Doc(Marked("Alpha", 1) + Entry("TOC1", tabs, "TOC \\o \"1-3\" \\h \\z \\u", "3.", "Alpha", 1) + End(), numbered: true, extraStyles: toc1);
+
+        Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        var entry = Assert.Single(Entries(document));
+        Assert.Equal("1.|Alpha|1", Line(entry));
+        Assert.Equal($"left:{stop} right:9062/dot", TabText(entry));
+    }
+
+    [Fact]
+    public void AListWithoutLinksAsWordWritesItIsLeftAlone()
+    {
+        // TOC \o "1-3" without \h: Word writes no link around an entry, and still \h into its page reference.
+        const string tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"440\"/><w:tab w:val=\"right\" w:leader=\"dot\" w:pos=\"9062\"/></w:tabs>";
+        var entry = $"<w:p><w:pPr><w:pStyle w:val=\"TOC1\"/>{tabs}</w:pPr>" + Start("TOC \\o \"1-3\"") + Run("1.") + "<w:r><w:tab/></w:r>" + Run("Alpha") + "<w:r><w:tab/></w:r>" + Start("PAGEREF _Toc100000001 \\h") + Run("1") + Mark("end") + "</w:p>";
+        var document = Doc(Marked("Alpha", 1) + entry + End(), numbered: true);
+        var before = Bytes(document);
+
+        var result = Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
+
+        Assert.Empty(result.Content);
+        Assert.Equal(before, Bytes(document));
+    }
+
     [Fact]
     public void AListThatNeverHadTabStopsKeepsItsLines()
     {
@@ -617,20 +693,21 @@ public sealed class TocEntryShapeTests
     private static string StaleToc(string instruction, (string Anchor, string Text, int Level) entry) =>
         $"<w:p><w:pPr><w:pStyle w:val=\"TOC{entry.Level}\"/></w:pPr>{Start(instruction.Replace("\"&#10;\"", "\"&#10;\"", StringComparison.Ordinal))}<w:hyperlink w:anchor=\"{entry.Anchor}\">{Run(entry.Text)}</w:hyperlink></w:p>" + End();
 
-    // Heading1 to Heading9, Normal (11 points, as in a document of Write) and Word's TOC2 and TOC3 indents; numbered documents give Heading1 and Heading2 the list "1." and "1.1.".
-    private static WordDocument Doc(string body, bool numbered = false, string extraStyles = "")
+    // Heading1 to Heading9, Normal (11 points, as in a document of Write) and Word's TOC2 and TOC3 indents; numbered documents give Heading1 to Heading3 the list "1.", "1.1." and "1.1.1.". <paramref name="tocStyles"/> replaces the indented TOC2 and TOC3.
+    private static WordDocument Doc(string body, bool numbered = false, string extraStyles = "", string? tocStyles = null)
     {
         var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\"/><w:sz w:val=\"22\"/></w:rPr></w:style>"
-            + "<w:style w:type=\"paragraph\" w:styleId=\"TOC2\"><w:name w:val=\"toc 2\"/><w:pPr><w:ind w:left=\"220\"/></w:pPr></w:style>"
-            + "<w:style w:type=\"paragraph\" w:styleId=\"TOC3\"><w:name w:val=\"toc 3\"/><w:pPr><w:ind w:left=\"440\"/></w:pPr></w:style>";
+            + (tocStyles
+                ?? "<w:style w:type=\"paragraph\" w:styleId=\"TOC2\"><w:name w:val=\"toc 2\"/><w:pPr><w:ind w:left=\"220\"/></w:pPr></w:style>"
+                    + "<w:style w:type=\"paragraph\" w:styleId=\"TOC3\"><w:name w:val=\"toc 3\"/><w:pPr><w:ind w:left=\"440\"/></w:pPr></w:style>");
         for (var i = 1; i <= 9; i++)
         {
-            var number = numbered && i <= 2 ? $"<w:numPr><w:ilvl w:val=\"{i - 1}\"/><w:numId w:val=\"1\"/></w:numPr>" : string.Empty;
+            var number = numbered && i <= 3 ? $"<w:numPr><w:ilvl w:val=\"{i - 1}\"/><w:numId w:val=\"1\"/></w:numPr>" : string.Empty;
             styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{number}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
         }
 
         var numbering = "<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.\"/></w:lvl>"
-            + "<w:lvl w:ilvl=\"1\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.%2.\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
+            + "<w:lvl w:ilvl=\"1\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.%2.\"/></w:lvl><w:lvl w:ilvl=\"2\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.%2.%3.\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
         return LayoutModel.Document(body + Section, LayoutModel.StylesPart(styles + extraStyles), LayoutModel.NumberingPart(numbering));
     }
 
