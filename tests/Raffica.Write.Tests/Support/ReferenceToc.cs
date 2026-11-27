@@ -18,7 +18,7 @@ internal sealed record ExpectedToc(IList<Block> Container, int First, int Last, 
 /// an entry paragraph says. It shares no code with <c>TocBuilder</c>, <c>TocRefresh</c> or <c>TocSpec</c>; only the field grammar (<see cref="FieldInstruction"/>, <see cref="TocRanges"/>) and the number labels of the host are
 /// shared. The rules: a heading is a paragraph of the style Heading1 to Heading9 by id (with <c>\u</c> also one with an outline level, its own or its style's) inside the levels of <c>\o</c>; its line is the visible text
 /// (line breaks and tabs as spaces, hidden text and tracked deletions left out, trimmed), after the number label and a tab when the host shows a label; a heading with no text is left out; a list takes the paragraphs that hold a
-/// <c>SEQ</c> of its label, with the whole text of the paragraph. Page numbers are not judged (they come with the page results).
+/// <c>SEQ</c> of its label that Word counts (tracked insertions too, not deleted or moved away) and that is not hidden (<c>\h</c> without a format), with the whole text of the paragraph. Page numbers are not judged (they come with the page results).
 /// </summary>
 internal static class ReferenceToc
 {
@@ -215,7 +215,9 @@ internal static class ReferenceToc
     }
 
     private static bool HoldsSeq(Paragraph paragraph, string label) =>
-        FieldView.InParagraph(paragraph).Any(f => f.Parent is null && f.Support.Kind == FieldKind.Seq && f.Support.IsSupported && f.IsComplete && !f.InTrackedChange && string.Equals(f.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase));
+        FieldView.InParagraph(paragraph).Any(f => f.Parent is null && f.Instruction.Name == "SEQ" && f.IsComplete && !f.InDeletion && f.Instruction.ArgumentCount == 1
+            && f.Instruction.Switches.All(s => "chnrs*#".Contains(s.Name, StringComparison.Ordinal)) && !(f.Instruction.Has("h") && !f.Instruction.Has("*"))
+            && string.Equals(f.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase));
 
     private static int? LevelOf(WordDocument document, Paragraph paragraph, bool outline)
     {

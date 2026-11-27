@@ -14,9 +14,10 @@ internal sealed record ExpectedField(Paragraph Paragraph, int Ordinal, string In
 /// them with what the refresh wrote without the refresh checking itself. It shares no code with <c>FieldRefresh</c>, <c>SeqCounter</c> or <c>FieldWriter</c>: it counts the sequences with its own state, finds bookmarks with its own walk and
 /// reads heading labels from the host (in the tests, <see cref="ReferenceNumbering"/>). Only the grammar (<see cref="FieldView"/>, <see cref="FieldInstruction"/>) is shared.
 /// <para>
-/// The rules (spec table of supported fields): a field counts only when it is complete, stands in no tracked change, is not nested in another field and is inside the support table; <c>SEQ</c> numbers per label (ignoring case) in
-/// document order; <c>\r n</c> sets the number, a heading of level n makes the next <c>\s n</c> field start again, <c>\c</c> repeats a number above zero; the formats are ARABIC, ROMAN, roman, ALPHABETIC and alphabetic;
-/// <c>STYLEREF 1 \s</c> is the label of the last <c>Heading1</c> paragraph up to and including the field's own, without trailing periods; <c>REF</c> is the text of the bookmark's range inside one paragraph (a deleted range left out,
+/// The rules (spec table of supported fields): a field has a result only when it is complete, stands in no tracked change, is not nested in another field and is inside the support table. <c>SEQ</c> numbers per label (ignoring case) in
+/// document order, and Word counts more fields than Write writes: every closed one with the label alone and switches of <c>\c \h \n \r \s \* \#</c> that is not deleted or moved away and not part of a table of contents (nested ones,
+/// hidden ones, other formats and tracked insertions too); <c>\r n</c> sets the number (no number: 0), a heading of level n or higher between two fields of a label makes a <c>\s n</c> field start again, <c>\c</c> without <c>\n</c>
+/// repeats the number; the formats are ARABIC, ROMAN, roman, ALPHABETIC and alphabetic; <c>STYLEREF 1 \s</c> is the number of the last <c>Heading1</c> paragraph up to and including the field's own, without the text of its level around it; <c>REF</c> is the text of the bookmark's range inside one paragraph (a deleted range left out,
 /// the results of the fields inside it as they are expected to be) or with <c>\n</c> or <c>\r</c> the label of its paragraph without trailing periods; <c>NOTEREF</c> is the mark of the first note reference in the range.
 /// </para>
 /// </summary>
@@ -39,7 +40,7 @@ internal static class ReferenceFields
             {
                 foreach (var label in labels.Values)
                 {
-                    label.Pending.Add(heading);
+                    label.Since.Add(heading);
                 }
 
                 if (heading == 1)
@@ -52,7 +53,24 @@ internal static class ReferenceFields
             for (var ordinal = 0; ordinal < fields.Count; ordinal++)
             {
                 var field = fields[ordinal];
-                if (field.Parent is not null || field.Support.Kind is not (FieldKind.Seq or FieldKind.StyleRef))
+                if (field.Support.Kind is not (FieldKind.Seq or FieldKind.StyleRef))
+                {
+                    continue;
+                }
+
+                string? counted = null;
+                if (Advances(field))
+                {
+                    if (!labels.TryGetValue(field.Instruction.Argument!, out var label))
+                    {
+                        label = new Label();
+                        labels[field.Instruction.Argument!] = label;
+                    }
+
+                    counted = Sequence(label, field.Instruction);
+                }
+
+                if (field.Parent is not null)
                 {
                     continue;
                 }
@@ -60,20 +78,7 @@ internal static class ReferenceFields
                 string? text = null;
                 if (Counts(field))
                 {
-                    if (field.Support.Kind == FieldKind.Seq)
-                    {
-                        if (!labels.TryGetValue(field.Instruction.Argument!, out var label))
-                        {
-                            label = new Label();
-                            labels[field.Instruction.Argument!] = label;
-                        }
-
-                        text = Sequence(label, field.Instruction);
-                    }
-                    else if (chapter is not null && host.NumberLabel(chapter) is { Length: > 0 } chapterLabel)
-                    {
-                        text = chapterLabel.TrimEnd('.');
-                    }
+                    text = field.Support.Kind == FieldKind.Seq ? counted : chapter is null ? null : host.ChapterNumber(chapter);
                 }
 
                 if (text is not null)
@@ -157,7 +162,21 @@ internal static class ReferenceFields
     {
         public int Value { get; set; }
 
-        public HashSet<int> Pending { get; } = [];
+        // The levels of the headings since the last field of the label.
+        public List<int> Since { get; } = [];
+    }
+
+    // Whether Word counts the field in its sequence.
+    private static bool Advances(FieldSpan field)
+    {
+        var inList = false;
+        for (var parent = field.Parent; parent is not null; parent = parent.Parent)
+        {
+            inList |= parent.Instruction.Name == "TOC";
+        }
+
+        return field.Instruction.Name == "SEQ" && field.IsComplete && !field.InDeletion && !inList && field.Instruction.ArgumentCount == 1
+            && field.Instruction.Switches.All(s => "chnrs*#".Contains(s.Name, StringComparison.Ordinal));
     }
 
     private static string InstructionOf(FieldSpan field) => field.Instruction.Name;
@@ -180,7 +199,25 @@ internal static class ReferenceFields
 
     private static string? Sequence(Label label, FieldInstruction instruction)
     {
-        // The format comes first: a field with a format Write does not read does not move the count.
+        var headings = label.Since.ToList();
+        label.Since.Clear();
+        if (instruction.Has("r"))
+        {
+            label.Value = int.TryParse(instruction.ValueOf("r"), NumberStyles.None, CultureInfo.InvariantCulture, out var set) ? set : 0;
+        }
+        else
+        {
+            if (instruction.Has("s") && int.TryParse(instruction.ValueOf("s"), NumberStyles.None, CultureInfo.InvariantCulture, out var level) && level is >= 1 and <= 9 && headings.Any(h => h <= level))
+            {
+                label.Value = 0;
+            }
+
+            if (instruction.Has("n") || !instruction.Has("c"))
+            {
+                label.Value += 1;
+            }
+        }
+
         var format = "ARABIC";
         foreach (var (_, value) in instruction.Switches.Where(s => s.Name == "*" && s.Value is not null))
         {
@@ -196,36 +233,6 @@ internal static class ReferenceFields
             }
 
             return null;
-        }
-
-        if (instruction.Has("r"))
-        {
-            if (!int.TryParse(instruction.ValueOf("r"), NumberStyles.None, CultureInfo.InvariantCulture, out var set))
-            {
-                return null;
-            }
-
-            label.Value = set;
-            return Render(label.Value, format);
-        }
-
-        var restartLevel = 0;
-        if (instruction.Has("s"))
-        {
-            if (!int.TryParse(instruction.ValueOf("s"), NumberStyles.None, CultureInfo.InvariantCulture, out restartLevel) || restartLevel is < 1 or > 9)
-            {
-                return null;
-            }
-        }
-
-        if (restartLevel > 0 && label.Pending.Remove(restartLevel))
-        {
-            label.Value = 0;
-        }
-
-        if (!(instruction.Has("c") && label.Value > 0))
-        {
-            label.Value += 1;
         }
 
         return Render(label.Value, format);

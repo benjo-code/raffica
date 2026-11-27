@@ -201,6 +201,25 @@ public sealed class TocEditingTests
         ReferenceToc.AssertEqualToExpected(document, host, "labels");
     }
 
+    // Which captions Word 16.0 lists (checked with tools/word-field-results.ps1 on 2026-11-27): one in a tracked insertion or in moved-in text is listed, a deleted or moved-away one and a hidden one (\h without a format) are not.
+    [Fact]
+    public void AListOfFiguresListsInsertedCaptionsAndLeavesOutDeletedAndHiddenOnes()
+    {
+        const string Change = " w:author=\"a\" w:date=\"2026-01-01T00:00:00Z\"";
+        string Caption(string text, string instruction) => P(Run(text + " ") + Field(instruction, "1"), "Caption");
+        string Tracked(string kind, int id, string text) => P($"<w:{kind} w:id=\"{id}\"{Change}>{Run(text + " ") + Field("SEQ Figure", "1")}</w:{kind}>", "Caption");
+        var document = Doc(
+            Caption("Plain", "SEQ Figure") + Tracked("ins", 1, "Inserted") + Tracked("moveTo", 2, "Arrived") + Tracked("moveFrom", 3, "Left")
+            + Caption("Hidden", "SEQ Figure \\h") + Caption("Shown", "SEQ Figure \\h \\* ARABIC") + Text(string.Empty));
+        var editor = Editor(document);
+        var host = new FakeFieldHost(document);
+
+        Insert(editor, document, document.Body.Blocks.Count - 1, new TocOptions(1, 3, true, true, TocLeader.Dots, "Figure"), host);
+
+        Assert.Equal(["Plain", "Inserted", "Arrived", "Shown"], Lines(document).Select(l => l.Split(' ')[0]));
+        ReferenceToc.AssertEqualToExpected(document, host, "tracked and hidden captions");
+    }
+
     [Fact]
     public void ListOfFiguresUsesCLabelAndTableofFiguresStyle()
     {

@@ -22,6 +22,9 @@ public sealed class FieldInfo
     /// <summary>True when the field starts inside a tracked change (an insertion, a deletion or a move).</summary>
     public bool InTrackedChange { get; internal set; }
 
+    /// <summary>True when the field starts inside a tracked deletion or in a range that was moved away: it is not part of the document as it reads now.</summary>
+    public bool InDeletion { get; internal set; }
+
     /// <summary>The <c>w:fldSimple</c> of a simple field, or null for a complex one.</summary>
     public SimpleField? Simple { get; internal set; }
 
@@ -76,6 +79,8 @@ public static class FieldScanner
 
         public int TrackedDepth { get; set; }
 
+        public int DeletedDepth { get; set; }
+
         public bool IntoControls { get; init; }
     }
 
@@ -98,6 +103,7 @@ public static class FieldScanner
                         Instruction = simple.Instruction.Trim(),
                         IsComplete = true,
                         InTrackedChange = state.TrackedDepth > 0,
+                        InDeletion = state.DeletedDepth > 0,
                         Simple = simple,
                         Container = container,
                         ResultContainer = simple.Inlines,
@@ -115,8 +121,11 @@ public static class FieldScanner
                     Walk(control.Inlines, control.Inlines, state);
                     break;
                 case TrackedChange change:
+                    var deleted = change.Kind is TrackedChangeKind.Delete or TrackedChangeKind.MoveFrom ? 1 : 0;
                     state.TrackedDepth++;
+                    state.DeletedDepth += deleted;
                     Walk(change.Inlines, change.Inlines, state);
+                    state.DeletedDepth -= deleted;
                     state.TrackedDepth--;
                     break;
             }
@@ -131,6 +140,7 @@ public static class FieldScanner
                 var field = new FieldInfo(state.Open.Count > 0 ? state.Open[^1].Field : null)
                 {
                     InTrackedChange = state.TrackedDepth > 0,
+                    InDeletion = state.DeletedDepth > 0,
                     Container = container,
                     BeginRun = run,
                 };

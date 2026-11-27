@@ -17,7 +17,7 @@ public sealed class FieldLabels(WordDocument document)
     private readonly WordDocument _document = document ?? throw new ArgumentNullException(nameof(document));
     private int _revision = int.MinValue;
     private LayoutEffectiveFormat? _format;
-    private Dictionary<Paragraph, string>? _labels;
+    private Dictionary<Paragraph, NumberingLabel>? _labels;
     private Dictionary<(NoteType Type, int Id), string>? _marks;
     private readonly HashSet<Paragraph> _missed = new(ReferenceEqualityComparer.Instance);
 
@@ -25,7 +25,9 @@ public sealed class FieldLabels(WordDocument document)
     internal int LabelBuilds { get; private set; }
 
     /// <summary>The label of a paragraph of the body as the page draws it (for example <c>2.1.</c>), or null when it has none (no list, or a list or level that does not exist).</summary>
-    public string? NumberLabel(Paragraph paragraph)
+    public string? NumberLabel(Paragraph paragraph) => LabelOf(paragraph)?.Text;
+
+    private NumberingLabel? LabelOf(Paragraph paragraph)
     {
         ArgumentNullException.ThrowIfNull(paragraph);
         var format = Current();
@@ -54,6 +56,11 @@ public sealed class FieldLabels(WordDocument document)
         return _labels.GetValueOrDefault(paragraph);
     }
 
+    /// <summary>
+    /// The number of a chapter heading as <c>STYLEREF 1 \s</c> shows it (<see cref="NumberingLabel.Numbers"/>: the label from its first to its last number, without the text of the level around them), or null when the paragraph has no number.
+    /// </summary>
+    public string? ChapterNumber(Paragraph paragraph) => LabelOf(paragraph)?.Numbers is { Length: > 0 } numbers ? numbers : null;
+
     /// <summary>The number the note reference shows in the body: references count in reading order per kind, in the number format of the document settings (footnotes decimal, endnotes lower roman by default). Null for an id no reference names.</summary>
     public string? NoteMarkText(int noteId, NoteType type)
     {
@@ -77,16 +84,16 @@ public sealed class FieldLabels(WordDocument document)
         return _format;
     }
 
-    private Dictionary<Paragraph, string> BuildLabels(LayoutEffectiveFormat format)
+    private Dictionary<Paragraph, NumberingLabel> BuildLabels(LayoutEffectiveFormat format)
     {
         LabelBuilds++;
-        var labels = new Dictionary<Paragraph, string>(ReferenceEqualityComparer.Instance);
+        var labels = new Dictionary<Paragraph, NumberingLabel>(ReferenceEqualityComparer.Instance);
         var counter = new NumberingCounter(_document.Numbering);
         foreach (var paragraph in ParagraphsOf(_document.Body.Blocks, 0))
         {
             if (counter.Next(format.ResolveParagraph(StoryRef.Body, paragraph)) is { } label)
             {
-                labels[paragraph] = label.Text;
+                labels[paragraph] = label;
             }
         }
 

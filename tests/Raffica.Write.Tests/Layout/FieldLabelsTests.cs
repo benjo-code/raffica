@@ -90,6 +90,8 @@ public sealed class FieldLabelsTests
 
         public string? NumberLabel(Paragraph paragraph) => labels.NumberLabel(paragraph);
 
+        public string? ChapterNumber(Paragraph paragraph) => labels.ChapterNumber(paragraph);
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => null;
 
         public string? NoteMarkText(int noteId, NoteType type) => labels.NoteMarkText(noteId, type);

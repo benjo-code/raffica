@@ -12,7 +12,11 @@ public enum NumberSuffix
 }
 
 /// <summary>The label of a numbered paragraph: its text, the formatting of that text and what follows it.</summary>
-public sealed record NumberingLabel(string Text, ResolvedRun Run, NumberSuffix Suffix);
+public sealed record NumberingLabel(string Text, ResolvedRun Run, NumberSuffix Suffix)
+{
+    /// <summary>The label from its first to its last number, without the text of the level before and after them (<c>Chapter I:</c> gives <c>I</c>); empty for a bullet and for a level whose text has no number.</summary>
+    public string Numbers { get; init; } = string.Empty;
+}
 
 /// <summary>
 /// Counts list numbers in document order. Lists that share an abstract definition share their counters, as in Word; a
@@ -75,7 +79,8 @@ public sealed class NumberingCounter
         state.Started[level] = true;
         ResetDeeper(numId, state, level);
 
-        var label = Format(numId, state, level, value, facts);
+        var label = Format(numId, state, level, value, facts, facts.Text);
+        var numbers = facts.Bullet || NumberSpan(facts.Text) is not { } span ? string.Empty : Format(numId, state, level, value, facts, span).Text;
         var run = paragraph.MarkRun.Clone();
         run.Overlay(facts.Level.RunProperties.Children);
         if (facts.Bullet && label.FromSymbolFont)
@@ -84,7 +89,7 @@ public sealed class NumberingCounter
             run.Font = paragraph.MarkRun.Font;
         }
 
-        return new NumberingLabel(label.Text, run.ToResolved(paragraphMarkOnly: true), facts.Suffix);
+        return new NumberingLabel(label.Text, run.ToResolved(paragraphMarkOnly: true), facts.Suffix) { Numbers = numbers };
     }
 
     /// <summary>
@@ -191,14 +196,31 @@ public sealed class NumberingCounter
         }
     }
 
-    private (string Text, bool FromSymbolFont) Format(int numId, ListState state, int level, int value, LevelFacts facts)
+    // The part of a level text from its first placeholder (%1 to %9) to the end of its last one, or null when it has none.
+    private static string? NumberSpan(string text)
+    {
+        var first = -1;
+        var end = -1;
+        for (var i = 0; i + 1 < text.Length; i++)
+        {
+            if (text[i] == '%' && text[i + 1] is >= '1' and <= '9')
+            {
+                first = first < 0 ? i : first;
+                end = i + 2;
+                i++;
+            }
+        }
+
+        return first < 0 ? null : text[first..end];
+    }
+
+    private (string Text, bool FromSymbolFont) Format(int numId, ListState state, int level, int value, LevelFacts facts, string text)
     {
         if (facts.Bullet)
         {
-            return BulletText(facts.Text);
+            return BulletText(text);
         }
 
-        var text = facts.Text;
         var builder = new StringBuilder(text.Length + 4);
         for (var i = 0; i < text.Length; i++)
         {

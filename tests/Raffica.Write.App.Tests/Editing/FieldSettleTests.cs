@@ -149,6 +149,8 @@ public sealed class FieldSettleTests
 
         public string? NumberLabel(Paragraph paragraph) => inner.NumberLabel(paragraph);
 
+        public string? ChapterNumber(Paragraph paragraph) => inner.ChapterNumber(paragraph);
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => (Round, new string('1', Round));
 
         public string? NoteMarkText(int noteId, NoteType type) => inner.NoteMarkText(noteId, type);

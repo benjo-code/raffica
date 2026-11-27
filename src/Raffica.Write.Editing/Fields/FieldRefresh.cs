@@ -22,7 +22,8 @@ public enum RefreshScope
 public sealed record FieldRefreshResult(IReadOnlyList<BlockChange> Content, DerivedRecord? Structural, int NotUpdated, int Written, bool Settled, bool StructuralDeferred = false, int PageFields = 0);
 
 /// <summary>
-/// The order-based refresh of field results in the body: <c>SEQ</c>, <c>STYLEREF 1 \s</c>, <c>REF</c> and <c>NOTEREF</c>. It walks the body in document order, carries the counters through every paragraph and writes only the results that
+/// The order-based refresh of field results in the body: <c>SEQ</c>, <c>STYLEREF 1 \s</c>, <c>REF</c> and <c>NOTEREF</c>. It walks the body in document order, carries the counters through every paragraph (every field Word counts, see
+/// <see cref="SeqCounter.Counts"/>, also one it does not write) and writes only the results that
 /// differ, to the paragraphs of the touched blocks (every block when a heading, a bookmark, a caption or a note reference changed, because other results depend on those). A field that is nested in another field, sits in a tracked change or is
 /// outside the support table keeps its stored result. Nothing here raises a revision: a refresh that wrote something raises the derived version and says so to the snapshot tracker.
 /// </summary>
@@ -479,6 +480,9 @@ internal static class FieldRefresh
                         PageFields++;
                     }
 
+                    // Every sequence field Word counts moves its counter, also one Write does not write (nested, hidden, in an insertion).
+                    var counted = SeqCounter.Counts(span) ? Counter(span.Instruction.Argument!).Next(span.Instruction) : null;
+
                     if (span.Parent is not null || span.Support.Kind is FieldKind.Toc)
                     {
                         continue;
@@ -505,10 +509,10 @@ internal static class FieldRefresh
                     switch (span.Support.Kind)
                     {
                         case FieldKind.Seq:
-                            text = Counter(span.Instruction.Argument!).Next(span.Instruction);
+                            text = counted;
                             break;
                         case FieldKind.StyleRef:
-                            text = lastChapter is null ? null : host.NumberLabel(lastChapter) is { Length: > 0 } label ? TrimLabel(label) : null;
+                            text = lastChapter is null ? null : host.ChapterNumber(lastChapter);
                             break;
                         default:
                             wantsReferences = true;

@@ -14,6 +14,12 @@ public interface IFieldHost
     /// <summary>The number label of the paragraph as it is shown (for example <c>2.1.</c>), or null when it has none.</summary>
     string? NumberLabel(Paragraph paragraph);
 
+    /// <summary>
+    /// The number of a chapter heading as <c>STYLEREF 1 \s</c> shows it: the numbers of the paragraph's list label from its first to its last one, each in the format of its level, with the text between two of them
+    /// and without the text before the first and after the last (the label <c>Chapter I:</c> gives <c>I</c>, <c>Sec 1 - 2)</c> gives <c>1 - 2</c>); null when the paragraph has no number.
+    /// </summary>
+    string? ChapterNumber(Paragraph paragraph);
+
     /// <summary>The page the position is on: its zero-based index and the printed page number (section format and start respected), or null when the layout has no answer.</summary>
     (int PageIndex, string PageText)? PageOf(TextPosition position);
 

@@ -584,6 +584,8 @@ public sealed class FieldRefreshRunnerTests
 
         public string? NumberLabel(Paragraph paragraph) => throw new InvalidOperationException("test");
 
+        public string? ChapterNumber(Paragraph paragraph) => throw new InvalidOperationException("test");
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => inner.PageOf(position);
 
         public string? NoteMarkText(int noteId, NoteType type) => inner.NoteMarkText(noteId, type);

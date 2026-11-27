@@ -512,6 +512,8 @@ public sealed class CrossReferenceEditingTests
 
         public string? NumberLabel(Paragraph paragraph) => inner.NumberLabel(paragraph);
 
+        public string? ChapterNumber(Paragraph paragraph) => inner.ChapterNumber(paragraph);
+
         public (int PageIndex, string PageText)? PageOf(TextPosition position) => inner.PageOf(position);
 
         public string? NoteMarkText(int noteId, NoteType type) => "1";

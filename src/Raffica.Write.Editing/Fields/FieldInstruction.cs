@@ -11,10 +11,11 @@ public sealed class FieldInstruction
 {
     private static readonly Dictionary<string, Spec> Table = BuildTable();
 
-    private FieldInstruction(string name, string? argument, IReadOnlyList<(string Name, string? Value)> switches, bool hasUnknownToken)
+    private FieldInstruction(string name, string? argument, IReadOnlyList<(string Name, string? Value)> switches, bool hasUnknownToken, int arguments = 0)
     {
         Name = name;
         Argument = argument;
+        ArgumentCount = arguments;
         Switches = switches;
         HasUnknownToken = hasUnknownToken;
     }
@@ -24,6 +25,9 @@ public sealed class FieldInstruction
 
     /// <summary>The first token that is not a switch (or the value of one), unquoted, or null.</summary>
     public string? Argument { get; }
+
+    /// <summary>How many plain tokens (not switches and not values of switches) the instruction has.</summary>
+    public int ArgumentCount { get; }
 
     /// <summary>The switches in the order they stand: the name lower case without the backslash, the value unquoted or null.</summary>
     public IReadOnlyList<(string Name, string? Value)> Switches { get; }
@@ -85,7 +89,7 @@ public sealed class FieldInstruction
             unknown = true;
         }
 
-        return new FieldInstruction(name, positional.Count > 0 ? positional[0] : null, switches, unknown);
+        return new FieldInstruction(name, positional.Count > 0 ? positional[0] : null, switches, unknown, positional.Count);
     }
 
     private static bool IsChapterNumber(List<string> positional, List<(string Name, string? Value)> switches) =>

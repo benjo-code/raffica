@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using Raffica.Write.Editing;
+using Raffica.Write.Layout;
 using Raffica.Write.Model;
 using Raffica.Write.Tests.Layout;
 using Raffica.Write.Tests.Support;
@@ -218,6 +219,129 @@ public sealed class FieldRefreshTests
         Assert.Equal(1, result.NotUpdated);
     }
 
+    // The rules below are the ones Word 16.0 follows (checked with tools/word-field-results.ps1 on 2026-11-27, Docs/write-word-check.md, "Fields, captions and tables of contents (milestone 4.5b)").
+    [Fact]
+    public void ARestartAppliesOnlyWhenAHeadingStandsBetweenTheFieldAndTheLastOneOfItsLabel()
+    {
+        var document = Doc(Seq("SEQ E"), Heading("A"), Seq("SEQ E"), Seq("SEQ E \\s 1"), Seq("SEQ F"), Heading("B"), Seq("SEQ F \\r 3"), Seq("SEQ F \\s 1"));
+
+        Refresh(document);
+
+        Assert.Equal(["1", "2", "3", "1", "3", "4"], new[] { Stored(document, 0), Stored(document, 2), Stored(document, 3), Stored(document, 4), Stored(document, 6), Stored(document, 7) });
+    }
+
+    [Fact]
+    public void AHeadingOfAHigherLevelRestartsAndALowerOneDoesNot()
+    {
+        var document = Doc(
+            Seq("SEQ B \\s 2"), Heading("A"), Seq("SEQ B \\s 2"),
+            P(Run("sub"), "Heading3"), Seq("SEQ B \\s 2"),
+            P(Run("sub"), "Heading2"), Seq("SEQ B \\s 2"));
+
+        Refresh(document);
+
+        Assert.Equal(["1", "1", "2", "1"], new[] { Stored(document, 0), Stored(document, 2), Stored(document, 4), Stored(document, 6) });
+    }
+
+    [Fact]
+    public void CAtTheStartOfAChapterShowsZeroAndDoesNotCountAndNWinsOverC()
+    {
+        var document = Doc(Heading("A"), Seq("SEQ I \\c"), Seq("SEQ I"), Seq("SEQ I \\n \\c"), Heading("B"), Seq("SEQ I \\c \\s 1"), Seq("SEQ I \\s 1"));
+
+        Refresh(document);
+
+        Assert.Equal(["0", "1", "2", "0", "1"], new[] { Stored(document, 1), Stored(document, 2), Stored(document, 3), Stored(document, 5), Stored(document, 6) });
+    }
+
+    [Fact]
+    public void SequenceFieldsWriteDoesNotUpdateStillCount()
+    {
+        var document = Doc(
+            Seq("SEQ N"), Seq("SEQ N \\h", "kept"), Seq("SEQ N"), Seq("SEQ N \\* CardText", "kept"), Seq("SEQ N \\# \"00\"", "kept"), Seq("SEQ N"),
+            Seq("SEQ N \\r 7 \\* Ordinal", "kept"), Seq("SEQ N"));
+
+        var result = Refresh(document);
+
+        Assert.Equal(["1", "kept", "3", "kept", "kept", "6", "kept", "8"], Enumerable.Range(0, 8).Select(i => Stored(document, i)));
+        Assert.Equal(4, result.NotUpdated);
+    }
+
+    [Fact]
+    public void ASequenceFieldThatNamesABookmarkOrHasAnUnknownSwitchDoesNotCount()
+    {
+        var document = Doc(Seq("SEQ T"), Seq("SEQ T Elsewhere", "kept"), Seq("SEQ T \\q", "kept"), Seq("SEQ T"));
+
+        Refresh(document);
+
+        Assert.Equal(["1", "kept", "kept", "2"], Enumerable.Range(0, 4).Select(i => Stored(document, i)));
+    }
+
+    [Fact]
+    public void ARestartValueThatIsNoNumberSetsZeroAndAnUnreadableLevelRestartsNothing()
+    {
+        var document = Doc(Seq("SEQ X"), Seq("SEQ X \\r abc"), Seq("SEQ X"), Heading("A"), Seq("SEQ X \\s 0"), Seq("SEQ X \\s abc"), Seq("SEQ X"));
+
+        Refresh(document);
+
+        Assert.Equal(["1", "0", "1", "2", "3", "4"], new[] { Stored(document, 0), Stored(document, 1), Stored(document, 2), Stored(document, 4), Stored(document, 5), Stored(document, 6) });
+    }
+
+    [Fact]
+    public void InsertedAndMovedInSequenceFieldsCountAndDeletedOnesDoNot()
+    {
+        const string Change = " w:author=\"a\" w:date=\"2026-01-01T00:00:00Z\"";
+        string Tracked(string kind, int id, string instruction) => P($"<w:{kind} w:id=\"{id}\"{Change}>{Field(instruction, "old")}</w:{kind}>");
+        var deleted = Field("SEQ P", "old").Replace("instrText", "delInstrText", StringComparison.Ordinal).Replace("<w:t ", "<w:delText ", StringComparison.Ordinal).Replace("</w:t>", "</w:delText>", StringComparison.Ordinal);
+        var document = Doc(
+            Seq("SEQ P"),
+            Tracked("ins", 1, "SEQ P"),
+            Tracked("moveTo", 2, "SEQ P"),
+            P($"<w:del w:id=\"3\"{Change}>{deleted}</w:del>"),
+            Tracked("moveFrom", 4, "SEQ P"),
+            Seq("SEQ P"));
+
+        Refresh(document);
+
+        // The fields inside the tracked changes keep their stored results; the ones after them are counted with the inserted and the moved-in field.
+        Assert.Equal(["1", "old", "old", "4"], new[] { Stored(document, 0), Stored(document, 1), Stored(document, 2), Stored(document, 5) });
+    }
+
+    [Fact]
+    public void ASequenceFieldNestedInAnotherFieldCounts()
+    {
+        var link = "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> HYPERLINK \\l \"x\" </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>" + Field("SEQ Y", "old") + "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
+        var document = Doc(Seq("SEQ Y"), P(link), Seq("SEQ Y"));
+
+        Refresh(document);
+
+        Assert.Equal(["1", "old", "3"], new[] { Stored(document, 0), Stored(document, 1, 1), Stored(document, 2) });
+    }
+
+    // STYLEREF 1 \s is the number of the chapter alone: the text of the list level before its first and after its last number is left out, the text between two numbers stays.
+    [Theory]
+    [InlineData("Chapter %1:", "upperRoman", 0, "I")]
+    [InlineData("(%1)", "decimal", 0, "1")]
+    [InlineData("Part 2.%1.", "lowerLetter", 0, "a")]
+    [InlineData("%1.0", "decimalZero", 0, "01")]
+    [InlineData("Sec %1 - %2)", "decimal", 1, "1 - 1")]
+    [InlineData("%1 part %2 of it", "decimal", 1, "1 part 1")]
+    public void StyleRefGivesTheChapterNumberWithoutTheTextOfItsLevel(string text, string format, int level, string expected)
+    {
+        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style><w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/></w:style>";
+        var first = level == 0 ? text : "%1";
+        var numbering = $"<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"{(level == 0 ? format : "decimal")}\"/><w:lvlText w:val=\"{first}\"/></w:lvl>"
+            + $"<w:lvl w:ilvl=\"1\"><w:start w:val=\"1\"/><w:numFmt w:val=\"{format}\"/><w:lvlText w:val=\"{(level == 1 ? text : "%1.%2")}\"/></w:lvl></w:abstractNum><w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>";
+        var heading = $"<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/><w:numPr><w:ilvl w:val=\"{level}\"/><w:numId w:val=\"1\"/></w:numPr></w:pPr>{Run("A")}</w:p>";
+        var opener = level == 0 ? string.Empty : $"<w:p><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"1\"/></w:numPr></w:pPr>{Run("first")}</w:p>";
+        var document = LayoutModel.Document(opener + heading + P(Field("STYLEREF 1 \\s", "x")) + Section, LayoutModel.StylesPart(styles), LayoutModel.NumberingPart(numbering));
+        var last = document.Body.Blocks.Count - 1;
+
+        Refresh(document);
+
+        Assert.Equal(expected, Stored(document, last));
+        Assert.Equal(expected, new FieldLabels(document).ChapterNumber((Paragraph)document.Body.Blocks[last - 1]));
+    }
+
     [Fact]
     public void RefTextAndRefNumberOfAHeading()
     {
@@ -342,8 +466,8 @@ public sealed class FieldRefreshTests
 
         var result = Refresh(document);
 
-        // The field in the tracked insertion does not count in the sequence: the two captions are 1 and 2.
-        Assert.Equal(["1", "2"], new[] { Stored(document, 0), Stored(document, 2) });
+        // The field in the tracked insertion keeps its result and counts in the sequence, as in Word: the two captions are 1 and 3.
+        Assert.Equal(["1", "3"], new[] { Stored(document, 0), Stored(document, 2) });
         Assert.Equal("55", Stored(document, 1));
         Assert.Equal("66", ReferenceFields.Stored(inNote, 0));
         Assert.Equal("77", ReferenceFields.Stored(inHeader, 0));

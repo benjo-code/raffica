@@ -8,6 +8,9 @@ public sealed record FieldSpan(FieldInstruction Instruction, FieldSupport Suppor
     /// <summary>The field this one is nested in, or null.</summary>
     public FieldSpan? Parent { get; init; }
 
+    /// <summary>True when the field sits in a tracked deletion or in a range that was moved away.</summary>
+    public bool InDeletion { get; init; }
+
     /// <summary>The scanner's view of the runs (the same objects as in the paragraph).</summary>
     internal FieldInfo? Info { get; init; }
 }
@@ -28,6 +31,7 @@ public static class FieldView
             {
                 Parent = info.Parent is not null && byInfo.TryGetValue(info.Parent, out var parent) ? parent : null,
                 Info = info,
+                InDeletion = info.InDeletion,
             };
             byInfo[info] = span;
             spans.Add(span);

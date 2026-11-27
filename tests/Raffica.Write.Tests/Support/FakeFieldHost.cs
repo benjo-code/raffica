@@ -39,6 +39,8 @@ internal sealed class FakeFieldHost(WordDocument document) : IFieldHost
         return _labels.GetValueOrDefault(paragraph);
     }
 
+    public string? ChapterNumber(Paragraph paragraph) => ReferenceNumbering.ChapterNumbers(document).Where(c => ReferenceEquals(c.Paragraph, paragraph)).Select(c => c.Numbers).FirstOrDefault();
+
     public (int PageIndex, string PageText)? PageOf(TextPosition position) =>
         Pages.TryGetValue(position.Paragraph, out var page) ? page : null;
 

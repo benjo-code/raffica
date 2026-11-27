@@ -31,6 +31,8 @@ internal sealed class FieldHost(WriteTab tab) : IFieldHost
 
     public string? NumberLabel(Paragraph paragraph) => Labels().NumberLabel(paragraph);
 
+    public string? ChapterNumber(Paragraph paragraph) => Labels().ChapterNumber(paragraph);
+
     public (int PageIndex, string PageText)? PageOf(TextPosition position)
     {
         if (position.Story.Kind != StoryKind.Body || Layout is not { Mode: LayoutMode.Pages } layout)

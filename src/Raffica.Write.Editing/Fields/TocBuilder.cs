@@ -165,9 +165,10 @@ internal static class TocBuilder
         return entries;
     }
 
+    // A caption Word lists: a sequence field of the label that it counts (also one in a tracked insertion), not a hidden one (\h without a number format).
     private static bool HoldsSequence(Paragraph paragraph, string label) =>
         FieldRefresh.HasFieldMarkup(paragraph)
-        && FieldView.InParagraph(paragraph).Any(f => f.Parent is null && f.Support.Kind == FieldKind.Seq && FieldRefresh.IsUsable(f) && string.Equals(f.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase));
+        && FieldView.InParagraph(paragraph).Any(f => f.Parent is null && SeqCounter.Counts(f) && (!f.Instruction.Has("h") || f.Instruction.Has("*")) && string.Equals(f.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The level of a heading paragraph: its <c>Heading1</c> to <c>Heading9</c> style id, else (<paramref name="outline"/>) its outline level, else null.</summary>
     public static int? LevelOf(WordDocument document, Paragraph paragraph, bool outline) =>

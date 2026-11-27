@@ -4,9 +4,10 @@ using System.Text;
 namespace Raffica.Write.Editing;
 
 /// <summary>
-/// The running number of one <c>SEQ</c> label. <see cref="Next"/> applies one field in document order: <c>\r n</c> sets the number, <c>\s n</c> restarts it after the heading of level n (the headings are
-/// announced through <see cref="NoteHeading"/>), <c>\c</c> repeats the current number and the default counts on; the number is then written in the format of <c>\* ARABIC</c>, <c>ROMAN</c>, <c>roman</c>,
-/// <c>ALPHABETIC</c> or <c>alphabetic</c> (<c>\* MERGEFORMAT</c> and <c>\* CHARFORMAT</c> change nothing). A field the counter cannot read leaves it untouched.
+/// The running number of one <c>SEQ</c> label, as Word 16 counts it (Docs/write-word-check.md, "Fields, captions and tables of contents (milestone 4.5b)"). <see cref="Next"/> applies one field in document order (only a
+/// field that <see cref="Counts"/>): <c>\r n</c> sets the number (a value that is no number sets 0), <c>\s n</c> starts again when a heading of level n or higher (announced through <see cref="NoteHeading"/>) stands
+/// between this field and the one before it of the same label, <c>\c</c> without <c>\n</c> repeats the current number (0 at a new start) and anything else counts on; the number is then written in the format of
+/// <c>\* ARABIC</c>, <c>ROMAN</c>, <c>roman</c>, <c>ALPHABETIC</c> or <c>alphabetic</c> (<c>\* MERGEFORMAT</c> and <c>\* CHARFORMAT</c> change nothing). A field in another format counts like any other; it only has no text.
 /// </summary>
 internal sealed class SeqCounter
 {
@@ -15,63 +16,63 @@ internal sealed class SeqCounter
         (1000, "m"), (900, "cm"), (500, "d"), (400, "cd"), (100, "c"), (90, "xc"), (50, "l"), (40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i"),
     ];
 
-    private readonly HashSet<int> _restarts = [];
+    private const int NoHeading = 10;
+
     private int _value;
 
-    /// <summary>A heading of that level (1 to 9) went by: a later field with <c>\s</c> of that level starts again.</summary>
-    public void NoteHeading(int level) => _restarts.Add(level);
+    // The highest heading (the lowest level number) since the last field of the label.
+    private int _heading = NoHeading;
 
-    /// <summary>The text of the field and the counter moved on, or null (and the counter untouched) when a switch or a value is outside what Write reads.</summary>
+    /// <summary>
+    /// Whether Word counts the field in its sequence: a closed <c>SEQ</c> field with a label alone (one that names a bookmark shows the number at that place instead), with switches Word knows for it (<c>\c \h \n \r \s \* \#</c>;
+    /// any other makes Word show an error), not deleted or moved away, and not part of a table of contents. It may be one Write does not update (hidden, another number format, in a tracked insertion, nested in another field).
+    /// </summary>
+    public static bool Counts(FieldSpan span)
+    {
+        ArgumentNullException.ThrowIfNull(span);
+        if (span.Support.Kind != FieldKind.Seq || !span.IsComplete || span.InDeletion || span.Instruction.ArgumentCount != 1
+            || span.Instruction.Switches.Any(s => s.Name is not ("c" or "h" or "n" or "r" or "s" or "*" or "#")))
+        {
+            return false;
+        }
+
+        for (var parent = span.Parent; parent is not null; parent = parent.Parent)
+        {
+            if (parent.Support.Kind == FieldKind.Toc)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>A heading of that level (1 to 9) went by: a later field with <c>\s</c> of that level or a deeper one starts again.</summary>
+    public void NoteHeading(int level) => _heading = Math.Min(_heading, level);
+
+    /// <summary>The counter moved on by a field that <see cref="Counts"/>; the text of the field, or null when it asks for a number format Write does not write.</summary>
     public string? Next(FieldInstruction instruction)
     {
         ArgumentNullException.ThrowIfNull(instruction);
-        if (!TryFormat(instruction, out var format))
-        {
-            return null;
-        }
-
-        int? set = null;
         if (instruction.Has("r"))
         {
-            if (!int.TryParse(instruction.ValueOf("r"), NumberStyles.None, CultureInfo.InvariantCulture, out var number))
-            {
-                return null;
-            }
-
-            set = number;
-        }
-
-        int? level = null;
-        if (instruction.Has("s"))
-        {
-            if (!int.TryParse(instruction.ValueOf("s"), NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed is < 1 or > 9)
-            {
-                return null;
-            }
-
-            level = parsed;
-        }
-
-        if (set is { } fixedNumber)
-        {
-            _value = fixedNumber;
+            _value = int.TryParse(instruction.ValueOf("r"), NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : 0;
         }
         else
         {
-            if (level is { } restart && _restarts.Remove(restart))
+            if (instruction.Has("s") && int.TryParse(instruction.ValueOf("s"), NumberStyles.None, CultureInfo.InvariantCulture, out var level) && level is >= 1 and <= 9 && _heading <= level)
             {
                 _value = 0;
             }
 
-            if (instruction.Has("c") && _value > 0)
+            if (!instruction.Has("c") || instruction.Has("n"))
             {
-                return Text(_value, format);
+                _value++;
             }
-
-            _value++;
         }
 
-        return Text(_value, format);
+        _heading = NoHeading;
+        return TryFormat(instruction, out var format) ? Text(_value, format) : null;
     }
 
     private enum Format

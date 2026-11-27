@@ -23,10 +23,15 @@ internal static class ReferenceNumbering
 
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-    public static IReadOnlyList<(Paragraph Paragraph, string Label)> Labels(WordDocument document)
+    public static IReadOnlyList<(Paragraph Paragraph, string Label)> Labels(WordDocument document) => [.. Count(document).Select(c => (c.Paragraph, c.Label))];
+
+    /// <summary>What <c>STYLEREF n \s</c> shows for the numbered paragraphs: the level text cut from its first to its last placeholder, with the numbers filled in (a bullet and a text without a number give nothing).</summary>
+    public static IReadOnlyList<(Paragraph Paragraph, string Numbers)> ChapterNumbers(WordDocument document) => [.. Count(document).Where(c => c.Numbers.Length > 0).Select(c => (c.Paragraph, c.Numbers))];
+
+    private static List<(Paragraph Paragraph, string Label, string Numbers)> Count(WordDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
-        var result = new List<(Paragraph, string)>();
+        var result = new List<(Paragraph, string, string)>();
         if (document.Numbering is not { } numbering)
         {
             return result;
@@ -86,7 +91,9 @@ internal static class ReferenceNumbering
                 }
             }
 
-            result.Add((paragraph, Text(numbering, instance, facts, level, count, has)));
+            var from = facts.Text.IndexOf('%', StringComparison.Ordinal);
+            var cut = facts.Format == "bullet" || from < 0 ? null : facts.Text[from..(facts.Text.LastIndexOf('%') + 2)];
+            result.Add((paragraph, Text(numbering, instance, facts, facts.Text, level, count, has), cut is null ? string.Empty : Text(numbering, instance, facts, cut, level, count, has)));
         }
 
         return result;
@@ -143,19 +150,19 @@ internal static class ReferenceNumbering
         return definition is null ? null : new LevelFacts(definition);
     }
 
-    private static string Text(NumberingDefinitions numbering, NumberingInstance instance, LevelFacts facts, int level, int[] count, bool[] has)
+    private static string Text(NumberingDefinitions numbering, NumberingInstance instance, LevelFacts facts, string text, int level, int[] count, bool[] has)
     {
         if (facts.Format == "bullet")
         {
-            return facts.Text;
+            return text;
         }
 
         var builder = new StringBuilder();
-        for (var i = 0; i < facts.Text.Length; i++)
+        for (var i = 0; i < text.Length; i++)
         {
-            if (facts.Text[i] == '%' && i + 1 < facts.Text.Length && facts.Text[i + 1] is >= '1' and <= '9')
+            if (text[i] == '%' && i + 1 < text.Length && text[i + 1] is >= '1' and <= '9')
             {
-                var referenced = facts.Text[i + 1] - '1';
+                var referenced = text[i + 1] - '1';
                 i++;
                 var other = referenced == level ? facts : LevelOf(numbering, instance, referenced);
                 var number = has[referenced] ? count[referenced] : other?.Start ?? 1;
@@ -163,7 +170,7 @@ internal static class ReferenceNumbering
             }
             else
             {
-                builder.Append(facts.Text[i]);
+                builder.Append(text[i]);
             }
         }
 

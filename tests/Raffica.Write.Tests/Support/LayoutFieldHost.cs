@@ -20,6 +20,8 @@ internal sealed class LayoutFieldHost(WordDocument document, DocumentLayout layo
 
     public string? NumberLabel(Paragraph paragraph) => _labels.NumberLabel(paragraph);
 
+    public string? ChapterNumber(Paragraph paragraph) => _labels.ChapterNumber(paragraph);
+
     public (int PageIndex, string PageText)? PageOf(TextPosition position)
     {
         PageQuestions++;

@@ -76,10 +76,10 @@ internal static class CaptionBuilder
     /// What a new caption at the place of <paramref name="placeholder"/> (a paragraph already in the document where the caption will stand) shows: the number of its <c>SEQ</c> field, counted like the refresh does (in document
     /// order, a heading of level n restarts the numbers that have <c>\s n</c>), and, for a chapter number, the label of the last Heading 1 above it (<c>Chapter</c> is null when there is none, which the caller refuses).
     /// </summary>
-    // Keep in step with FieldRefresh.State.Walk: the same walk, so the number a new caption carries equals the number the refresh gives.
+    // Keep in step with FieldRefresh.State.Walk: the same walk and the same fields counted (SeqCounter.Counts), so the number a new caption carries equals the number the refresh gives.
     public static (string Number, string? Chapter) Results(WordDocument document, Paragraph placeholder, string label, bool chapterNumber, IFieldHost? host)
     {
-        // Like the refresh, the counter of the label exists from its first usable field on: a heading that went by before that field restarts nothing.
+        // Like the refresh, the counter of the label exists from its first counted field on: before it there is nothing to restart.
         SeqCounter? counter = null;
         Paragraph? lastChapter = null;
         foreach (var paragraph in BookmarkOperations.ParagraphsOf(document.Body.Blocks))
@@ -105,7 +105,7 @@ internal static class CaptionBuilder
 
             foreach (var span in FieldView.InParagraph(paragraph))
             {
-                if (span.Parent is null && span.Support.Kind == FieldKind.Seq && FieldRefresh.IsUsable(span) && string.Equals(span.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase))
+                if (SeqCounter.Counts(span) && string.Equals(span.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase))
                 {
                     (counter ??= new SeqCounter()).Next(span.Instruction);
                 }
@@ -116,7 +116,7 @@ internal static class CaptionBuilder
         string? chapter = null;
         if (chapterNumber && lastChapter is not null)
         {
-            chapter = host?.NumberLabel(lastChapter) is { Length: > 0 } text ? FieldRefresh.TrimLabel(text) : "0";
+            chapter = host?.ChapterNumber(lastChapter) is { Length: > 0 } text ? text : "0";
         }
 
         return (number, chapter);
