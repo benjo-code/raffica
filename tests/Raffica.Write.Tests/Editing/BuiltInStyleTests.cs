@@ -228,6 +228,16 @@ public sealed class BuiltInStyleTests
         Refresh(editor, file.Model);
 
         Assert.Equal(ReferenceToc.Sentence, TextOf(TocDocuments.Entries(file.Model)[0]));
+
+        // A second refresh of the empty list writes nothing.
+        var count = file.Model.Styles!.Styles.Count;
+        var second = Refresh(editor, file.Model);
+        Assert.Empty(second.Content);
+        Assert.Null(second.Structural);
+        Assert.Equal(0, second.Written);
+        Assert.False(second.StylesAdded);
+        Assert.Equal(count, file.Model.Styles.Styles.Count);
+
         using (var empty = await SavedAndReadAgainAsync(file, folder, "still-empty.docx"))
         {
             AssertNoUndefinedStyle(empty.Model);

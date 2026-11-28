@@ -299,7 +299,7 @@ public sealed class TocEntryShapeTests
     [Fact]
     public void TheStopsOfAListWhoseEntryStylesHaveAnotherLanguageSurviveARefresh()
     {
-        // A German Word calls the style "toc 1" Verzeichnis1. The refresh writes Write's own id (a limit), and the stops of the entry stay with it.
+        // A German Word calls the style "toc 1" Verzeichnis1. The refresh finds the style by its name, so the entry keeps it, and the stops of the entry stay with it.
         const string german = "<w:style w:type=\"paragraph\" w:styleId=\"Verzeichnis1\"><w:name w:val=\"toc 1\"/></w:style>";
         var tabs = "<w:tabs><w:tab w:val=\"left\" w:pos=\"1500\"/><w:tab w:val=\"right\" w:leader=\"hyphen\" w:pos=\"9062\"/></w:tabs>";
         var document = Doc(Marked("Alpha", 1) + Entry("Verzeichnis1", tabs, "TOC \\o \"1-3\" \\h \\z \\u", "1.", "Alpha", 1) + End(), numbered: true, extraStyles: german);
@@ -307,6 +307,7 @@ public sealed class TocEntryShapeTests
         Editor(document).RefreshFields(new FakeFieldHost(document), RefreshScope.OrderBased);
 
         Assert.Equal("left:1500 right:9062/hyphen", TabText(Assert.Single(Entries(document))));
+        Assert.Equal("Verzeichnis1", Assert.Single(Entries(document)).Properties.StyleId);
     }
 
     [Theory]
@@ -725,7 +726,7 @@ public sealed class TocEntryShapeTests
         $"<w:p><w:pPr><w:pStyle w:val=\"TOC{entry.Level}\"/></w:pPr>{Start(instruction.Replace("\"&#10;\"", "\"&#10;\"", StringComparison.Ordinal))}<w:hyperlink w:anchor=\"{entry.Anchor}\">{Run(entry.Text)}</w:hyperlink></w:p>" + End();
 
     // Heading1 to Heading9, Normal (11 points, as in a document of Write) and Word's TOC2 and TOC3 indents; numbered documents give Heading1 to Heading3 the list "1.", "1.1." and "1.1.1.". <paramref name="tocStyles"/> replaces the indented TOC2 and TOC3.
-    // A TOC1 without properties of its own is added unless the styles given define one: the hand-written lists name it, as every list of Word names a style the file has.
+    // A TOC1 without properties of its own is added unless the styles given define that id or a style named "toc 1" (found by name, so a second one would take its place): the hand-written lists name it, as every list of Word names a style the file has.
     private static WordDocument Doc(string body, bool numbered = false, string extraStyles = "", string? tocStyles = null)
     {
         var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\"/><w:sz w:val=\"22\"/></w:rPr></w:style>"
@@ -738,7 +739,8 @@ public sealed class TocEntryShapeTests
             styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{number}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
         }
 
-        if (!(styles + extraStyles).Contains("w:styleId=\"TOC1\"", StringComparison.Ordinal))
+        var given = styles + extraStyles;
+        if (!given.Contains("w:styleId=\"TOC1\"", StringComparison.Ordinal) && !given.Contains("<w:name w:val=\"toc 1\"/>", StringComparison.Ordinal))
         {
             styles += "<w:style w:type=\"paragraph\" w:styleId=\"TOC1\"><w:name w:val=\"toc 1\"/><w:basedOn w:val=\"Normal\"/></w:style>";
         }
