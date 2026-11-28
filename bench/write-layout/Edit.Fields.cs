@@ -84,9 +84,17 @@ internal static partial class EditCommand
         FieldRefreshResult Refresh(IFieldHost asked)
         {
             var result = editor.RefreshFields(asked, RefreshScope.WithPages);
-            foreach (var change in result.Content)
+            if (result.StylesAdded)
             {
-                layout.ApplyEdit(change, Through());
+                format.Invalidate();
+                layout.Restyle(Through());
+            }
+            else
+            {
+                foreach (var change in result.Content)
+                {
+                    layout.ApplyEdit(change, Through());
+                }
             }
 
             if (result.Structural is { } record)

@@ -811,6 +811,13 @@ internal sealed partial class EditSession
         RaiseSelectionChanged();
     }
 
+    /// <summary>The style sheet gained styles outside an edit (a field refresh added entry styles): the editor's format, whose resolver snapshots the styles, is made again.</summary>
+    internal void FollowAddedStyles()
+    {
+        VerifyAccess();
+        _format.Invalidate(_tab.Docx.Model);
+    }
+
     /// <summary>Drops the layout the session does not follow (needs the edit lease): a refresh changed the model, so the other view is made again from it on its next use.</summary>
     internal void DropInactiveLayout() => DropOther(_tab.Runner);
 

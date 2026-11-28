@@ -85,7 +85,7 @@ public static class CrossReferences
     private const int MaxDisplay = 80;
 
     /// <summary>
-    /// The targets of a kind, in document order. Headings are the paragraphs with the style <c>Heading1</c> to <c>Heading9</c> (the line holds their number label and text); captions the paragraphs that hold a usable <c>SEQ</c> field of their
+    /// The targets of a kind, in document order. Headings are the paragraphs of a heading style (<c>heading 1</c> to <c>heading 9</c> by name; the line holds their number label and text); captions the paragraphs that hold a usable <c>SEQ</c> field of their
     /// own (the line is the caption); footnotes and endnotes the references of the body with their mark (the line is the mark and the beginning of the note); bookmarks the ones the user may see, by their name as it is (the editor finds the bookmark again by it; a name that starts with an
     /// underscore is Write's own and never listed). A line holds no control character and at most 80 characters.
     /// </summary>
@@ -108,6 +108,7 @@ public static class CrossReferences
             return found;
         }
 
+        var styles = new FieldStyles(document);
         foreach (var paragraph in BookmarkOperations.ParagraphsOf(document.Body.Blocks))
         {
             if (found.Count >= MaxTargets)
@@ -117,7 +118,7 @@ public static class CrossReferences
 
             switch (kind)
             {
-                case CrossRefTargetKind.Heading when FieldRefresh.HeadingLevel(paragraph) is not null:
+                case CrossRefTargetKind.Heading when styles.HeadingLevel(paragraph) is not null:
                     var text = ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text;
                     var label = host.NumberLabel(paragraph) is { Length: > 0 } number ? FieldRefresh.TrimLabel(number) : string.Empty;
                     var shown = Line((label.Length > 0 && text.Length > 0 ? label + " " : label) + text);

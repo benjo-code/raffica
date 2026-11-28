@@ -811,6 +811,48 @@ public sealed class FieldRefreshRunnerTests
         Assert.Equal(0, runner.Failures);
     }
 
+    // A list that names a level the file has no entry style for: the pass adds the style, which the layout and the session's format (both read the styles once) must see.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnEntryStyleTheRefreshAddsReachesTheLayoutAndTheSessionsFormat(bool withSession)
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.PagedTocBytes());
+        var model = h.Tab.Docx.Model;
+        Assert.Null(model.Styles!.Find("TOC1"));
+        if (withSession)
+        {
+            _ = h.Tab.EnsureEditor();
+        }
+
+        var runner = h.Tab.EnsureFields();
+        var layouts = new List<DocumentLayout>();
+        runner.AfterApply = layouts.Add;
+        runner.Notify(null);
+
+        await h.FireUntilIdleAsync();
+
+        Assert.Equal(0, runner.Failures);
+        Assert.NotEmpty(layouts);
+        Assert.NotNull(model.Styles.Find("TOC1"));
+        var entries = TocRefresh.Find(model.Body.Blocks)[0];
+        var first = (Paragraph)model.Body.Blocks[entries.First];
+        var second = (Paragraph)model.Body.Blocks[entries.First + 1];
+        Assert.Equal("TOC1", second.Properties.StyleId);
+        if (withSession)
+        {
+            Assert.Equal(5f, h.Tab.Editor!.ResolveParagraph(StoryRef.Body, second).SpaceAfter);
+        }
+
+        // The distance of two entries is the one a layout made now gives: it holds the spacing of the new style.
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.PageLayout.IsComplete, 30000);
+        var fresh = DocumentLayout.Create(model, h.Tab.Fonts, new LayoutOptions());
+        await fresh.LayOutRestAsync(null, CancellationToken.None);
+        static float Distance(DocumentLayout layout, Paragraph a, Paragraph b) =>
+            layout.Caret(new TextPosition(StoryRef.Body, b, 0), 0)!.Value.Top - layout.Caret(new TextPosition(StoryRef.Body, a, 0), 0)!.Value.Top;
+        Assert.Equal(Distance(fresh, first, second), Distance(h.Tab.Runner.PageLayout, first, second));
+    }
+
     // What the list says: the stored text of every paragraph of the first list (enough to tell that nothing was rewritten).
     private static string ModelBytes(WriteTab tab) =>
         TocRefresh.Find(tab.Docx.Model.Body.Blocks) is [var site, ..]

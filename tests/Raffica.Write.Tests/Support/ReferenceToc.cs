@@ -19,7 +19,7 @@ internal sealed record ExpectedToc(IList<Block> Container, int First, int Last, 
 /// <summary>
 /// The entries of the tables of contents of a document's body, counted from the model alone: its own walk over the headings (and captions), its own reading of the visible text and the outline levels, and its own check of what
 /// an entry paragraph says. It shares no code with <c>TocBuilder</c>, <c>TocRefresh</c>, <c>TocTabs</c> or <c>TocSpec</c>; only the field grammar (<see cref="FieldInstruction"/>, <see cref="TocRanges"/>) and the number labels of the host are
-/// shared. The rules, as Word has them: a heading is a paragraph of the style Heading1 to Heading9 by id (with <c>\u</c> also one with an outline level, its own or its style's) inside the levels of <c>\o</c>; its line is the visible text
+/// shared. The rules, as Word has them: which paragraphs are listed at which level and which style an entry gets is <see cref="ReferenceStyles"/>, inside the levels of <c>\o</c>; a line is the visible text
 /// (line breaks and tabs as spaces, hidden text and tracked deletions left out, trimmed), after the number label and what the list level puts behind it (a tab, or a space) when the host shows a label; a heading with no text is the label
 /// alone, and is left out without a label, when its paragraph mark is hidden, when it holds a page break or something else than text (a picture or a symbol, which Word would copy); a list takes the paragraphs that hold a
 /// <c>SEQ</c> of its label that Word counts (tracked insertions too, not deleted or moved away) and that is not hidden (<c>\h</c> without a format), with the whole text of the paragraph. Before a page number stands the first character
@@ -170,7 +170,8 @@ internal static class ReferenceToc
                 continue;
             }
 
-            var level = LevelOf(document, paragraph, instruction.Has("u"));
+            // A \u without \o lists the outline levels too.
+            var level = ReferenceStyles.Level(document, paragraph, instruction.Has("u"));
             if (level is null || level < from || level > to)
             {
                 continue;
@@ -258,44 +259,6 @@ internal static class ReferenceToc
         FieldView.InParagraph(paragraph).Any(f => f.Parent is null && f.Instruction.Name == "SEQ" && f.IsComplete && !f.InDeletion && f.Instruction.ArgumentCount == 1
             && f.Instruction.Switches.All(s => "chnrs*#".Contains(s.Name, StringComparison.Ordinal)) && !(f.Instruction.Has("h") && !f.Instruction.Has("*"))
             && string.Equals(f.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase));
-
-    private static int? LevelOf(WordDocument document, Paragraph paragraph, bool outline)
-    {
-        var id = paragraph.Properties.StyleId;
-        for (var level = 1; level <= 9; level++)
-        {
-            if (id == "Heading" + level.ToString(CultureInfo.InvariantCulture))
-            {
-                return level;
-            }
-        }
-
-        if (!outline)
-        {
-            return null;
-        }
-
-        if (paragraph.Properties.Get(W + "outlineLvl") is { } own)
-        {
-            return Outline(own);
-        }
-
-        var current = id is null ? null : document.Styles?.Find(id);
-        for (var depth = 0; current is not null && depth < 32; depth++)
-        {
-            if (current.ParagraphProperties.Get(W + "outlineLvl") is { } styled)
-            {
-                return Outline(styled);
-            }
-
-            current = current.BasedOn is { } parent ? document.Styles?.Find(parent) : null;
-        }
-
-        return null;
-    }
-
-    private static int? Outline(XElement element) =>
-        int.TryParse((string?)element.Attribute(W + "val"), NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value is >= 0 and <= 8 ? value + 1 : null;
 
     /// <summary>The visible text of a paragraph by the entry rules.</summary>
     public static string VisibleText(Paragraph paragraph, bool keepFirstTab = false)
@@ -411,7 +374,7 @@ internal static class ReferenceToc
                 Assert.True(
                     entry.Page ? (page is null ? line.StartsWith(entry.Line + toc.Separator, StringComparison.Ordinal) && line.Length > entry.Line.Length + toc.Separator.Length : line == entry.Line + toc.Separator + page) : line == entry.Line,
                     $"{label}: entry {k} of a table of contents reads another line than the heading (expected length {entry.Line.Length}, stored length {line.Length}, page {entry.Page})");
-                var style = toc.Figures ? "TableofFigures" : "TOC" + entry.Level.ToString(CultureInfo.InvariantCulture);
+                var style = ReferenceStyles.EntryStyle(document, entry.Level, toc.Figures);
                 Assert.True(paragraph.Properties.StyleId == style, $"{label}: entry {k} of a table of contents has the style {paragraph.Properties.StyleId}, not {style}");
                 if (entry.LabelTab)
                 {

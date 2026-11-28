@@ -400,12 +400,12 @@ internal sealed class FieldRefreshRunner : IDisposable
                 {
                     last = Refresher is { } seam ? seam(editor, _host, scope, blocks) : editor.RefreshFields(_host, scope, blocks);
                 }
-                catch (FieldRefreshException partial) when (partial.Content.Count > 0)
+                catch (FieldRefreshException partial) when (partial.Content.Count > 0 || partial.StylesAdded)
                 {
                     // The walk wrote part of the results before it failed: the layout is told of them now (under the lease), then the failure is handled like any other and the refresh is tried again.
                     content.AddRange(partial.Content);
                     layoutFailed = true;
-                    ApplyToLayout(partial.Content, forSettle);
+                    ApplyToLayout(partial.Content, partial.StylesAdded, forSettle);
                     layoutFailed = false;
                     if (partial.Structural is { } done)
                     {
@@ -441,16 +441,16 @@ internal sealed class FieldRefreshRunner : IDisposable
                     _pagesOwed = false;
                 }
 
-                if (last.Content.Count > 0)
+                if (last.Content.Count > 0 || last.StylesAdded)
                 {
                     content.AddRange(last.Content);
                     layoutFailed = true;
-                    ApplyToLayout(last.Content, forSettle);
+                    ApplyToLayout(last.Content, last.StylesAdded, forSettle);
                     layoutFailed = false;
                     if (own is { } pages)
                     {
                         // The save's own pages follow the results too, so the next pass reads the numbers of the document as it is now. When they cannot (a cancel, a failure) the results just written were never checked and stay owed.
-                        WithOwnPages(() => FollowOnOwnPages(pages, last.Content, token));
+                        WithOwnPages(() => FollowOnOwnPages(pages, last.Content, last.StylesAdded, token));
                         _pagesOwed |= own is null;
                     }
                 }
@@ -575,13 +575,9 @@ internal sealed class FieldRefreshRunner : IDisposable
     }
 
     // The results of a pass told to the save's own pages, which are then laid out to their end again.
-    private DocumentLayout? FollowOnOwnPages(DocumentLayout layout, IReadOnlyList<BlockChange> content, CancellationToken token)
+    private DocumentLayout? FollowOnOwnPages(DocumentLayout layout, IReadOnlyList<BlockChange> content, bool stylesAdded, CancellationToken token)
     {
-        foreach (var change in content)
-        {
-            layout.ApplyEdit(change, Math.Max(0, layout.LaidOutPages - 1));
-        }
-
+        Tell(layout, content, stylesAdded, Math.Max(0, layout.LaidOutPages - 1));
         return Complete(layout, token) ? layout : null;
     }
 
@@ -648,15 +644,20 @@ internal sealed class FieldRefreshRunner : IDisposable
 
     // The new results are told to the layouts that exist: the one the session follows (the other is dropped and made again on its next use), or, while there is no session, the pages layout and the strips layout alike. A save keeps every page that was
     // laid out; the timer path lays out through the page in view only and leaves the rest to the background.
-    private void ApplyToLayout(IReadOnlyList<BlockChange> content, bool forSettle)
+    private void ApplyToLayout(IReadOnlyList<BlockChange> content, bool stylesAdded, bool forSettle)
     {
         var session = _tab.Editor;
         var runner = _tab.Runner;
         if (session is not null)
         {
+            if (stylesAdded)
+            {
+                session.FollowAddedStyles();
+            }
+
             if (session.ActiveLayout is { } active)
             {
-                Apply(active, content, forSettle);
+                Apply(active, content, stylesAdded, forSettle);
             }
 
             session.DropInactiveLayout();
@@ -665,24 +666,36 @@ internal sealed class FieldRefreshRunner : IDisposable
 
         if (!runner.PageLayoutIsStale)
         {
-            Apply(runner.PageLayout, content, forSettle);
+            Apply(runner.PageLayout, content, stylesAdded, forSettle);
         }
 
         if (runner.FlowLayout is { } flow)
         {
-            Apply(flow, content, forSettle);
+            Apply(flow, content, stylesAdded, forSettle);
         }
     }
 
-    private void Apply(DocumentLayout layout, IReadOnlyList<BlockChange> content, bool forSettle)
+    private void Apply(DocumentLayout layout, IReadOnlyList<BlockChange> content, bool stylesAdded, bool forSettle)
     {
         var inView = forSettle ? 0 : _tab.PageInView?.Invoke(layout.Mode) ?? 0;
-        foreach (var change in content)
+        Tell(layout, content, stylesAdded, forSettle ? Math.Max(0, layout.LaidOutPages - 1) : inView);
+        AfterApply?.Invoke(layout);
+    }
+
+    // A layout takes the changed blocks one by one. Styles the pass added are unknown to its engine, which read the style sheet once: it starts over on a fresh one that reads the model as it is now, the changed blocks
+    // included (so they are not applied as well).
+    private static void Tell(DocumentLayout layout, IReadOnlyList<BlockChange> content, bool stylesAdded, int throughPage)
+    {
+        if (stylesAdded)
         {
-            layout.ApplyEdit(change, forSettle ? Math.Max(0, layout.LaidOutPages - 1) : inView);
+            layout.Restyle(throughPage);
+            return;
         }
 
-        AfterApply?.Invoke(layout);
+        foreach (var change in content)
+        {
+            layout.ApplyEdit(change, throughPage);
+        }
     }
 
     // A structural result (the paragraph count of a table of contents changed) belongs to the newest history step of the session's editor. The refresh itself already left a table of contents alone while a redo was pending

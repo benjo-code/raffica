@@ -18,8 +18,10 @@ public enum RefreshScope
 /// history step. <paramref name="Structural"/> is the change of the paragraph count of a table of contents (also among <paramref name="Content"/>, which the owner tells the layout; the owner attaches the record to the newest history step). <paramref name="NotUpdated"/> counts the fields Write left as they were (a field or switch outside
 /// the support table, a missing target, a field in a tracked change, a note, a header, a footer or a comment) and <paramref name="Written"/> the results it rewrote. <paramref name="Settled"/> is false only when a page result may still change: the document has page-based fields (<paramref name="PageFields"/>: top-level <c>PAGEREF</c> fields and tables of contents) and this pass either wrote something (the layout may flow differently now) or could not use the pages (<see cref="RefreshScope.OrderBased"/> or an incomplete layout).
 /// <paramref name="StructuralDeferred"/> is true when a table of contents was left as it was because its paragraph count changes and the history had a redo pending (the refresh was asked not to make a structural change): the owner looks again once the redo stack is empty.
+/// <paramref name="StylesAdded"/> is true when the pass added entry styles to the style sheet (a table of contents names a level the document has no style for yet): whatever read the styles before is stale, so the owner starts its layout
+/// over (<c>DocumentLayout.Restyle</c>) instead of applying <paramref name="Content"/> to it. Like the results, the styles are no history step: an undo leaves them.
 /// </summary>
-public sealed record FieldRefreshResult(IReadOnlyList<BlockChange> Content, DerivedRecord? Structural, int NotUpdated, int Written, bool Settled, bool StructuralDeferred = false, int PageFields = 0);
+public sealed record FieldRefreshResult(IReadOnlyList<BlockChange> Content, DerivedRecord? Structural, int NotUpdated, int Written, bool Settled, bool StructuralDeferred = false, int PageFields = 0, bool StylesAdded = false);
 
 /// <summary>
 /// The order-based refresh of field results in the body: <c>SEQ</c>, <c>STYLEREF 1 \s</c>, <c>REF</c> and <c>NOTEREF</c>. It walks the body in document order, carries the counters through every paragraph (every field Word counts, see
@@ -39,14 +41,15 @@ internal static class FieldRefresh
         // Page results are given only for the scope that asks for them and only from a complete layout; they depend on every block, so such a pass walks the whole body.
         var pagesOn = scope == RefreshScope.WithPages && host.IsComplete;
         var pagesCurrent = scope == RefreshScope.OrderBasedPagesCurrent;
-        var targets = pagesOn ? null : Targets(document, host, touched);
+        var styles = new FieldStyles(document);
+        var targets = pagesOn ? null : Targets(document, styles, host, touched);
         if (targets is { Count: 0 })
         {
             return new FieldRefreshResult([], null, 0, 0, true);
         }
 
-        var tocs = new TocRefresh(document, host, allowStructural, pagesOn);
-        var state = new State(host, body, targets, pagesOn, tocs.ParagraphsOfLists);
+        var tocs = new TocRefresh(document, styles, host, allowStructural, pagesOn);
+        var state = new State(styles, host, body, targets, pagesOn, tocs.ParagraphsOfLists);
         List<BlockChange> changes;
         TocPass? pass = null;
         try
@@ -78,7 +81,7 @@ internal static class FieldRefresh
                 // The walk failed and so does the account of it: what was written is not known, and the first failure is the one to report.
             }
 
-            throw new FieldRefreshException(partial, ex) { Structural = partialRecord };
+            throw new FieldRefreshException(partial, ex) { Structural = partialRecord, StylesAdded = tocs.StylesAdded };
         }
 
         if (pass is not null)
@@ -93,7 +96,7 @@ internal static class FieldRefresh
         var written = state.Written + (pass?.Written ?? 0);
         var pageFields = state.PageFields;
         var settled = pageFields == 0 || ((pagesOn || pagesCurrent) && written == 0 && !(pass?.Deferred ?? false));
-        return new FieldRefreshResult(changes, record, notUpdated, written, settled, pass?.Deferred ?? false, pageFields);
+        return new FieldRefreshResult(changes, record, notUpdated, written, settled, pass?.Deferred ?? false, pageFields, tocs.StylesAdded);
     }
 
     /// <summary>
@@ -102,6 +105,7 @@ internal static class FieldRefresh
     /// </summary>
     internal static bool CarriesPageAnchor(IReadOnlyList<BlockChange> touched, WordDocument document)
     {
+        var styles = new FieldStyles(document);
         foreach (var change in touched)
         {
             if (change.Added != change.OldBlocks.Count)
@@ -120,7 +124,7 @@ internal static class FieldRefresh
 
             foreach (var paragraph in BookmarkOperations.ParagraphsOf(blocks))
             {
-                if (paragraph.SectionBreak is not null || HeadingLevel(paragraph) is not null || TocBuilder.OutlineLevel(document, paragraph) is not null || HasFieldMarkup(paragraph))
+                if (paragraph.SectionBreak is not null || styles.CanBeListed(paragraph) || HasFieldMarkup(paragraph))
                 {
                     return true;
                 }
@@ -149,7 +153,7 @@ internal static class FieldRefresh
 
     // Null means every block. Otherwise the top-level indices of the touched blocks of the body, or every block when one of them (before or after the change) holds something other results depend on,
     // or when a change names a nested list of the body (a table cell, a content control): the enclosing block is not known there, so the whole body is walked.
-    private static HashSet<int>? Targets(WordDocument document, IFieldHost host, IReadOnlyList<BlockChange>? touched)
+    private static HashSet<int>? Targets(WordDocument document, FieldStyles styles, IFieldHost host, IReadOnlyList<BlockChange>? touched)
     {
         if (touched is null)
         {
@@ -182,15 +186,15 @@ internal static class FieldRefresh
             }
         }
 
-        return blocks.Any(b => DependedOn(b, document, host)) ? null : indices;
+        return blocks.Any(b => DependedOn(b, styles, host)) ? null : indices;
     }
 
     // A block that holds a heading, a bookmark marker, a note reference, a SEQ field or a numbered paragraph (its label can move the labels of other paragraphs).
-    private static bool DependedOn(Block block, WordDocument document, IFieldHost host)
+    private static bool DependedOn(Block block, FieldStyles styles, IFieldHost host)
     {
         foreach (var paragraph in BookmarkOperations.ParagraphsOf([block]))
         {
-            if (HeadingLevel(paragraph) is not null || TocBuilder.OutlineLevel(document, paragraph) is not null || IsNumbered(paragraph, document) || host.NumberLabel(paragraph) is not null)
+            if (styles.CanBeListed(paragraph) || IsNumbered(paragraph, styles) || host.NumberLabel(paragraph) is not null)
             {
                 return true;
             }
@@ -220,7 +224,7 @@ internal static class FieldRefresh
     private static readonly System.Xml.Linq.XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
     // A direct numPr, or one in the paragraph's style or the styles it is based on (a numPr with numId 0 is no list and still counts: the change may have switched it).
-    private static bool IsNumbered(Paragraph paragraph, WordDocument document)
+    private static bool IsNumbered(Paragraph paragraph, FieldStyles styles)
     {
         if (paragraph.Properties.Get(W + "numPr") is not null)
         {
@@ -228,14 +232,14 @@ internal static class FieldRefresh
         }
 
         var seen = 0;
-        for (var style = paragraph.Properties.StyleId is { } id ? document.Styles?.Find(id) : null; style is not null && seen < 32; seen++)
+        for (var style = paragraph.Properties.StyleId is { } id ? styles.Find(id) : null; style is not null && seen < 32; seen++)
         {
             if (style.ParagraphProperties.Get(W + "numPr") is not null)
             {
                 return true;
             }
 
-            style = style.BasedOn is { } parent ? document.Styles?.Find(parent) : null;
+            style = style.BasedOn is { } parent ? styles.Find(parent) : null;
         }
 
         return false;
@@ -278,9 +282,6 @@ internal static class FieldRefresh
     /// <summary>True when a refresh may write the field: a field of a supported name and switches that is closed and not in a tracked change.</summary>
     internal static bool IsUsable(FieldSpan span) =>
         span.Support.Kind != FieldKind.None && span.Support.IsSupported && span.IsComplete && !span.InTrackedChange;
-
-    internal static int? HeadingLevel(Paragraph paragraph) =>
-        paragraph.Properties.StyleId is { Length: 8 } id && id.StartsWith("Heading", StringComparison.Ordinal) && id[7] is >= '1' and <= '9' ? id[7] - '0' : null;
 
     // True when the paragraph has an instruction or a simple field anywhere: the cheap test before the fields are parsed.
     internal static bool HasFieldMarkup(Paragraph paragraph) =>
@@ -421,7 +422,7 @@ internal static class FieldRefresh
         return false;
     }
 
-    private sealed class State(IFieldHost host, IList<Block> body, HashSet<int>? targets, bool pagesOn, Func<HashSet<Paragraph>> tocParagraphs)
+    private sealed class State(FieldStyles styles, IFieldHost host, IList<Block> body, HashSet<int>? targets, bool pagesOn, Func<HashSet<Paragraph>> tocParagraphs)
     {
         private readonly Dictionary<int, Block> _olds = [];
         private readonly HashSet<int> _changed = [];
@@ -453,7 +454,7 @@ internal static class FieldRefresh
             Paragraph? lastChapter = null;
             foreach (var (top, paragraph) in _paragraphs)
             {
-                if (HeadingLevel(paragraph) is { } level)
+                if (styles.HeadingLevel(paragraph) is { } level)
                 {
                     foreach (var counter in _counters.Values)
                     {

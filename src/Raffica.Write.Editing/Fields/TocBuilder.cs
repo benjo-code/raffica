@@ -143,9 +143,10 @@ internal sealed record TocEntry(Paragraph Source, int Level, string Label, strin
 }
 
 /// <summary>
-/// Reads the entries of a table of contents from the body and makes the paragraphs of one, in Word's own shape: every entry is a paragraph of the style <c>TOC1</c> to <c>TOC9</c> (<c>TableofFigures</c> for a list) that holds a
-/// <c>w:hyperlink</c> to a hidden <c>_Toc</c> bookmark on the heading, with the number label, what follows it (a tab or a space), the text, the separator before the page number (a tab unless <c>\p</c> names another) and a
-/// <c>PAGEREF</c> field. The rules of an entry: a heading is a paragraph of the style <c>Heading1</c> to <c>Heading9</c> (by id, never by name), with <c>\u</c> also a paragraph with an outline level (its own or its style's); its text
+/// Reads the entries of a table of contents from the body and makes the paragraphs of one, in Word's own shape: every entry is a paragraph of the entry style of its level (<c>toc 1</c> to <c>toc 9</c>, <c>table of figures</c> for a list,
+/// found by name) that holds a <c>w:hyperlink</c> to a hidden <c>_Toc</c> bookmark on the heading, with the number label, what follows it (a tab or a space), the text, the separator before the page number (a tab unless <c>\p</c> names
+/// another) and a <c>PAGEREF</c> field. The rules of an entry: which paragraphs a list over headings takes and at which level is <see cref="FieldStyles.ListLevel"/> (a heading style, found by name, else the style outline level, with
+/// <c>\u</c> also the paragraph's own); its text
 /// is the visible text with line breaks and tabs read as spaces (the first tab of a caption stays, and what stands before it takes the place of a number), hidden text and tracked deletions left out; the label is the number label the host shows, and a heading without one has none; a heading with no text left is listed as its
 /// label alone, as Word does (see <see cref="IsListedWithoutText"/>), and left out without one; a heading in a table or a content control counts; the entries of a table of contents are not headings of another. The tab stops of the
 /// entries are <see cref="TocTabs"/>.
@@ -154,14 +155,8 @@ internal static class TocBuilder
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-    /// <summary>The style id of the entries of a list of figures or tables.</summary>
-    public const string FigureStyleId = "TableofFigures";
-
-    /// <summary>The id of the style of the entries of that level (<c>TOC1</c> to <c>TOC9</c>) or of a list.</summary>
-    public static string StyleIdFor(int level, bool figureList) => figureList ? FigureStyleId : "TOC" + level.ToString(CultureInfo.InvariantCulture);
-
     /// <summary>The entries of the specification, in document order.</summary>
-    public static List<TocEntry> Collect(WordDocument document, IFieldHost host, TocSpec spec, HashSet<Paragraph> excluded)
+    public static List<TocEntry> Collect(WordDocument document, FieldStyles styles, IFieldHost host, TocSpec spec, HashSet<Paragraph> excluded)
     {
         var entries = new List<TocEntry>();
         foreach (var paragraph in BookmarkOperations.ParagraphsOf(document.Body.Blocks))
@@ -186,7 +181,7 @@ internal static class TocBuilder
             }
             else
             {
-                if (LevelOf(document, paragraph, spec.Outline) is not { } found || found < spec.FirstLevel || found > spec.LastLevel)
+                if (styles.ListLevel(paragraph, spec.Outline) is not { } found || found < spec.FirstLevel || found > spec.LastLevel)
                 {
                     continue;
                 }
@@ -250,35 +245,6 @@ internal static class TocBuilder
     private static bool HoldsSequence(Paragraph paragraph, string label) =>
         FieldRefresh.HasFieldMarkup(paragraph)
         && FieldView.InParagraph(paragraph).Any(f => f.Parent is null && SeqCounter.Counts(f) && (!f.Instruction.Has("h") || f.Instruction.Has("*")) && string.Equals(f.Instruction.Argument, label, StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>The level of a heading paragraph: its <c>Heading1</c> to <c>Heading9</c> style id, else (<paramref name="outline"/>) its outline level, else null.</summary>
-    public static int? LevelOf(WordDocument document, Paragraph paragraph, bool outline) =>
-        FieldRefresh.HeadingLevel(paragraph) ?? (outline ? OutlineLevel(document, paragraph) : null);
-
-    /// <summary>The outline level (1 to 9) of the paragraph: its own <c>w:outlineLvl</c>, else the one of its style or the styles it is based on; level 10 (body text) and none give null.</summary>
-    public static int? OutlineLevel(WordDocument document, Paragraph paragraph)
-    {
-        if (ReadOutline(paragraph.Properties.Get(W + "outlineLvl")) is { } own)
-        {
-            return own;
-        }
-
-        var seen = 0;
-        for (var style = paragraph.Properties.StyleId is { } id ? document.Styles?.Find(id) : null; style is not null && seen < 32; seen++)
-        {
-            if (style.ParagraphProperties.Get(W + "outlineLvl") is { } element)
-            {
-                return ReadOutline(element);
-            }
-
-            style = style.BasedOn is { } parent ? document.Styles?.Find(parent) : null;
-        }
-
-        return null;
-    }
-
-    private static int? ReadOutline(XElement? element) =>
-        element is not null && int.TryParse((string?)element.Attribute(W + "val"), NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value is >= 0 and <= 8 ? value + 1 : null;
 
     /// <summary>
     /// The visible text of a paragraph as an entry shows it: trimmed, a tab or a line break read as one space, hidden text, instruction text and tracked deletions left out, field results kept. With <paramref name="keepFirstTab"/>, as Word reads
@@ -376,13 +342,13 @@ internal static class TocBuilder
     /// The paragraphs of the entries (the sentence of an empty list when there are none), detached and without the marks of the field. <paramref name="bookmarkOf"/> gives the hidden bookmark of an entry (null: none can be made, the entry is
     /// plain text) and <paramref name="pageOf"/> the page text of an entry's bookmark. <paramref name="tabsOf"/> gives the tab stops of a paragraph that has its style (the entry is null for the sentence): a new element, or null for none.
     /// </summary>
-    public static List<Paragraph> Entries(WordDocument document, TocSpec spec, IReadOnlyList<TocEntry> entries, Func<TocEntry, string?> bookmarkOf, Func<TocEntry, string?, string> pageOf, Func<TocEntry?, Paragraph, XElement?> tabsOf)
+    public static List<Paragraph> Entries(WordDocument document, FieldStyles styles, TocSpec spec, IReadOnlyList<TocEntry> entries, Func<TocEntry, string?> bookmarkOf, Func<TocEntry, string?, string> pageOf, Func<TocEntry?, Paragraph, XElement?> tabsOf)
     {
         var paragraphs = new List<Paragraph>(Math.Max(1, entries.Count));
         if (entries.Count == 0)
         {
             var sentence = new Paragraph();
-            sentence.Properties.StyleId = StyleIdFor(spec.FirstLevel, spec.IsFigureList);
+            sentence.Properties.StyleId = styles.EntryStyleId(spec.FirstLevel, spec.IsFigureList);
             if (tabsOf(null, sentence) is { } own)
             {
                 sentence.Properties.Set(W + "tabs", own);
@@ -397,7 +363,7 @@ internal static class TocBuilder
         {
             var bookmark = spec.NeedsBookmark(entry.Level) ? bookmarkOf(entry) : null;
             var paragraph = new Paragraph();
-            paragraph.Properties.StyleId = StyleIdFor(entry.Level, spec.IsFigureList);
+            paragraph.Properties.StyleId = styles.EntryStyleId(entry.Level, spec.IsFigureList);
             if (tabsOf(entry, paragraph) is { } tabs)
             {
                 paragraph.Properties.Set(W + "tabs", tabs);
@@ -457,50 +423,58 @@ internal static class TocBuilder
     }
 
     /// <summary>
-    /// Adds the paragraph styles the entries of the specification use when the document lacks them (<c>TOC1</c> to <c>TOC9</c> for the levels, <c>TableofFigures</c> for a list): spacing after, an indent per level.
-    /// Returns the change a step records (old and new are equal clones: the styles are made in place) or null when every style exists or the document has no style sheet.
+    /// Adds the entry styles of every level of the specification (or the style of a list) that the document lacks, for a new list (see <see cref="AddStyles"/>). Returns the change a step records (old and new are equal clones: the
+    /// styles are made in place) or null when every style exists or the document has no style sheet.
     /// </summary>
-    public static StyleChange? EnsureStyles(WordDocument document, TocSpec spec)
+    public static StyleChange? EnsureStyles(WordDocument document, FieldStyles styles, TocSpec spec)
     {
-        if (document.Styles is not { } sheet)
+        var made = AddStyles(document, styles, spec.IsFigureList, spec.IsFigureList ? [1] : Enumerable.Range(spec.FirstLevel, spec.LastLevel - spec.FirstLevel + 1));
+        return made.Count == 0
+            ? null
+            : new StyleChange(made[0].Clone(), made[0].Clone()) { Companions = [.. made.Skip(1).Select(s => new StyleChange(s.Clone(), s.Clone()))] };
+    }
+
+    /// <summary>
+    /// Adds the paragraph styles of the entries of those levels (or of a list of figures or tables) that the document has none for: the built-in name (<c>toc 1</c> to <c>toc 9</c>, <c>table of figures</c>), an id no style has
+    /// (<see cref="FieldStyles.EntryStyleId"/>), spacing after and an indent per level. Returns the styles made (none without a style sheet).
+    /// </summary>
+    public static IReadOnlyList<Style> AddStyles(WordDocument document, FieldStyles styles, bool figureList, IEnumerable<int> levels)
+    {
+        var made = new List<Style>();
+        if (document.Styles is null)
         {
-            return null;
+            return made;
         }
 
-        var made = new List<Style>();
-        var levels = spec.IsFigureList ? [1] : Enumerable.Range(spec.FirstLevel, spec.LastLevel - spec.FirstLevel + 1);
         foreach (var level in levels)
         {
-            var id = StyleIdFor(level, spec.IsFigureList);
-            if (sheet.Find(id) is not null)
+            if (styles.ExistingEntryStyleId(level, figureList) is not null)
             {
                 continue;
             }
 
-            var normal = sheet.Find("Normal") is not null;
+            var based = styles.BaseStyleId;
             var style = new Style
             {
-                Id = id,
+                Id = styles.EntryStyleId(level, figureList),
                 Type = "paragraph",
-                Name = spec.IsFigureList ? "table of figures" : "toc " + level.ToString(CultureInfo.InvariantCulture),
-                BasedOn = normal ? "Normal" : null,
-                Next = normal ? "Normal" : null,
+                Name = FieldStyles.EntryName(level, figureList),
+                BasedOn = based,
+                Next = based,
             };
             style.ParagraphProperties.Set(W + "spacing", new XElement(W + "spacing", new XAttribute(W + "after", "100")));
-            if (!spec.IsFigureList && level > 1)
+            if (!figureList && level > 1)
             {
                 style.ParagraphProperties.Set(W + "ind", new XElement(W + "ind", new XAttribute(W + "left", ((level - 1) * 220).ToString(CultureInfo.InvariantCulture))));
             }
 
             style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "uiPriority", new XAttribute(W + "val", "39")))));
             style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "unhideWhenUsed"))));
-            sheet.Styles.Add(style);
+            styles.Add(style);
             made.Add(style);
         }
 
-        return made.Count == 0
-            ? null
-            : new StyleChange(made[0].Clone(), made[0].Clone()) { Companions = [.. made.Skip(1).Select(s => new StyleChange(s.Clone(), s.Clone()))] };
+        return made;
     }
     // ---- what an entry paragraph says (the comparison of a new one with an old one) ---------------------------------------------------------------
 

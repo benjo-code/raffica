@@ -43,7 +43,7 @@ public static class CaptionRules
     /// <summary>
     /// The reason a caption cannot be inserted at <paramref name="at"/>, or null when the place takes one (the table of contents, the end of a section and the position of a chapter number are judged by
     /// <see cref="TextEditor.RefusalForCaption"/>, which knows the editor's state). A prefix document is refused first (<paramref name="prefixDocument"/>: the editor cannot see that the body was cut), then the story, then a
-    /// content control of the kinds text, combo box, drop-down list or date, then a chapter number without numbered headings (<see cref="HeadingNumbering.StateOf"/> is not On).
+    /// content control of the kinds text, combo box, drop-down list or date, then a chapter number without numbered headings (<see cref="HeadingsAreNumbered"/>).
     /// </summary>
     public static CaptionRefusal? Refusal(WordDocument document, TextPosition at, bool chapterNumber, bool prefixDocument = false)
     {
@@ -73,6 +73,16 @@ public static class CaptionRules
             return CaptionRefusal.RestrictedControl;
         }
 
-        return chapterNumber && HeadingNumbering.StateOf(document) != HeadingNumberingState.On ? CaptionRefusal.ChapterNeedsNumberedHeadings : null;
+        return chapterNumber && !HeadingsAreNumbered(document) ? CaptionRefusal.ChapterNeedsNumberedHeadings : null;
+    }
+
+    /// <summary>
+    /// Whether a chapter number can be given: the heading style 1 of the document (the built-in <c>heading 1</c>, found by name, whatever its id) carries a list. This is not the state of the heading numbering switch
+    /// (<see cref="HeadingNumbering.StateOf"/>), which knows the style id <c>Heading1</c> only.
+    /// </summary>
+    public static bool HeadingsAreNumbered(WordDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        return new FieldStyles(document).HeadingStyle(1)?.ParagraphProperties.NumberingId is > 0;
     }
 }

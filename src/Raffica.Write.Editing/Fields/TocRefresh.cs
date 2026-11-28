@@ -20,9 +20,12 @@ internal sealed record TocPass(List<BlockChange> Changes, List<BlockChange> Stru
 /// stays the same the paragraphs are changed in place (a content change, never recorded); when it changes the paragraphs are replaced (a structural change, which the caller records on the newest history step) unless
 /// <c>allowStructural</c> is false, when the table of contents is left as it is and the pass says so. Every heading an entry points at gets a hidden <c>_Toc</c> bookmark (an existing one is reused).
 /// </summary>
-internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool allowStructural, bool pagesOn = true)
+internal sealed class TocRefresh(WordDocument document, FieldStyles styles, IFieldHost host, bool allowStructural, bool pagesOn = true)
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+    /// <summary>True when the pass added entry styles to the style sheet.</summary>
+    public bool StylesAdded { get; private set; }
 
     private readonly List<BlockChange> _changes = [];
     private readonly List<BlockChange> _structural = [];
@@ -137,7 +140,7 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
         var key = string.Join('|', spec.FirstLevel, spec.LastLevel, spec.Outline, spec.Label?.ToUpperInvariant());
         if (!_entries.TryGetValue(key, out var entries))
         {
-            entries = TocBuilder.Collect(document, host, spec, excluded);
+            entries = TocBuilder.Collect(document, styles, host, spec, excluded);
             _entries[key] = entries;
         }
 
@@ -157,10 +160,13 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
         var tailSource = shape.TailParagraph ? null : (Paragraph)container[last];
         var tail = tailSource?.Inlines.Skip(shape.End).Select(i => i.Clone()).ToList() ?? [];
         var pages = StoredPages(old);
+        // The styles come before anything measures an entry or compares it.
+        AddStyles(spec, entries, old);
         // The old entries are read before the headings get any new bookmark: the tab stops of the list stay with its entries.
-        var previous = new TocPrevious(old, entries, entry => TocBuilder.StyleIdFor(entry.Level, spec.IsFigureList), _tabs ??= new TocTabs(document, host));
+        var previous = new TocPrevious(old, entries, entry => styles.EntryStyleId(entry.Level, spec.IsFigureList), _tabs ??= new TocTabs(styles, host));
         var proposed = TocBuilder.Entries(
             document,
+            styles,
             spec,
             entries,
             entry => _bookmarks.NameFor(entry.Source),
@@ -245,6 +251,26 @@ internal sealed class TocRefresh(WordDocument document, IFieldHost host, bool al
         _structural.Add(structural);
         _shifts[container] = _shifts.GetValueOrDefault(container) + finals.Count - old.Count;
         return true;
+    }
+
+    // A level (or a list of figures) the document has no entry style for gets one when the list is about to name its id anew. A list whose paragraphs name that id already is left as the file has it, so a refresh that changes
+    // nothing in a list adds nothing to the document.
+    private void AddStyles(TocSpec spec, List<TocEntry> entries, List<Paragraph> old)
+    {
+        var missing = entries.Select(e => e.Level).Distinct()
+            .Where(level => styles.ExistingEntryStyleId(level, spec.IsFigureList) is null)
+            .Where(level =>
+            {
+                var id = styles.EntryStyleId(level, spec.IsFigureList);
+                return !old.Any(p => p.Properties.StyleId == id);
+            })
+            .ToList();
+        if (TocBuilder.AddStyles(document, styles, spec.IsFigureList, missing).Count > 0)
+        {
+            StylesAdded = true;
+            // The indents of the entry styles are read again.
+            _tabs = null;
+        }
     }
 
     // Puts what the proposed paragraph says into the live one: the inlines and the properties; its section break and its unknown attributes stay.

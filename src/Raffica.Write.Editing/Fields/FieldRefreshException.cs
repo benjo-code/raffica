@@ -14,4 +14,7 @@ public sealed class FieldRefreshException(IReadOnlyList<BlockChange> content, Ex
 
     /// <summary>The structural change of a table of contents that was made before the failure (it is among <see cref="Content"/> too, and the owner still attaches it to the history), or null.</summary>
     public DerivedRecord? Structural { get; init; }
+
+    /// <summary>True when entry styles were added to the style sheet before the failure: the owner starts its layout over (<see cref="FieldRefreshResult.StylesAdded"/>).</summary>
+    public bool StylesAdded { get; init; }
 }

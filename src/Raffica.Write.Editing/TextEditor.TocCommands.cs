@@ -39,7 +39,7 @@ public sealed partial class TextEditor
 
     /// <summary>
     /// Inserts a table of contents (or a list of figures or tables when <paramref name="options"/> names a label) as one history step: the field <c>TOC \o "a-b" \h \z \u</c> (<c>\n</c> without page numbers,
-    /// <c>\h \z \c "label"</c> for a list), its entries in the styles <c>TOC1</c> to <c>TOC9</c> (<c>TableofFigures</c>; made as companions of the step when the document lacks them, see <see cref="EditResult.Style"/>), one
+    /// <c>\h \z \c "label"</c> for a list), its entries in the styles <c>toc 1</c> to <c>toc 9</c> (<c>table of figures</c>), found by name; made as companions of the step when the document lacks them, see <see cref="EditResult.Style"/>, one
     /// paragraph each, the begin, the instruction and the separate in the first paragraph and the end in the last, or the sentence of an empty list when there is no entry. An empty paragraph at <paramref name="at"/> is replaced; otherwise the
     /// paragraphs go above the paragraph when the position is its start and below it elsewhere. When no block would follow the field in its body, cell or content control, an empty paragraph goes after it (the edges of the
     /// field take no text). Every heading (caption) an entry points at gets a hidden <c>_Toc</c> bookmark, a derived change of the step (the paragraphs it
@@ -96,12 +96,13 @@ public sealed partial class TextEditor
         }
 
         // The page of the headings and the bookmarks are taken from the document as it is now; the headings that get a bookmark change in place (the step carries them as derived changes, below).
-        var entries = TocBuilder.Collect(_document, host, spec, excluded);
+        var styles = new FieldStyles(_document);
+        var entries = TocBuilder.Collect(_document, styles, host, spec, excluded);
         var bookmarks = new TocRefresh.TocBookmarks(_document);
         var top = ReferenceEquals(container, _document.Body.Blocks) ? index : Math.Max(0, TopLevelIndexOf(_document.Body.Blocks, at.Paragraph));
         // Word writes the right stop of the page numbers into every list, with dots where nothing leads to a page number; the stop after a number comes with each entry (TocTabs).
         var right = TocBuilder.RightTab(TocBuilder.TextWidthTwips(_document, top), options.PageNumbers && options.RightAlign ? options.Leader : TocLeader.Dots);
-        var tabs = new TocTabs(_document, host);
+        var tabs = new TocTabs(styles, host);
         // From here the model changes (the styles, the bookmarks of the headings, the paragraphs). Whatever throws in this part must not leave a changed model with no raise: the raise makes the history clear itself
         // and the snapshot tracker write the whole body (an unattributed raise), the same fail-safe as every other operation of the editor; the exception goes on to the session, which faults.
         StyleChange? style;
@@ -109,9 +110,10 @@ public sealed partial class TextEditor
         Block[] old;
         try
         {
-            style = TocBuilder.EnsureStyles(_document, spec);
+            style = TocBuilder.EnsureStyles(_document, styles, spec);
             made = TocBuilder.Entries(
                 _document,
+                styles,
                 spec,
                 entries,
                 entry => bookmarks.NameFor(entry.Source),

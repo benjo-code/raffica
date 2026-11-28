@@ -91,7 +91,7 @@ public sealed partial class TextEditor
             return null;
         }
 
-        if (chapterNumber && HeadingNumbering.StateOf(_document) != HeadingNumberingState.On)
+        if (chapterNumber && !CaptionRules.HeadingsAreNumbered(_document))
         {
             LastCaptionRefusal = CaptionRefusal.ChapterNeedsNumberedHeadings;
             return null;

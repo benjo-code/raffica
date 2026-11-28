@@ -17,7 +17,7 @@ internal sealed record ExpectedField(Paragraph Paragraph, int Ordinal, string In
 /// The rules (spec table of supported fields): a field has a result only when it is complete, stands in no tracked change, is not nested in another field and is inside the support table. <c>SEQ</c> numbers per label (ignoring case) in
 /// document order, and Word counts more fields than Write writes: every closed one with the label alone and switches of <c>\c \h \n \r \s \* \#</c> that is not deleted or moved away and not part of a table of contents (nested ones,
 /// hidden ones, other formats and tracked insertions too); <c>\r n</c> sets the number (no number: 0), a heading of level n or higher between two fields of a label makes a <c>\s n</c> field start again, <c>\c</c> without <c>\n</c>
-/// repeats the number; the formats are ARABIC, ROMAN, roman, ALPHABETIC and alphabetic; <c>STYLEREF 1 \s</c> is the number of the last <c>Heading1</c> paragraph up to and including the field's own, without the text of its level around it; <c>REF</c> is the text of the bookmark's range inside one paragraph (a deleted range left out,
+/// repeats the number; the formats are ARABIC, ROMAN, roman, ALPHABETIC and alphabetic; a heading is a paragraph of a heading style (<see cref="ReferenceStyles"/>); <c>STYLEREF 1 \s</c> is the number of the last paragraph of heading level 1 up to and including the field's own, without the text of its level around it; <c>REF</c> is the text of the bookmark's range inside one paragraph (a deleted range left out,
 /// the results of the fields inside it as they are expected to be) or with <c>\n</c> or <c>\r</c> the label of its paragraph without trailing periods; <c>NOTEREF</c> is the mark of the first note reference in the range.
 /// </para>
 /// </summary>
@@ -35,7 +35,7 @@ internal static class ReferenceFields
 
         foreach (var paragraph in paragraphs)
         {
-            var level = HeadingOf(paragraph);
+            var level = ReferenceStyles.Heading(document, paragraph);
             if (level is { } heading)
             {
                 foreach (var label in labels.Values)
@@ -182,20 +182,6 @@ internal static class ReferenceFields
     private static string InstructionOf(FieldSpan field) => field.Instruction.Name;
 
     private static bool Counts(FieldSpan field) => field.Support.IsSupported && field.IsComplete && !field.InTrackedChange;
-
-    private static int? HeadingOf(Paragraph paragraph)
-    {
-        var id = paragraph.Properties.StyleId;
-        for (var level = 1; level <= 9; level++)
-        {
-            if (id == "Heading" + level.ToString(CultureInfo.InvariantCulture))
-            {
-                return level;
-            }
-        }
-
-        return null;
-    }
 
     private static string? Sequence(Label label, FieldInstruction instruction)
     {

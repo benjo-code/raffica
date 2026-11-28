@@ -20,7 +20,7 @@ internal sealed partial class PageView
         return new CaptionContext(
             CaptionLabels.Known(model),
             onTable ? CaptionLabels.Table : CaptionLabels.Figure,
-            HeadingNumbering.StateOf(model) == HeadingNumberingState.On,
+            CaptionRules.HeadingsAreNumbered(model),
             label => CaptionLabels.WordFor(model, label, ui));
     }
 

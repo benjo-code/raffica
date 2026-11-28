@@ -197,6 +197,9 @@ internal sealed class FieldSteps
     /// <summary>How many page results (PAGEREF fields and table of contents entries) were compared with the independent page count.</summary>
     public int PageResultsCompared { get; private set; }
 
+    /// <summary>How many refresh passes added entry styles.</summary>
+    public int StylesAddedPasses { get; private set; }
+
     /// <summary>How many bookmarks a whole-range delete took away with their text.</summary>
     public int RemovedByDelete { get; private set; }
 
@@ -324,7 +327,7 @@ internal sealed class FieldSteps
         if (chapter)
         {
             var inside = TocParagraphs();
-            var first = paragraphs.FindIndex(p => FieldRefresh.HeadingLevel(p) == 1 && !inside.Contains(p));
+            var first = paragraphs.FindIndex(p => ReferenceStyles.Heading(_model, p) == 1 && !inside.Contains(p));
             paragraphs = first < 0 ? [] : [.. paragraphs.Skip(first + 1).Where(p => !inside.Contains(p))];
         }
 
@@ -561,7 +564,7 @@ internal sealed class FieldSteps
     private List<Paragraph> Headings()
     {
         var inside = TocParagraphs();
-        return [.. Paragraphs().Where(p => FieldRefresh.HeadingLevel(p) is not null && !inside.Contains(p))];
+        return [.. Paragraphs().Where(p => ReferenceStyles.Heading(_model, p) is not null && !inside.Contains(p))];
     }
 
     // Brings every list right first, so that the step after it is the only change; false when the refresh had to wait for a redo (then nothing about the step can be judged by an undo).
@@ -716,16 +719,17 @@ internal sealed class FieldSteps
     {
         var fresh = await SettleAsync(label);
         var inside = TocParagraphs();
-        var candidates = Paragraphs().Where(p => !inside.Contains(p) && FieldRefresh.HeadingLevel(p) is null && TextLength(p) > 0).ToList();
+        var candidates = Paragraphs().Where(p => !inside.Contains(p) && ReferenceStyles.Heading(_model, p) is null && TextLength(p) > 0).ToList();
         var level = random.Next(1, 4);
-        if (candidates.Count == 0 || _model.Styles?.Find("Heading" + level) is null)
+        var style = ReferenceStyles.BuiltIn(_model, "heading " + level.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (candidates.Count == 0 || style is null)
         {
             return Refuse();
         }
 
         var paragraph = candidates[random.Next(candidates.Count)];
         var range = new TextRange(new TextPosition(StoryRef.Body, paragraph, 0), new TextPosition(StoryRef.Body, paragraph, TextLength(paragraph)));
-        if (!await CheckAsync(Editor.ApplyParagraphStyle(range, "Heading" + level), label, required: false))
+        if (!await CheckAsync(Editor.ApplyParagraphStyle(range, style), label, required: false))
         {
             return false;
         }
@@ -768,7 +772,7 @@ internal sealed class FieldSteps
     {
         var fresh = await SettleAsync(label);
         var body = _model.Body.Blocks;
-        var starts = Enumerable.Range(0, body.Count).Where(i => body[i] is Paragraph p && FieldRefresh.HeadingLevel(p) is not null).ToList();
+        var starts = Enumerable.Range(0, body.Count).Where(i => body[i] is Paragraph p && ReferenceStyles.Heading(_model, p) is not null).ToList();
         if (starts.Count == 0 || body.Count < 3)
         {
             return Refuse();
@@ -776,7 +780,7 @@ internal sealed class FieldSteps
 
         var index = starts[random.Next(starts.Count)];
         var count = 1;
-        while (index + count < body.Count && count < 6 && !(body[index + count] is Paragraph next && FieldRefresh.HeadingLevel(next) is not null))
+        while (index + count < body.Count && count < 6 && !(body[index + count] is Paragraph next && ReferenceStyles.Heading(_model, next) is not null))
         {
             count++;
         }
@@ -947,9 +951,18 @@ internal sealed class FieldSteps
                 Assert.False(result.StructuralDeferred && !Editor.History.CanRedo, label + ": a refresh waited for a redo that is not pending");
             }
 
-            foreach (var change in result.Content)
+            // A pass that added entry styles starts the layout over, as the runner does: its engine read the style sheet once.
+            if (result.StylesAdded)
             {
-                _layout.ApplyEdit(change, Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1));
+                StylesAddedPasses++;
+                _layout.Restyle(2);
+            }
+            else
+            {
+                foreach (var change in result.Content)
+                {
+                    _layout.ApplyEdit(change, Math.Max(1, (_layout.Locate(Math.Min(change.First, Math.Max(0, _model.Body.Blocks.Count - 1)))?.Page ?? 0) + 1));
+                }
             }
 
             await _layout.LayOutRestAsync(null, CancellationToken.None);
@@ -967,6 +980,7 @@ internal sealed class FieldSteps
         var again = Editor.RefreshFields(host, RefreshScope.WithPages);
         Assert.Empty(again.Content);
         Assert.Null(again.Structural);
+        Assert.False(again.StylesAdded, label + ": a second refresh added styles");
         Written += written;
         Compared++;
         RanPerKind[(int)_kind]++;

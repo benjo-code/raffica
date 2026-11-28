@@ -257,7 +257,7 @@ public sealed partial class TextEditor
         switch (target.Kind)
         {
             case CrossRefTargetKind.Heading:
-                return FieldRefresh.HeadingLevel(paragraph) is null ? null : new Extent(paragraph, 0, paragraph, length, null);
+                return new FieldStyles(_document).HeadingLevel(paragraph) is null ? null : new Extent(paragraph, 0, paragraph, length, null);
             case CrossRefTargetKind.Caption:
                 return CaptionExtent(paragraph, map, kind, out refusal);
             case CrossRefTargetKind.Footnote or CrossRefTargetKind.Endnote:

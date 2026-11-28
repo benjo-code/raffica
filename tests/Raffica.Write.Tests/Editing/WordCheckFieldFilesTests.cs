@@ -540,6 +540,115 @@ public sealed class WordCheckFieldFilesTests
         await SaveAsync(file, folder, name, pictureOnly ? ["TOC \\o \"1-1\" \\n \\h \\z \\u"] : []);
     }
 
+    // ---- a German file --------------------------------------------------------------------------------------------------------------
+
+    // The bytes of a document of Write as a German Word names it: German style ids with the English built-in names, the entry styles of two levels and of the list of figures, none for level 3.
+    private static async Task<byte[]> GermanBytes(DocxFile file, string folder)
+    {
+        var path = Path.Combine(folder, "fields-german.docx");
+        await file.SaveAsync(path, TestContext.Current.CancellationToken);
+        using var buffer = new MemoryStream();
+        buffer.Write(await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
+        using (var archive = new ZipArchive(buffer, ZipArchiveMode.Update, leaveOpen: true))
+        {
+            foreach (var name in archive.Entries.Select(e => e.FullName).Where(n => n.StartsWith("word/", StringComparison.Ordinal) && n.EndsWith(".xml", StringComparison.Ordinal)).ToList())
+            {
+                var entry = archive.GetEntry(name)!;
+                string xml;
+                using (var reader = new StreamReader(entry.Open(), Encoding.UTF8))
+                {
+                    xml = reader.ReadToEnd();
+                }
+
+                if (name == "word/styles.xml")
+                {
+                    XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+                    var styles = XDocument.Parse(xml);
+                    styles.Root!.Elements(w + "style").Where(s => (string?)s.Attribute(w + "styleId") is { } id && id.StartsWith("TOC", StringComparison.Ordinal) && id is not ("TOC1" or "TOC2")).Remove();
+                    styles.Root.Add(new XElement(
+                        w + "style",
+                        new XAttribute(w + "type", "paragraph"),
+                        new XAttribute(w + "styleId", "Abbildungsverzeichnis"),
+                        new XElement(w + "name", new XAttribute(w + "val", "table of figures")),
+                        new XElement(w + "basedOn", new XAttribute(w + "val", "Normal")),
+                        new XElement(w + "next", new XAttribute(w + "val", "Normal"))));
+                    xml = styles.ToString(SaveOptions.DisableFormatting);
+                }
+
+                foreach (var (english, german) in new[] { ("Normal", "Standard"), ("Caption", "Beschriftung"), ("TOC1", "Verzeichnis1"), ("TOC2", "Verzeichnis2") }.Concat(Enumerable.Range(1, 9).Select(n => ("Heading" + n.ToString(CultureInfo.InvariantCulture), "berschrift" + n.ToString(CultureInfo.InvariantCulture)))))
+                {
+                    // Only references and ids: w:val and w:styleId of exactly that value (the names are lower case or hold a space).
+                    xml = xml.Replace($"w:val=\"{english}\"", $"w:val=\"{german}\"", StringComparison.Ordinal).Replace($"w:styleId=\"{english}\"", $"w:styleId=\"{german}\"", StringComparison.Ordinal);
+                }
+
+                // The one name that reads like an id.
+                xml = xml.Replace("<w:name w:val=\"Standard\"", "<w:name w:val=\"Normal\"", StringComparison.Ordinal);
+                entry.Delete();
+                using var writer = new StreamWriter(archive.CreateEntry(name).Open(), new UTF8Encoding(false));
+                writer.Write(xml);
+            }
+        }
+
+        return buffer.ToArray();
+    }
+
+    // A file with the style ids of a German Word: lists are inserted into it and brought current (one without the outline switch, whose headings only their style names), a level without an entry style gets one, captions take
+    // the chapter number and cross-references find the headings.
+    [Fact]
+    public async Task AFileWithGermanStyleIdsIsSavedForWord()
+    {
+        var folder = Folder();
+        var lines = new List<(string? Style, string Text)> { (null, "Contents stand here."), (null, "Headings alone stand here."), (null, "Figures stand here.") };
+        for (var chapter = 1; chapter <= 3; chapter++)
+        {
+            lines.Add(("Heading1", $"Chapter heading {chapter}"));
+            lines.AddRange(Filler($"Opening {chapter}", 14));
+            lines.Add(("Heading2", $"Section heading {chapter}"));
+            lines.Add((null, $"A picture of chapter {chapter}."));
+            lines.AddRange(Filler($"Middle {chapter}", 10));
+            lines.Add(("Heading3", $"Subsection heading {chapter}"));
+            lines.AddRange(Filler($"Closing {chapter}", 8));
+        }
+
+        lines.Add((null, "See the section: "));
+        var (english, first) = Build([.. lines]);
+        byte[] bytes;
+        using (english)
+        {
+            Number(english, first);
+            bytes = await GermanBytes(english, folder);
+        }
+
+        using var file = DocxFile.Open(bytes);
+        var editor = EditorOf(file);
+        Assert.Null(file.Model.Styles!.Find("Heading1"));
+        Assert.Null(file.Model.Styles.Find("TOC3"));
+        for (var chapter = 1; chapter <= 3; chapter++)
+        {
+            Did(editor.InsertCaption(End(Para(file, $"A picture of chapter {chapter}.")), "Figure", $": Picture {chapter}", CaptionPlace.Below, true, "Figure", HostOf(file)), "a figure caption with a chapter number");
+        }
+
+        Did(editor.InsertToc(End(Para(file, "Contents stand here.")), s_contents with { LastLevel = 2 }, HostOf(file)), "a table of contents");
+        Did(editor.InsertToc(End(Para(file, "Headings alone stand here.")), s_contents with { LastLevel = 2 }, HostOf(file)), "a second table of contents");
+        Did(editor.InsertToc(End(Para(file, "Figures stand here.")), s_contents with { Label = "Figure" }, HostOf(file)), "a list of figures");
+        var target = CrossReferences.Targets(file.Model, HostOf(file), CrossRefTargetKind.Heading)[^1];
+        Did(editor.InsertCrossReference(End(Para(file, "See the section: ")), target, CrossRefKind.Text, HostOf(file)), "a reference to a heading");
+        Settle(file, editor);
+
+        // The lists as another program writes them: three levels, the second without the outline switch. The refresh adds the third level and the style it needs.
+        foreach (var (index, instruction) in new[] { (0, " TOC \\o \"1-3\" \\h \\z \\u "), (1, " TOC \\o \"1-3\" \\h \\z ") })
+        {
+            var site = TocRefresh.Find(file.Model.Body.Blocks)[index];
+            ((Paragraph)site.Container[site.First]).Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<InstructionText>().First().Text = instruction;
+        }
+
+        file.Model.Edits.Raise();
+        Settle(file, editor);
+        Assert.Equal("toc 3", file.Model.Styles.Find("TOC3")!.Name);
+
+        await SaveAsync(file, folder, "fields-german.docx");
+    }
+
     // ---- removing ------------------------------------------------------------------------------------------------------------------
 
     // Removes every table of contents of the body, one command each, as the app does with the caret in it; returns how many there were.

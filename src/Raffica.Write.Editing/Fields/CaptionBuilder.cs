@@ -5,31 +5,15 @@ namespace Raffica.Write.Editing;
 
 /// <summary>
 /// Makes the paragraph of a caption in Word's own shape: the label word, a space, the <c>SEQ</c> field and the text; with a chapter number the word, a space, <c>STYLEREF 1 \s</c>, a hyphen, <c>SEQ ... \s 1</c> and the text.
-/// The paragraph has the <c>Caption</c> style (made as a companion step when the document lacks it). A new caption carries the number the refresh would give, worked out here from the model alone (the same counter,
+/// The paragraph has the caption style (the built-in <c>caption</c>, found by name; made as a companion step when the document lacks it). A new caption carries the number the refresh would give, worked out here from the model alone (the same counter,
 /// the same order), so the caret never lands on a caption that shows a wrong number.
 /// </summary>
 internal static class CaptionBuilder
 {
-    /// <summary>The id of the caption paragraph style.</summary>
+    /// <summary>The id of a caption paragraph style Write makes.</summary>
     public const string StyleId = "Caption";
 
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-
-    /// <summary>The id of the paragraph style that is the caption style of the document (<c>Caption</c>, or any paragraph style named "caption" in a file whose ids are localized), or null when it has none.</summary>
-    public static string? ExistingStyleId(WordDocument document)
-    {
-        if (document.Styles is not { } sheet)
-        {
-            return null;
-        }
-
-        if (sheet.Find(StyleId) is { } byId && string.Equals(byId.Type, "paragraph", StringComparison.OrdinalIgnoreCase))
-        {
-            return byId.Id;
-        }
-
-        return sheet.Styles.FirstOrDefault(s => string.Equals(s.Type, "paragraph", StringComparison.OrdinalIgnoreCase) && string.Equals(s.Name, "caption", StringComparison.OrdinalIgnoreCase))?.Id;
-    }
 
     /// <summary>
     /// Adds the caption style to the style sheet when the document has none (the look of the blank document's: 9 pt, italic, grey, a little room around). Returns the change a step records (old and new are equal clones:
@@ -37,20 +21,17 @@ internal static class CaptionBuilder
     /// </summary>
     public static StyleChange? EnsureStyle(WordDocument document, out string? styleId)
     {
-        styleId = ExistingStyleId(document);
-        if (styleId is not null || document.Styles is not { } sheet)
+        var styles = new FieldStyles(document);
+        styleId = styles.CaptionStyleId;
+        if (styleId is not null || document.Styles is null)
         {
             return null;
         }
 
-        // The id Caption may be taken by a style of another kind (a character style): the paragraph style then gets the first free Caption1, Caption2, ... and the paragraph uses that.
-        var id = StyleId;
-        for (var n = 1; sheet.Find(id) is not null; n++)
-        {
-            id = StyleId + n.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        var style = new Style { Id = id, Type = "paragraph", Name = "caption", BasedOn = sheet.Find("Normal") is null ? null : "Normal", Next = sheet.Find("Normal") is null ? null : "Normal" };
+        // The id Caption may be taken by another style: the caption style then gets the first free Caption1, Caption2, ... and the paragraph uses that.
+        var id = styles.FreeId(StyleId);
+        var based = styles.BaseStyleId;
+        var style = new Style { Id = id, Type = "paragraph", Name = "caption", BasedOn = based, Next = based };
         style.ParagraphProperties.Set(W + "spacing", new XElement(W + "spacing", new XAttribute(W + "before", "60"), new XAttribute(W + "after", "200"), new XAttribute(W + "line", "240"), new XAttribute(W + "lineRule", "auto")));
         style.RunProperties.Set(W + "i", new XElement(W + "i"));
         style.RunProperties.Set(W + "iCs", new XElement(W + "iCs"));
@@ -60,7 +41,7 @@ internal static class CaptionBuilder
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "uiPriority", new XAttribute(W + "val", "35")))));
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "unhideWhenUsed"))));
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "qFormat"))));
-        sheet.Styles.Add(style);
+        styles.Add(style);
         styleId = id;
         return new StyleChange(style.Clone(), style.Clone());
     }
@@ -74,7 +55,7 @@ internal static class CaptionBuilder
 
     /// <summary>
     /// What a new caption at the place of <paramref name="placeholder"/> (a paragraph already in the document where the caption will stand) shows: the number of its <c>SEQ</c> field, counted like the refresh does (in document
-    /// order; <c>\s n</c> restarts the number when a heading of level n or higher, a lower level number, stands since the previous field of the label), and, for a chapter number, the label of the last Heading 1 above it (<c>Chapter</c> is null when there is none, which the caller refuses).
+    /// order; <c>\s n</c> restarts the number when a heading of level n or higher, a lower level number, stands since the previous field of the label), and, for a chapter number, the label of the last paragraph of the heading style 1 above it (<c>Chapter</c> is null when there is none, which the caller refuses).
     /// </summary>
     // Keep in step with FieldRefresh.State.Walk: the same walk and the same fields counted (SeqCounter.Counts), so the number a new caption carries equals the number the refresh gives.
     public static (string Number, string? Chapter) Results(WordDocument document, Paragraph placeholder, string label, bool chapterNumber, IFieldHost? host)
@@ -82,6 +63,7 @@ internal static class CaptionBuilder
         // Like the refresh, the counter of the label exists from its first counted field on: before it there is nothing to restart.
         SeqCounter? counter = null;
         Paragraph? lastChapter = null;
+        var styles = new FieldStyles(document);
         foreach (var paragraph in BookmarkOperations.ParagraphsOf(document.Body.Blocks))
         {
             if (ReferenceEquals(paragraph, placeholder))
@@ -89,7 +71,7 @@ internal static class CaptionBuilder
                 break;
             }
 
-            if (FieldRefresh.HeadingLevel(paragraph) is { } level)
+            if (styles.HeadingLevel(paragraph) is { } level)
             {
                 counter?.NoteHeading(level);
                 if (level == 1)

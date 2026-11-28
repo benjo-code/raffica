@@ -258,6 +258,49 @@ public sealed class FieldOracleTests
         TestContext.Current.SendDiagnosticMessage($"page results {seed}: {steps.PageResultsCompared} compared, {steps.SettlePasses} passes over {steps.Compared} steps");
     }
 
+    // The page results document as a German Word names its styles (numbered headings, the entry style of one level only): the fields know the built-in styles by name, and the refresh adds the entry styles the lists lack, which
+    // starts the layout over.
+    private static WordDocument German()
+    {
+        var model = WithPageResults();
+        foreach (var paragraph in BookmarkOperations.ParagraphsOf(model.Body.Blocks))
+        {
+            if (paragraph.Properties.StyleId is { } id)
+            {
+                paragraph.Properties.StyleId = id.Replace("Heading", "berschrift", StringComparison.Ordinal);
+            }
+        }
+
+        var styles = GermanDocuments.Standard() + GermanDocuments.Headings(numbered: true) + GermanDocuments.Style("Beschriftung", "caption") + GermanDocuments.Style("Verzeichnis1", "toc 1");
+        var german = LayoutModel.Document(string.Empty, LayoutModel.StylesPart(styles), LayoutModel.NumberingPart(GermanDocuments.Numbering()));
+        model.Styles = german.Styles;
+        model.Numbering = german.Numbering;
+        return model;
+    }
+
+    [Theory]
+    [InlineData(41)]
+    [InlineData(42)]
+    public async Task StepsOnAGermanDocumentEqualAFullLayoutAndTheReferenceCount(int seed)
+    {
+        var model = German();
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var steps = new FieldSteps(model, layout, new LayoutOptions());
+
+        await steps.RunAsync(new Random(seed), 30, "german " + seed);
+
+        Assert.True(steps.StylesAddedPasses > 0, "no refresh added an entry style");
+        Assert.True(steps.PageResultsCompared > 0, "no page result was compared with the independent count");
+        foreach (var kind in new[] { FieldStepKind.Refresh, FieldStepKind.InsertCaption, FieldStepKind.InsertChapterCaption, FieldStepKind.InsertCrossReference, FieldStepKind.InsertToc, FieldStepKind.InsertFigureList, FieldStepKind.AddHeading })
+        {
+            Assert.True(steps.RanPerKind[(int)kind] > 0, $"the step kind {kind} never changed anything (ran per kind: {string.Join(", ", Enum.GetValues<FieldStepKind>().Select(k => k + " " + steps.RanPerKind[(int)k]))})");
+        }
+
+        Assert.DoesNotContain(model.Styles!.Styles, s => s.Id is "Heading1" or "Normal" or "Caption");
+        var entries = TocRefresh.Find(model.Body.Blocks).SelectMany(s => Enumerable.Range(s.First, s.Last - s.First + 1).Select(i => ((Paragraph)s.Container[i]).Properties.StyleId)).OfType<string>().ToList();
+        Assert.All(entries, id => Assert.NotNull(model.Styles.Find(id)));
+    }
+
     // The skip needs both outcomes under test: typing that moves no page (the pass is skipped and the stored page results still equal the independent count) and typing that moves one (the page loop runs and ends in the same state).
     [Fact]
     public async Task TypingThatMovesNoPageSkipsThePagePassAndTypingThatMovesOneDoesNot()

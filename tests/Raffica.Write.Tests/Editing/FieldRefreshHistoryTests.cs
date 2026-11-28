@@ -153,12 +153,13 @@ public sealed class FieldRefreshHistoryTests
     {
         using var folder = new TempFolder();
         var path = folder.File("half.docx");
-        DocxBuilder.WithBody(
+        DocxBuilder.WithStyles(
             path,
             P(Run("Chapter"), "Heading1")
                 + P(Run("Figure ") + Field("SEQ Figure", "5"))
                 + P(Run("In ") + Field("STYLEREF 1 \\s", "7"))
-                + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>");
+                + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr>",
+            LayoutModel.StylesPart("<w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/></w:style>"));
         using var file = DocxFile.Open(path);
         var model = file.Model;
         var layout = await SectionOracleTests.LaidAsync(model);

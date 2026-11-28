@@ -6,10 +6,10 @@ namespace Raffica.Write.Editing;
 
 /// <summary>
 /// The left tab stop after the number of an entry of a table of contents, as Word writes it (checked in Word 16, <c>Docs/write-word-check.md</c>). Without one the tab after the number goes to the right-aligned stop of the page number
-/// and the text is pushed to the right edge. Word takes the end of the number on the first line plus 12 points; the stop is the left indent of the first of the styles <c>TOC1</c> to <c>TOC9</c>, in that order, that lies behind that
-/// place (a style the document does not have has Word's own indent, 11 points per level), else the place itself.
+/// and the text is pushed to the right edge. Word takes the end of the number on the first line plus 12 points; the stop is the left indent of the first of the styles <c>toc 1</c> to <c>toc 9</c> (found by name), in that order, that
+/// lies behind that place (a style the document does not have has Word's own indent, 11 points per level), else the place itself.
 /// </summary>
-internal sealed class TocTabs(WordDocument document, IFieldHost host)
+internal sealed class TocTabs(FieldStyles styles, IFieldHost host)
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
@@ -184,28 +184,27 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
     private static int? PositionOf(XElement tab) => int.TryParse((string?)tab.Attribute(W + "pos"), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value) ? value : null;
 
     /// <summary>
-    /// The style id Write gives an entry for the style with Word's built-in name of one: a document of another language calls the style <c>toc 1</c> by another id (<c>Verzeichnis1</c>), and its entries are the same entries.
-    /// Any other id is answered as it is.
+    /// The style id Write gives an entry for the style that has Word's built-in name of one: a second style of such a name (Word reads it as the first) holds the same entries. Any other id is answered as it is.
     /// </summary>
     public string? EntryStyle(string? id)
     {
-        if (id is null || document.Styles?.Find(id)?.Name is not { } name)
+        if (id is null || styles.Find(id)?.Name is not { } name)
         {
             return id;
         }
 
-        for (var level = 1; level <= 9; level++)
+        for (var level = 0; level <= 9; level++)
         {
-            if (string.Equals(name, LevelName(level), StringComparison.OrdinalIgnoreCase))
+            // Level 0 stands for the list of figures.
+            var figures = level == 0;
+            if (string.Equals(name, FieldStyles.EntryName(level, figures), StringComparison.OrdinalIgnoreCase))
             {
-                return TocBuilder.StyleIdFor(level, false);
+                return styles.ExistingEntryStyleId(level, figures) ?? id;
             }
         }
 
-        return string.Equals(name, "table of figures", StringComparison.OrdinalIgnoreCase) ? TocBuilder.FigureStyleId : id;
+        return id;
     }
-
-    private static string LevelName(int level) => "toc " + level.ToString(CultureInfo.InvariantCulture);
 
     // The tabs with Word's stop behind the number of the entry added, when the predicate says so for the stop the tab would go to now and the place of the new one.
     private XElement? WithStop(TocEntry entry, Paragraph owner, XElement? tabs, Func<LineStop?, int, bool> needed)
@@ -271,7 +270,7 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
         return tabs;
     }
 
-    // The left indents of TOC1 to TOC9: of the style with that id, or with Word's name for it (a document of another language has another id), else Word's own.
+    // The left indents of toc 1 to toc 9: of the style of that name, else Word's own.
     private int[] Levels()
     {
         if (_levels is not null)
@@ -282,17 +281,14 @@ internal sealed class TocTabs(WordDocument document, IFieldHost host)
         _levels = new int[9];
         for (var level = 1; level <= 9; level++)
         {
-            var id = TocBuilder.StyleIdFor(level, false);
-            var name = LevelName(level);
-            var style = document.Styles?.Find(id) ?? document.Styles?.Styles.FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (style is null)
+            if (styles.ExistingEntryStyleId(level, false) is not { } id)
             {
                 _levels[level - 1] = (level - 1) * BuiltInIndent;
                 continue;
             }
 
             var probe = new Paragraph();
-            probe.Properties.StyleId = style.Id;
+            probe.Properties.StyleId = id;
             _levels[level - 1] = host.MeasureLine(probe, string.Empty).LeftIndent;
         }
 
