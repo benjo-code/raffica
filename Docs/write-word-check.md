@@ -237,6 +237,7 @@ pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit
 | `fields-bookmarks.docx` | A bookmark, references to its text and page after the text changed, chapter captions. |
 | `fields-thesis.docx` | The corpus thesis with one more heading, its table of contents brought current. |
 | `fields-mixed.docx` | Supported fields beside unsupported ones (`DATE`, `SEQ \h`, `PAGEREF \p`, `REF \w`). |
+| `fields-german.docx` | A file with the style ids of a German Word (no `toc 3` style): captions with chapter numbers, two tables of contents (one without `\u`) brought to three levels by the refresh, a list of figures, a cross-reference to a heading. |
 | `fields-removed-contents.docx`, `fields-removed-every-list.docx` | Remove table of contents: the table of contents removed while the list of figures stays, then the list of figures too; a cross-reference to a heading stays. |
 | `probe-removed-contents*.docx` | Removing hand-written lists: a `_Toc` bookmark a `PAGEREF` outside still uses, another bookmark inside an entry with a `REF` to it, a list alone in a content control and in a table cell, a list after a table at the end of the body, of a cell and of a content control, and a list between two tables. |
 | `fields-deleted-bookmarks.docx` | Delete bookmark: a bookmark in a paragraph (with references to its text and page), one over two paragraphs, a point and one in a table cell; one bookmark stays. |
@@ -298,6 +299,26 @@ pwsh tools/word-field-results.ps1 <folder>\probe-control.docx        # must exit
 | A table last in a table cell | Word does not open the file. | Follows: Remove table of contents leaves an empty paragraph (before the second check it left the table last). |
 | Two tables with nothing between them | Read as one table. | Follows: Remove table of contents leaves an empty paragraph between them. |
 | A table last in the body or in a content control | Opens, with a paragraph after the table. | Remove table of contents leaves an empty paragraph there too. |
+
+### Built-in style names (probed 2026-11-28, Word 16.0, German)
+
+Hand-written packages over a document a German Word made (style ids `Standard`, `berschrift1`, `Verzeichnis1`, `Beschriftung`; names `Normal`, `heading 1`, `toc 1`, `caption`), fields updated through automation.
+
+| Case | Word 16 | Write |
+| --- | --- | --- |
+| Which styles are headings (`TOC \o`, `SEQ \s`, `STYLEREF 1`) | A paragraph style named `heading N` in any case, whatever its id (`zz1` named `heading 1`, `Heading1` named `Heading 1`), without `w:outlineLvl` too, also one without `w:type`. Not: the id `Heading1` with another name or none, a `w:pStyle` that names no style, a character style, a name with aliases (`heading 1,Kapitel`), a style marked `w:customStyle="1"` (Word renames it, `Überschrift 11`), a style based on a heading, a style or paragraph with an outline level. | Follows. |
+| A paragraph without `w:pStyle`, or one naming no paragraph style | Takes the default paragraph style: its outline level, and its heading level when it is `heading N`. | Follows. |
+| Two styles of one built-in name | Read as one, the first (`heading 1` twice: both sets of paragraphs are headings and become `berschrift1`; `toc 1` twice: the first). | Follows (both are headings; entries take the first). |
+| Style outline level | The first style of the `basedOn` chain with a `w:outlineLvl` (9: body text) or that is a heading. | Follows. |
+| `TOC \o` without `\u` | Headings at their level (a direct `w:outlineLvl`, also 9, ignored), other paragraphs at their style outline level; a direct level alone lists nothing. | Follows (before: only headings by id). |
+| `TOC \o ... \u`, `TOC \u` | Headings at their level; else the direct `w:outlineLvl` when there is one (9: not listed), else the style outline level. | Follows (before: a direct 9 fell back to the style). |
+| Entry styles | By name (`toc N`, `table of figures` in any case); a `w:customStyle` style of that name is renamed and a built-in one made; a style with the id `TOC1` and another name is not used. Where the file has none, Word makes one (renaming a custom style that holds the id it wants). | Follows; the style Write makes takes a free id (`TOC3`, `TOC31`) and Write renames nothing. |
+| Caption style (`InsertCaption`) | The built-in style named `caption` in any case; not the id `Caption` with another name, not a custom style of that name. Where there is none Word makes one based on the default paragraph style. | Follows. |
+| The sentence of an empty table of contents | Written in the default paragraph style. | **Differs:** the entry style of the first level (as before). |
+
+Check of the change (2026-11-28, Word 16.0, German, Windows 11, through automation, repair off): the 50 files of `WordCheckFieldFilesTests`, `fields-german.docx` among them, all open (`word-open-check.ps1` exit 0); `word-field-results.ps1` on 49 of them: exit 0, no DIFFERENT result, the page and expected differences of the rows above, none in `fields-german.docx`; `probe-control.docx`: exit 1 as it must. The two documents a German Word made (a table of contents with and without `\u`, a list of figures, captions with and without chapter numbers, a cross-reference), refreshed by Write with nothing changed: no block written and no style added (before the change the list without `\u` became the sentence of an empty list and the list of figures lost its style); the saved files open and every field result is Word's. `fields-german.docx` exported to PDF as saved and after "Update table" and looked at beside Write's drawing: the three lists are alike in all three; Word's update moves the titles of levels 2 and 3 sideways by a few pixels. The file lacks `toc 4` to `toc 9`, and the new positions fit an indent of 240 twips per missing level where Write takes 220 (read from the page images, not from the saved stops).
+
+**Not changed, seen in this check:** the indent of a `toc N` style Write makes, and the indent it assumes for a level the file has no style for, stay at 220 twips per level; a document a German Word made with 12 point text indents `toc 2` by 240.
 
 What is not read by the scripts and stays open for a person: the owner's own look at the rendered pages (those of 2026-11-27 were looked at as exported images), the links, clicking a link of a list or a reference, Word's own "Update field" on a page someone looks at, and a thesis-sized comparison of page numbers (the pagination differs, see the thesis rows of 4.4b).
 
