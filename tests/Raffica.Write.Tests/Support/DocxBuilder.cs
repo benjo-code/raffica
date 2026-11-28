@@ -199,6 +199,15 @@ internal static class DocxBuilder
         }
     }
 
+    /// <summary>A document with a body and a styles part (complete part XML).</summary>
+    public static void WithStyles(string path, string bodyXml, string stylesXml)
+    {
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        var main = package.AddMainDocumentPart();
+        WriteMain(main, bodyXml);
+        WritePart(main.AddNewPart<StyleDefinitionsPart>(), stylesXml);
+    }
+
     /// <summary>A document with a body, a styles part and a numbering part (both complete part XML).</summary>
     public static void WithStylesAndNumbering(string path, string bodyXml, string stylesXml, string numberingXml)
     {

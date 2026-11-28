@@ -1097,15 +1097,20 @@
         {
           "id": "4.5.2",
           "title": "Fields: captions, cross-references and tables of contents (4.5b)",
-          "status": "open",
+          "status": "in-progress",
+          "plan": "superpowers/plans/2026-11-26-milestone-04-5b-bookmarks-captions-cross-references-and-tables-of-contents.md",
           "prerequisites": ["4.5.1"],
           "goal": "Captions, cross-references, a table of contents and lists of figures and tables are always current, with results written from Write's layout.",
           "tasks": [
-            { "text": "Bookmarks", "done": false },
-            { "text": "Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`", "done": false }
+            { "text": "Bookmarks", "done": true },
+            { "text": "Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`; fields Write does not fully understand keep Word's stored result and are marked", "done": true },
+            { "text": "Measure the commands and the settle (engine bench, app switch, budget row)", "done": true }
           ],
           "acceptance": [
-            { "text": "Fields are current after every edit that moves them (tests)", "done": false }
+            { "text": "Fields are current after every edit that moves them, and after its undo and redo; the incremental layout equals a full layout and the results equal an independent count of the model (tests)", "done": true, "evidence": "`FieldOracleTests` (with `FieldSteps`), `SnapshotCacheOracleTests`, `DerivedHistoryTests`, `FieldSettleTests` (also the real refresh on the thesis against a fresh layout); `RAFFICA_REQUIRE_OCR=1`, all seven test projects on 2026-11-27 before the whole-branch review: 10296 tests, 0 failed, 127 skipped; the review fixes added `TocEdgeTests`, `BookmarkReuseTests` and the writing-view save tests of `FieldSettleTests` and `SaveSettleTests`. Named limits (nested pages, other stories) are in the decision" },
+            { "text": "Word opens files made with the bookmark, caption, cross-reference and table-of-contents commands without repair, and Word's own field update gives the same results except page numbers (owner, recorded)", "done": false, "evidence": "By script on the Windows PC, 2026-11-27: all 49 files of `WordCheckFieldFilesTests` open with no repair (`word-open-check.ps1`), `word-field-results.ps1` finds page differences and the recorded ones only (text only: it cannot see layout). A look at the exported pages the same day found three bugs in the tables of contents (entries of numbered headings broken over two lines, the right-alignment option lost, empty numbered headings missing), fixed the same day and looked at again as images (again after the two tab stop fixes of the task review, and after the re-review with the renumbered list over a style stop and the captions that hold tabs); open: the owner's acceptance of the recorded differences (`Docs/write-word-check.md`) and a look at the rendered files" },
+            { "text": "A field command and a settle on the generated thesis take at most the fixed limit set from the first measurement, and typing stays within 16 ms with a table of contents present (measured on all three machines)", "done": false, "evidence": "Windows PC only, 2026-11-27: worst command median 50.11 ms of 75, typing worst p95 5.39 ms of 16 (Native AOT build of commit c1c2f52, after the review fixes; after the table of contents fixes, build of commit 74b0c11, worst command median 63.99 ms, `Docs/DECISIONS.md`); the settle is recorded and has no limit yet. Open: `gh workflow run measure.yml --ref dev -f platform=<linux|macos> -f target=write -f note=\"<machine>\"` after the merge" },
+            { "text": "A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac: the References tab, the cards, the bar and a table of contents that follows an edit (owner)", "done": false }
           ]
         },
         {
@@ -1234,6 +1239,10 @@
     }
   ],
   "backlog": [
+    {
+      "title": "Write: built-in styles by name outside the fields",
+      "text": "The fields find Word's built-in styles by name (4.5b, `FieldStyles`); the heading numbering switch, promote and demote (`HeadingNumbering`, `TextEditor.Outline`, `ListCatalog`), the footnote and endnote styles and `TableGrid` still go by the English style ids, so in a file of a German Word the switch is unavailable, the outline commands refuse and Write adds its own note and table styles beside the file's."
+    },
     {
       "title": "Write: cheaper refusal checks on a large table (4.5a follow-up)",
       "text": "Every command of the Table tab asks the editor whether it may run, and each answer (`RefusalFor<Op>`) clones the whole table, so a refresh of the tab costs about 42 ms on a table of 500 rows by 3 columns (16 checks, 2.6 ms each; the clone is 2.7 ms and two grid maps 0.6 ms each; Windows PC, JIT, `TableFactsCostTests`, 2026-11-25). The refresh runs at a typing pause (100 ms debounce) and only while the Table tab is shown; `TableFactsSource` memoizes per model, revision, selection and object selection, so it is paid once per change. Two cheap ways were looked at and left: a clone of the structure without cell content (no refusal depends on content, so the refusals stay equal, but three Model classes get a second clone and the equality needs a proof over the corpus tables) and a structure fingerprint that lets a text edit inside a cell skip the checks (an invalidation rule that must know every property a refusal reads). Done when the refresh of the Table tab on a 500-row table takes at most 4 ms."
@@ -1429,6 +1438,14 @@
     {
       "title": "Third-party licences of the Write projects",
       "text": "Extend `tools/licenses.cs` and the third-party notices to the Write projects (Open XML SDK `DocumentFormat.OpenXml` and `.Framework` 3.5.1, `System.IO.Packaging`, transitive packages) before Write ships. `PackageList.Projects` lists only `src/Raffica.Pdf` and `src/Raffica.Cli`, so the check is blind to the SDK (all declare MIT in their NuGet metadata). See `Docs/DECISIONS.md`, \"Raffica Write: document model and DOCX package layer (M4.1)\"."
+    },
+    {
+      "title": "Write: a cheaper field refresh (4.5b follow-up)",
+      "text": "Measured on the Windows PC on 2026-11-27 (decision \"Raffica Write: the fields limit (M4.5b)\"): a pause after an edit that touches a heading, a field, a bookmark, a table cell or a content control, or that moves a block to another page, walks the whole body on the UI thread (40 to 90 ms on the thesis, about 188 ms after a table of contents is inserted); a view far below a rewritten list that moves the pagination pays nearly a full layout there (465 ms against 8 ms near the list). Ideas: a page pass that reads only the entries whose block moved; a nested change that names its top-level block instead of forcing a whole walk; telling the layout of a rewritten list only through the list and leaving the pages in view to the background. Each needs an oracle case (`FieldOracleTests`) before it may replace the full path."
+    },
+    {
+      "title": "Write: field differences from Word left after 4.5b",
+      "text": "A heading that is only a picture or another object is left out of a table of contents (Word lists it with a copy of the picture); bookmark names are ASCII only (Word takes letters such as Ü, so \"Übersicht\" is refused); no chapter prefix (`w:chapStyle`) in page numbers; a new document's caption words are English for a German user because the blank document's language is fixed to `en-US`."
     },
     {
       "title": "View follows the moved heading after an outline move",

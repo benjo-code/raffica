@@ -27,8 +27,20 @@ internal enum ObjectBlock
     /// <summary>There is no paragraph at the caret.</summary>
     NoPosition,
 
+    /// <summary>The caret is in a table of contents, which updates itself: nothing is inserted into it.</summary>
+    InsideToc,
+
+    /// <summary>The caret is in a content control that holds one line, which takes no caption.</summary>
+    CaptionRestricted,
+
+    /// <summary>The caret is in a content control that holds plain text only, which takes no cross-reference.</summary>
+    CrossRefRestricted,
+
     /// <summary>Back to the text needs the caret in a note.</summary>
     NotInNote,
+
+    /// <summary>Remove table of contents needs the caret in one (an edge of the field counts).</summary>
+    NoToc,
 }
 
 /// <summary>What the rules of the object commands need to know about the caret; <paramref name="Block"/> is the reason the asked command cannot run.</summary>
@@ -51,7 +63,41 @@ internal static class ObjectWording
         ObjectBlock.RestrictedControl => WriteStrings.ReasonNoteRestricted,
         ObjectBlock.NoPosition => WriteStrings.ReasonSectionNotInBody,
         ObjectBlock.NotInNote => WriteStrings.ReasonNoteNotInNote,
+        ObjectBlock.InsideToc => WriteStrings.NoteTocProtected,
+        ObjectBlock.CaptionRestricted => WriteStrings.ReasonCaptionRestricted,
+        ObjectBlock.CrossRefRestricted => WriteStrings.ReasonCrossRefRestricted,
+        ObjectBlock.NoToc => WriteStrings.ReasonTocNone,
         _ => null,
+    };
+
+    /// <summary>The block of a refusal of the editor to insert a caption (the chapter number and the end of a section depend on the choice of the card and are worded as notes when the caption is made).</summary>
+    public static ObjectBlock BlockOf(CaptionRefusal refusal) => refusal switch
+    {
+        CaptionRefusal.Prefix => ObjectBlock.PrefixDocument,
+        CaptionRefusal.RestrictedControl => ObjectBlock.CaptionRestricted,
+        CaptionRefusal.InsideToc => ObjectBlock.InsideToc,
+        CaptionRefusal.SectionEnd or CaptionRefusal.ChapterNeedsNumberedHeadings => ObjectBlock.None,
+        _ => ObjectBlock.NoPosition,
+    };
+
+    /// <summary>The block of a refusal of the editor to put a cross-reference at the caret (what the target and the choice allow is worded as a note when the reference is made).</summary>
+    public static ObjectBlock BlockOf(CrossRefRefusal refusal) => refusal switch
+    {
+        CrossRefRefusal.Prefix => ObjectBlock.PrefixDocument,
+        CrossRefRefusal.RestrictedControl => ObjectBlock.CrossRefRestricted,
+        CrossRefRefusal.InsideToc => ObjectBlock.InsideToc,
+        CrossRefRefusal.NoPosition or CrossRefRefusal.NotInBody => ObjectBlock.NoPosition,
+        _ => ObjectBlock.None,
+    };
+
+    /// <summary>The block of a refusal of the editor to insert or remove a table of contents at the caret (the levels and the label are the card's: a note when the answer is run).</summary>
+    public static ObjectBlock BlockOf(TocRefusal refusal) => refusal switch
+    {
+        TocRefusal.Prefix => ObjectBlock.PrefixDocument,
+        TocRefusal.InsideToc => ObjectBlock.InsideToc,
+        TocRefusal.NothingToRemove => ObjectBlock.NoToc,
+        TocRefusal.LevelRange or TocRefusal.LabelNotAllowed => ObjectBlock.None,
+        _ => ObjectBlock.NoPosition,
     };
 
     /// <summary>The block of a refusal of the editor.</summary>
@@ -67,12 +113,12 @@ internal static class ObjectWording
 
 /// <summary>
 /// Reads <see cref="ObjectCommandFacts"/> for the rules of the note commands of the Insert tab, lazily per command: nothing exists before the first question, and nothing is read for a tab without an editing
-/// session (the prefix refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer is remembered for the model, its revision and the selection. The asks come
+/// session (the prefix refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer is remembered for the model, its edit stamp and the selection. The asks come
 /// from the refresh of the ribbon, never from the key path. The later object commands (tables, pictures) join this source.
 /// </summary>
 internal sealed class ObjectFactsSource
 {
-    private ((WordDocument Model, int Revision, TextRange Range) Key, Computed Value)? _known;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, Computed Value)? _known;
 
     /// <summary>How many times the place of the caret was worked out for the facts (tests; 0 before the first ask of an object command).</summary>
     public int Reads { get; private set; }
@@ -90,6 +136,12 @@ internal sealed class ObjectFactsSource
         if (!back && tab.Docx.IsPrefix)
         {
             return new ObjectCommandFacts(ObjectBlock.PrefixDocument);
+        }
+
+        // A bookmark command is offered in either view; only a prefix document refuses it.
+        if (WriteCommandIds.IsBookmark(id))
+        {
+            return ObjectCommandFacts.Permissive;
         }
 
         if (!back && writingView)
@@ -114,7 +166,7 @@ internal sealed class ObjectFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_known is not { } known || !known.Key.Equals(key))
         {
             try

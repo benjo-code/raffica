@@ -16,7 +16,7 @@ namespace Raffica.Write;
 /// second animation frame after the first sharp page of the new tab. Every line uses the invariant culture and ASCII keys (they are not
 /// localized); a run that does not finish ends with exit code 3 after 30 s (the message names the real timeout); a scroll run with no document
 /// ends with exit code 1. <c>--measure-typing</c> types at eight places of the document in both views and writes one row per case and view (see <c>Measurement.Typing.cs</c>;
-/// its watchdog is 240 s); <c>--measure-typing-pane</c> is the same run with the formatting pane open (the subscribers of the display refresh are in place) and <c>--measure-typing-snapshot</c> is the typing run while a loop writes recovery copies of the tab back to back (also one <c>snapshot n=... lease-median-ms=... total-median-ms=...</c> row); <c>--measure-format</c> formats at the same places (bold on one word, the alignment of one paragraph; rows <c>format case=&lt;kind&gt;/&lt;place&gt; view=...</c>). <c>--measure-structure</c> runs the structure commands of milestone 4.4a (see <c>Measurement.Structure.cs</c>; rows <c>structure case=&lt;case&gt; view=page ...</c>, <c>structure-refresh ...</c>). <c>--measure-sections</c> runs the section commands of milestone 4.4b (see <c>Measurement.Sections.cs</c>; rows <c>sections case=&lt;case&gt; view=page ...</c>, <c>sections-full ...</c>, <c>sections-refresh ...</c>) and <c>--measure-typing-sections-pane</c> is the typing run with the Sections pane open instead of the formatting pane. <c>--measure-objects</c> runs the table, picture and note commands of milestone 4.5a (see <c>Measurement.Objects.cs</c>; rows <c>objects case=&lt;case&gt; view=page ...</c>, <c>objects-refresh ...</c>), <c>--measure-gesture</c> the pointer moves of each drag kind (rows <c>gesture case=&lt;kind&gt; view=page ...</c>) and <c>--measure-typing-objects</c> the typing run in a paragraph that holds a picture and in a table cell. The switches need <c>--settings-file</c> and a file (see <see cref="WriteOptions"/>), so a measurement never reads or
+/// its watchdog is 240 s); <c>--measure-typing-pane</c> is the same run with the formatting pane open (the subscribers of the display refresh are in place) and <c>--measure-typing-snapshot</c> is the typing run while a loop writes recovery copies of the tab back to back (also one <c>snapshot n=... lease-median-ms=... total-median-ms=...</c> row); <c>--measure-format</c> formats at the same places (bold on one word, the alignment of one paragraph; rows <c>format case=&lt;kind&gt;/&lt;place&gt; view=...</c>). <c>--measure-structure</c> runs the structure commands of milestone 4.4a (see <c>Measurement.Structure.cs</c>; rows <c>structure case=&lt;case&gt; view=page ...</c>, <c>structure-refresh ...</c>). <c>--measure-sections</c> runs the section commands of milestone 4.4b (see <c>Measurement.Sections.cs</c>; rows <c>sections case=&lt;case&gt; view=page ...</c>, <c>sections-full ...</c>, <c>sections-refresh ...</c>) and <c>--measure-typing-sections-pane</c> is the typing run with the Sections pane open instead of the formatting pane. <c>--measure-objects</c> runs the table, picture and note commands of milestone 4.5a (see <c>Measurement.Objects.cs</c>; rows <c>objects case=&lt;case&gt; view=page ...</c>, <c>objects-refresh ...</c>), <c>--measure-gesture</c> the pointer moves of each drag kind (rows <c>gesture case=&lt;kind&gt; view=page ...</c>) and <c>--measure-typing-objects</c> the typing run in a paragraph that holds a picture and in a table cell. <c>--measure-fields</c> runs the field commands and the field refresh of milestone 4.5b (see <c>Measurement.Fields.cs</c>; rows <c>fields-open ...</c>, <c>fields case=&lt;case&gt; view=page ...</c>, <c>fields-settle ...</c>) and <c>--measure-typing-fields</c> the typing run in a document with a table of contents, with the refresh between the keys (rows <c>typing ...</c>, <c>fields-refresh ...</c>). The switches need <c>--settings-file</c> and a file (see <see cref="WriteOptions"/>), so a measurement never reads or
 /// writes the settings, the recent files or the instance pipe of the user. Nothing of this class exists in a normal run: <c>App</c> makes it only
 /// when a switch is given.
 /// </summary>
@@ -74,7 +74,7 @@ internal sealed partial class Measurement : IDisposable
         _error = error ?? Console.Error;
         _finish = finish;
         _exitProcess = exitProcess ?? Environment.Exit;
-        _timeout = timeout ?? (options.MeasureSwitch is "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" or "--measure-structure" or "--measure-sections" or "--measure-objects" or "--measure-gesture" or "--measure-typing-objects" or "--measure-typing-sections-pane" or "--measure-typing-snapshot" ? s_typingTimeout : s_defaultTimeout);
+        _timeout = timeout ?? (options.MeasureSwitch is "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" or "--measure-structure" or "--measure-sections" or "--measure-objects" or "--measure-gesture" or "--measure-typing-objects" or "--measure-typing-sections-pane" or "--measure-typing-snapshot" or "--measure-fields" or "--measure-typing-fields" ? s_typingTimeout : s_defaultTimeout);
         _scrollSteps = scrollSteps;
         _typingKeys = typingKeys;
         _background = options.MeasureSwitch == "--measure-typing-background";
@@ -85,6 +85,8 @@ internal sealed partial class Measurement : IDisposable
         _objectsRun = options.MeasureSwitch == "--measure-objects";
         _gestureRun = options.MeasureSwitch == "--measure-gesture";
         _typingObjectsRun = options.MeasureSwitch == "--measure-typing-objects";
+        _fieldsRun = options.MeasureSwitch == "--measure-fields";
+        _typingFieldsRun = options.MeasureSwitch == "--measure-typing-fields";
         _paneRun = options.MeasureSwitch is "--measure-typing-pane" or "--measure-typing-sections-pane";
         _snapshotRun = options.MeasureSwitch == "--measure-typing-snapshot";
     }
@@ -187,7 +189,7 @@ internal sealed partial class Measurement : IDisposable
                 _lastFrame = 0;
                 _window.RequestAnimationFrame(_ => ScrollFrame());
                 break;
-            case "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" or "--measure-structure" or "--measure-sections" or "--measure-objects" or "--measure-gesture" or "--measure-typing-objects" or "--measure-typing-sections-pane" or "--measure-typing-snapshot":
+            case "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" or "--measure-structure" or "--measure-sections" or "--measure-objects" or "--measure-gesture" or "--measure-typing-objects" or "--measure-typing-sections-pane" or "--measure-typing-snapshot" or "--measure-fields" or "--measure-typing-fields":
                 StartTyping();
                 break;
             case "--measure-second":

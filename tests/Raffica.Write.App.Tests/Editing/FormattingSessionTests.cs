@@ -25,7 +25,8 @@ public sealed class FormattingSessionTests
     {
         var attempt = DocumentOpener.Open(Path.GetFullPath(WindowFixture.Thesis), new OpenWork(), DocumentOpener.DefaultMaxFileLength, CancellationToken.None);
         Assert.NotNull(attempt.Document);
-        var tab = new WriteTab(WindowFixture.Thesis, attempt.Document!);
+        // These tests are about layouts and edits, not about fields (the thesis has a table of contents that a refresh rewrites, which would change the model under a comparison with a layout made from scratch).
+        var tab = new WriteTab(WindowFixture.Thesis, attempt.Document!) { RefreshesFields = false };
         tab.Runner.LeaseWaitTimeout = GateTimeout;
         tab.Runner.Start();
         await ViewHarness.WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted, 30000);

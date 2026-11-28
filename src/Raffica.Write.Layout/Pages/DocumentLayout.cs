@@ -175,6 +175,9 @@ public sealed partial class DocumentLayout
     /// </summary>
     public int Revision => Volatile.Read(ref _revision);
 
+    /// <summary>The view this layout makes: pages, or the strips of the writing view (which have no page numbers).</summary>
+    public LayoutMode Mode => _options.Mode;
+
     /// <summary>How many sections the layout's plan of the body has (1 for a document with no section break and for the writing view's strips). It is the count the layout made anyway; asking costs nothing and reads no body.</summary>
     public int SectionCount => Volatile.Read(ref _engine).Sections.Count;
 

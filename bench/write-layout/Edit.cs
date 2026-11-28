@@ -99,9 +99,11 @@ internal static partial class EditCommand
         output.Write(Table(sections, "recorded, never judged: the editor and the layout through the pages in view; the section commands are measured on the app (--measure-sections, the metric sections has no limit yet)."));
         var objects = MeasureObjects(file, Math.Max(1, Math.Min(keystrokes, ObjectRuns)), error);
         output.Write(Table(objects, "recorded, never judged: the editor and the layout through the pages in view; the limit of the objects cases is judged on the app (--measure-objects)."));
+        var fields = MeasureFields(file, Math.Max(1, Math.Min(keystrokes, FieldRuns)), error);
+        output.Write(Table(fields, "recorded, never judged: the editor, the field refresh and the layout through the pages in view; the limit of the field commands is judged on the app (--measure-fields)."));
         if (options.Value("--csv") is { } path)
         {
-            File.WriteAllText(path, Csv([.. rows, .. format.Rows, .. structure, .. sections, .. objects]));
+            File.WriteAllText(path, Csv([.. rows, .. format.Rows, .. structure, .. sections, .. objects, .. fields]));
         }
 
         return 0;

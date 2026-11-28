@@ -145,9 +145,9 @@ internal sealed partial class WriteWindow
     }
 
     // What a card was asked about: the view, its model and the revision of the model. A card that is answered after any of them changed (a replaced model, an edit, an undo, another active tab) must not run.
-    private readonly record struct CardPlan(PageView View, WordDocument Model, int Revision)
+    private readonly record struct CardPlan(PageView View, WordDocument Model, EditStamp Stamp)
     {
-        public static CardPlan Of(PageView view) => new(view, view.Tab.Docx.Model, view.Tab.Docx.Model.Edits.Revision);
+        public static CardPlan Of(PageView view) => new(view, view.Tab.Docx.Model, view.Tab.Docx.Model.Edits.Stamp);
     }
 
     private bool CardIsStale(PageView view, CardPlan plan)
@@ -158,7 +158,7 @@ internal sealed partial class WriteWindow
         }
 
         var model = view.Tab.Docx.Model;
-        if (ReferenceEquals(model, plan.Model) && model.Edits.Revision == plan.Revision)
+        if (ReferenceEquals(model, plan.Model) && model.Edits.Stamp == plan.Stamp)
         {
             return false;
         }

@@ -1,9 +1,12 @@
 using Raffica.Write.Layout;
+using Raffica.Write.Tests.Editing;
 using SkiaSharp;
 using Xunit;
 
 namespace Raffica.Write.Tests.Layout;
 
+// The prefetch tests wait (up to 10 s) for work on the thread pool, which the parallel test classes keep busy: in the collection of the wall-clock bounds the class runs alone, and the bounds stay.
+[Collection(WallClockGroup.Name)]
 public sealed class ImageCacheBudgetTests
 {
     // 10 x 10 pixels = 400 decoded bytes; the budget holds three, the cap is 100 pixels (half would be 150).

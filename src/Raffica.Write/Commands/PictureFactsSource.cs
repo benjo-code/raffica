@@ -51,12 +51,12 @@ internal static class PictureWording
 
 /// <summary>
 /// Reads <see cref="PictureCommandFacts"/> for the rules of the picture commands, lazily per command like <see cref="TableFactsSource"/>: nothing exists before the first question and nothing is read for a tab
-/// without an editing session (a prefix document is answered from a flag). An answer is remembered for the model, its revision, the text selection and the object selection, so a refresh of the ribbon asks the
+/// without an editing session (a prefix document is answered from a flag). An answer is remembered for the model, its edit stamp, the text selection and the object selection, so a refresh of the ribbon asks the
 /// editor once per command and change, never per key and never per frame. A picture is selected in the page view only, so in the writing view the commands that need one say so.
 /// </summary>
 internal sealed class PictureFactsSource
 {
-    private (WordDocument Model, int Revision, TextRange Range, ObjectSelection? Objects)? _key;
+    private (WordDocument Model, EditStamp Stamp, TextRange Range, ObjectSelection? Objects)? _key;
     private readonly Dictionary<string, PictureCommandFacts> _known = [];
 
     /// <summary>How many times the editor was asked for the facts (tests; 0 before the first ask of a picture command).</summary>
@@ -82,7 +82,7 @@ internal sealed class PictureFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range, session.ObjectSelection);
+        var key = (model, model.Edits.Stamp, range, session.ObjectSelection);
         if (_key is not { } known || !known.Equals(key))
         {
             _key = key;

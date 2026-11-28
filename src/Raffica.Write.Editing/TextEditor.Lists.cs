@@ -21,6 +21,7 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult ToggleList(TextRange selection, ListKind kind)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         if (Resolve(selection) is not { } span)
         {
@@ -33,11 +34,29 @@ public sealed partial class TextEditor
             return NoChange(span.Story, span.Last, span.LastOffset);
         }
 
+        // The paragraphs of a table of contents keep their place and kind: a selection that takes some of them takes the others only, and one that takes nothing else is refused.
+        var toc = TocParagraphsIn(span);
+        if (toc is not null)
+        {
+            paragraphs = [.. paragraphs.Where(p => !toc.Contains(p))];
+            if (paragraphs.Count == 0)
+            {
+                LastFieldRefusal = new FieldRefusal(span.IsCollapsed ? FieldRefusalKind.InsideToc : FieldRefusalKind.PartOfToc);
+                return NoChange(span.Story, span.Last, span.LastOffset);
+            }
+        }
+
         var states = paragraphs.Select(p => (Paragraph: p, List: ListOf(span.Story, p))).ToList();
         var story = span.Story;
         if (states.All(s => IsKind(s.List, kind)))
         {
-            return CommitParagraphEdit(span, revision, p => RemoveList(story, p));
+            return CommitParagraphEdit(span, revision, p =>
+            {
+                if (toc is null || !toc.Contains(p))
+                {
+                    RemoveList(story, p);
+                }
+            });
         }
 
         var targets = new Dictionary<Paragraph, int>(ReferenceEqualityComparer.Instance);
@@ -76,15 +95,22 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? ChangeListLevel(TextRange selection, int delta)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         if (Resolve(selection) is not { } span)
         {
             return null;
         }
 
-        var listed = ParagraphsOf(span).Select(p => (Paragraph: p, List: ListOf(span.Story, p))).Where(s => s.List.NumId > 0).ToList();
+        var toc = TocParagraphsIn(span);
+        var listed = ParagraphsOf(span).Where(p => toc is null || !toc.Contains(p)).Select(p => (Paragraph: p, List: ListOf(span.Story, p))).Where(s => s.List.NumId > 0).ToList();
         if (listed.Count == 0)
         {
+            if (toc is not null && ParagraphsOf(span).All(toc.Contains))
+            {
+                LastFieldRefusal = new FieldRefusal(span.IsCollapsed ? FieldRefusalKind.InsideToc : FieldRefusalKind.PartOfToc);
+            }
+
             return null;
         }
 
@@ -118,6 +144,11 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? RestartNumbering(TextPosition at)
     {
+        if (TocRefusesAt(at))
+        {
+            return null;
+        }
+
         var revision = History.BeginOperation();
         var (story, _, _) = Locate(at);
         var all = StoryParagraphs(story);
@@ -140,6 +171,11 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? ContinueNumbering(TextPosition at)
     {
+        if (TocRefusesAt(at))
+        {
+            return null;
+        }
+
         var revision = History.BeginOperation();
         var (story, _, _) = Locate(at);
         var all = StoryParagraphs(story);

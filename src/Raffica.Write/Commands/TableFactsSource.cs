@@ -78,13 +78,13 @@ internal sealed record TableTarget(TableRef Table, CellRange Range, TextPosition
 
 /// <summary>
 /// Reads <see cref="TableCommandFacts"/> for the rules of the table commands, lazily per command: nothing exists before the first question, and nothing is read for a tab without an editing session (the prefix
-/// refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer of each command is remembered for the model, its revision, the text selection and the object
+/// refusal, a flag of the file, and the writing view, a flag of the view, are answered without one). The answer of each command is remembered for the model, its edit stamp, the text selection and the object
 /// selection, so a refresh of the ribbon asks the editor (which works on a copy of the table) once per command and change, never per key and never per frame. The asks come from the refresh of the ribbon, the command
 /// search and the menu, never from the key path; a table command that is not on the shown tab is not asked.
 /// </summary>
 internal sealed class TableFactsSource
 {
-    private (WordDocument Model, int Revision, TextRange Range, ObjectSelection? Objects)? _key;
+    private (WordDocument Model, EditStamp Stamp, TextRange Range, ObjectSelection? Objects)? _key;
     private readonly Dictionary<string, TableCommandFacts> _known = [];
 
     /// <summary>How many times the editor was asked for the facts (tests; 0 before the first ask of a table command).</summary>
@@ -115,7 +115,7 @@ internal sealed class TableFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range, session.ObjectSelection);
+        var key = (model, model.Edits.Stamp, range, session.ObjectSelection);
         if (_key is not { } known || !known.Equals(key))
         {
             _key = key;

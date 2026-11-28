@@ -22,13 +22,13 @@ internal sealed record SectionMarker(int Section, SectionProperties Identity, in
 
 /// <summary>
 /// Finds the section markers the page view shows: the chips of the sections after the first whose first block lies on a page in view. The marker is an overlay of the view and never part of a
-/// <see cref="LaidOutPage"/>, so print and PDF export never see it. The sections are read once for a model and revision (the one read the whole computation costs), after which a frame is a binary search over
+/// <see cref="LaidOutPage"/>, so print and PDF export never see it. The sections are read once for a model and edit stamp (the one read the whole computation costs), after which a frame is a binary search over
 /// them by the page the layout has put each on (<see cref="DocumentLayout.Locate"/>, one lookup each) and the few markers in view are made with their words; nothing is allocated for the sections out of view.
 /// Nothing exists before the first ask. UI thread only (the model is edited there).
 /// </summary>
 internal sealed class SectionMarkers
 {
-    private (WordDocument Model, int Revision, IReadOnlyList<SectionInfo> Sections)? _memo;
+    private (WordDocument Model, EditStamp Stamp, IReadOnlyList<SectionInfo> Sections)? _memo;
 
     /// <summary>How many times the sections of the document were read (tests: typing and scrolling ask for few).</summary>
     internal int Reads { get; private set; }
@@ -40,10 +40,10 @@ internal sealed class SectionMarkers
     public bool IsCurrent(WordDocument model)
     {
         ArgumentNullException.ThrowIfNull(model);
-        return _memo is { } memo && ReferenceEquals(memo.Model, model) && memo.Revision == model.Edits.Revision;
+        return _memo is { } memo && ReferenceEquals(memo.Model, model) && memo.Stamp == model.Edits.Stamp;
     }
 
-    /// <summary>The sections of the model, read again only when the model or its revision is not the one last read.</summary>
+    /// <summary>The sections of the model, read again only when the model or its edit stamp is not the one last read.</summary>
     public IReadOnlyList<SectionInfo> Sections(WordDocument model)
     {
         if (IsCurrent(model))
@@ -53,7 +53,7 @@ internal sealed class SectionMarkers
 
         Reads++;
         var sections = SectionList.Of(model);
-        _memo = (model, model.Edits.Revision, sections);
+        _memo = (model, model.Edits.Stamp, sections);
         return sections;
     }
 

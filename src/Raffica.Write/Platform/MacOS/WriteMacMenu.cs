@@ -233,6 +233,17 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(layoutMenu);
             _headers.Add((layoutMenu, () => WriteStrings.MenuLayout));
 
+            // References: the table of contents, the caption, the bookmarks and the cross-reference (no keys).
+            var referencesMenu = new NativeMenuItem(WriteStrings.MenuReferences) { Menu = new NativeMenu() };
+            referencesMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            referencesMenu.Menu.Items.Add(CommandItem(WriteCommandIds.TocInsert, () => WriteCatalogName(WriteCommandIds.TocInsert), null));
+            referencesMenu.Menu.Items.Add(CommandItem(WriteCommandIds.TocRemove, () => WriteCatalogName(WriteCommandIds.TocRemove), null));
+            referencesMenu.Menu.Items.Add(CommandItem(WriteCommandIds.CaptionInsert, () => WriteCatalogName(WriteCommandIds.CaptionInsert), null));
+            referencesMenu.Menu.Items.Add(CommandItem(WriteCommandIds.BookmarkInsert, () => WriteCatalogName(WriteCommandIds.BookmarkInsert), null));
+            referencesMenu.Menu.Items.Add(CommandItem(WriteCommandIds.CrossReferenceInsert, () => WriteCatalogName(WriteCommandIds.CrossReferenceInsert), null));
+            Menu.Items.Add(referencesMenu);
+            _headers.Add((referencesMenu, () => WriteStrings.MenuReferences));
+
             var viewMenu = new NativeMenuItem(WriteStrings.TabView) { Menu = new NativeMenu() };
             viewMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PageView, () => WriteStrings.CmdPageView, null, radio: true));

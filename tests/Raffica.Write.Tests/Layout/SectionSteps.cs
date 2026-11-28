@@ -420,6 +420,20 @@ internal sealed class SectionSteps
     internal static NumberCheck CheckNumbers(DocumentLayout layout, WordDocument model, string label)
     {
         var sections = ReferencePageNumbers.Sections(model);
+        var (drawn, left, expected) = Expectation(layout, model);
+        var differing = Enumerable.Range(0, drawn.Count).Where(p => !left[p] && expected[p] != drawn[p].Number).ToList();
+        Assert.True(
+            differing.Count == 0,
+            $"{label}: the drawn page numbers [{string.Join(",", drawn.Select(d => d.Number))}] differ from the reference [{string.Join(",", expected)}] at pages [{string.Join(",", differing)}]; section of each page [{string.Join(",", drawn.Select((d, p) => d.Section + (d.StartsSection ? "!" : string.Empty) + (left[p] ? "_" : string.Empty)))}]; sections: {string.Join(" / ", sections.Select(s => s is null ? "none" : string.Concat(s.Get(W + "type")?.ToString() ?? "no type", s.Get(W + "pgNumType")?.ToString() ?? "no numbering")))}");
+        return new NumberCheck(left.Count(l => !l), left.Count(l => l));
+    }
+
+    /// <summary>
+    /// The independent count of the page numbers of a laid-out document, for every page: what the layout drew, which pages the oracle leaves out (the unverified states, see <see cref="CheckNumbers"/>) and the number each page must have.
+    /// </summary>
+    internal static (IReadOnlyList<(string Number, int Section, bool StartsSection, bool MaybeBlank, int? StartedMidPage)> Drawn, bool[] Left, IReadOnlyList<string> Expected) Expectation(DocumentLayout layout, WordDocument model)
+    {
+        var sections = ReferencePageNumbers.Sections(model);
         bool Unverified(int index)
         {
             var s = sections[Math.Min(index, sections.Count - 1)];
@@ -449,10 +463,6 @@ internal sealed class SectionSteps
         }
 
         var expected = ReferencePageNumbers.Numbers(model, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)], [.. drawn.Select(d => d.StartedMidPage)]);
-        var differing = Enumerable.Range(0, drawn.Count).Where(p => !left[p] && expected[p] != drawn[p].Number).ToList();
-        Assert.True(
-            differing.Count == 0,
-            $"{label}: the drawn page numbers [{string.Join(",", drawn.Select(d => d.Number))}] differ from the reference [{string.Join(",", expected)}] at pages [{string.Join(",", differing)}]; section of each page [{string.Join(",", drawn.Select((d, p) => d.Section + (d.StartsSection ? "!" : string.Empty) + (left[p] ? "_" : string.Empty)))}]; sections: {string.Join(" / ", sections.Select(s => s is null ? "none" : string.Concat(s.Get(W + "type")?.ToString() ?? "no type", s.Get(W + "pgNumType")?.ToString() ?? "no numbering")))}");
-        return new NumberCheck(left.Count(l => !l), left.Count(l => l));
+        return (drawn, left, expected);
     }
 }

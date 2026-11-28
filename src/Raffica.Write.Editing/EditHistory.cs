@@ -140,10 +140,15 @@ public sealed class EditHistory
             return StepMove(step, undo: true);
         }
 
+        var derivedUndone = RevertDerived(step, out var complete);
+        if (!complete)
+        {
+            return RollBackDerived(step, derivedUndone);
+        }
+
         if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !ObjectsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
         {
-            Clear();
-            return null;
+            return RollBackDerived(step, derivedUndone);
         }
 
         Swap(container, step.First, step.New.Length, step.Old, step.Sections?.CarriersBefore);
@@ -157,7 +162,7 @@ public sealed class EditHistory
         _open = null;
         var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New, step.Objects?.Inverse);
         undone.Attribute(_document);
-        return undone;
+        return WithDerived(undone, derivedUndone, derivedFirst: true);
     }
 
     /// <summary>Redoes the step that was undone last. Null when there is nothing to redo.</summary>
@@ -192,7 +197,7 @@ public sealed class EditHistory
         _open = null;
         var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old, step.Objects);
         redone.Attribute(_document);
-        return redone;
+        return WithDerived(redone, ReplayDerived(step), derivedFirst: false);
     }
 
     /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history). The pictures only these steps referred to leave the document's picture store (see <see cref="MediaStore.Remove"/>).</summary>
@@ -212,6 +217,162 @@ public sealed class EditHistory
         _openContainer = null;
         _expected = _document.Edits.Revision;
         PruneMedia();
+    }
+
+    // ---- derived records -------------------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Attaches the structural change of a field refresh to the newest step, whatever its kind (every kind is the same step class), so that undo and redo keep the block indices of every older step true: undo reverts
+    /// the record before the step's own blocks, redo replays it after them (the same blocks, not a new refresh). A step with a record never takes further typing. The revision is not raised and nothing is recorded as an edit.
+    /// <see cref="AttachOutcome.MustWait"/> while a redo is pending, <see cref="AttachOutcome.NothingToProtect"/> when there is no step to carry it. The block lists of the record must be the live lists of the document
+    /// and the change already made; the range each change added is cloned now. A record the history cannot place clears the history (nothing can be undone safely across it).
+    /// </summary>
+    public AttachOutcome AttachDerived(DerivedRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        Validate();
+        if (_redo.Count > 0)
+        {
+            return AttachOutcome.MustWait;
+        }
+
+        if (_undo.Count == 0 || record.Changes.Count == 0)
+        {
+            return AttachOutcome.NothingToProtect;
+        }
+
+        var entries = new List<DerivedEntry>(record.Changes.Count);
+        foreach (var change in record.Changes)
+        {
+            if (Root(change.Story) is not { } root || PathTo(root, change.Container) is not { } path
+                || change.OldBlocks.Count != change.Removed || !Fits(change.Container, change.First, change.Added))
+            {
+                Clear();
+                return AttachOutcome.NothingToProtect;
+            }
+
+            entries.Add(new DerivedEntry(change.Story, path, change.First, CloneBlocks(change.OldBlocks), CloneRange(change.Container, change.First, change.Added)));
+        }
+
+        var step = _undo[^1];
+        var bytes = entries.Sum(e => e.Bytes);
+        (step.Derived ??= []).AddRange(entries);
+        step.Bytes += bytes;
+        _undoBytes += bytes;
+        _open = null;
+        _openContainer = null;
+        Trim();
+        return AttachOutcome.Attached;
+    }
+
+    // Reverts the records of a step, last to first, and returns the block changes this made, in that order. <paramref name="complete"/> is false when a record no longer fits: the list then holds the records
+    // reverted so far (the caller rolls them back). A step without records gives an empty, complete list.
+    private List<BlockChange> RevertDerived(Step step, out bool complete)
+    {
+        var changes = new List<BlockChange>();
+        complete = true;
+        if (step.Derived is not { } entries)
+        {
+            return changes;
+        }
+
+        for (var i = entries.Count - 1; i >= 0; i--)
+        {
+            var entry = entries[i];
+            if (Root(entry.Story) is not { } root || FollowPath(root, entry.Path) is not { } container || !Fits(container, entry.First, entry.New.Length))
+            {
+                complete = false;
+                return changes;
+            }
+
+            Swap(container, entry.First, entry.New.Length, entry.Old);
+            changes.Add(new BlockChange(entry.Story, container, entry.First, entry.New.Length, entry.Old.Length, CloneBlocks(entry.New)));
+        }
+
+        return changes;
+    }
+
+    // Replays the records of a step from <paramref name="start"/> on, in the order they were made (the stored blocks, never a new refresh), and stops at the first one that no longer fits.
+    private List<BlockChange> ReplayEntries(Step step, int start, out bool complete)
+    {
+        var changes = new List<BlockChange>();
+        complete = true;
+        if (step.Derived is not { } entries)
+        {
+            return changes;
+        }
+
+        for (var i = start; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            if (Root(entry.Story) is not { } root || FollowPath(root, entry.Path) is not { } container || !Fits(container, entry.First, entry.Old.Length))
+            {
+                complete = false;
+                return changes;
+            }
+
+            Swap(container, entry.First, entry.Old.Length, entry.New);
+            changes.Add(new BlockChange(entry.Story, container, entry.First, entry.Old.Length, entry.New.Length, CloneBlocks(entry.Old)));
+        }
+
+        return changes;
+    }
+
+    // The redo of a step: its records are replayed after it. A record that no longer fits ends the replay and clears the history; the step itself is already redone and the result tells what was replayed.
+    private List<BlockChange> ReplayDerived(Step step)
+    {
+        var changes = ReplayEntries(step, 0, out var complete);
+        if (!complete)
+        {
+            Clear();
+        }
+
+        return changes;
+    }
+
+    // An undo that cannot go on after <paramref name="reverted"/> records were reverted (a later record, or the step itself, no longer fits): the reverted records are replayed in their original order so that
+    // the document is as it was before the attempt, the history is cleared and null is returned (nothing happened). The swap puts equal clones in the document, so consumers are told through the derived version.
+    // If a roll-back replay cannot be applied either, the document is as consistent as the blocks allow and the result carries every change made (no step changes), so that nobody works with stale blocks.
+    private EditResult? RollBackDerived(Step step, List<BlockChange> reverted)
+    {
+        if (reverted.Count == 0)
+        {
+            Clear();
+            return null;
+        }
+
+        var back = ReplayEntries(step, step.Derived!.Count - reverted.Count, out var complete);
+        List<BlockChange> all = [.. reverted, .. back];
+        _document.Edits.RaiseDerived();
+        _document.Edits.AttributeDerived(all);
+        var root = Root(step.Story);
+        var first = root is null ? null : TextEditor.FirstParagraph(root);
+        Clear();
+        return complete || first is null ? null : new EditResult(new TextPosition(step.Story, first, 0), [], DerivedChanges: all);
+    }
+
+    // What an undo or redo did to derived content is told to the document (the trackers mark the blocks dirty, the derived version rises, the revision does not) and handed on in the result for the layout.
+    private EditResult WithDerived(EditResult result, List<BlockChange> derived, bool derivedFirst)
+    {
+        if (derived.Count == 0)
+        {
+            return result;
+        }
+
+        _document.Edits.RaiseDerived();
+        _document.Edits.AttributeDerived(derived);
+        return result with { DerivedChanges = derived, DerivedFirst = derivedFirst };
+    }
+
+    private static Block[] CloneBlocks(IReadOnlyList<Block> blocks)
+    {
+        var clones = new Block[blocks.Count];
+        for (var i = 0; i < clones.Length; i++)
+        {
+            clones[i] = blocks[i].Clone();
+        }
+
+        return clones;
     }
 
     // ---- pictures of dropped steps --------------------------------------------------------------------------------------------------------
@@ -447,10 +608,19 @@ public sealed class EditHistory
     {
         var forward = step.Move!;
         var move = undo ? forward.Inverse : forward;
+        var derivedUndone = new List<BlockChange>();
+        if (undo)
+        {
+            derivedUndone = RevertDerived(step, out var complete);
+            if (!complete)
+            {
+                return RollBackDerived(step, derivedUndone);
+            }
+        }
+
         if (Resolve(step) is not { } container || !move.IsValidFor(container.Count))
         {
-            Clear();
-            return null;
+            return RollBackDerived(step, derivedUndone);
         }
 
         var old = move.ApplyTo(container);
@@ -473,7 +643,7 @@ public sealed class EditHistory
         _open = null;
         var result = move.ResultIn(container, old);
         result.Attribute(_document);
-        return result;
+        return WithDerived(result, undo ? derivedUndone : ReplayDerived(step), derivedFirst: undo);
     }
 
     // A style change without a block change (the paragraph held nothing to move, or a switch that touches styles only): the step has no blocks, only the caret and the style swap.
@@ -596,6 +766,7 @@ public sealed class EditHistory
     {
         var step = _open;
         return step is not null
+            && step.Derived is null
             && Equals(step.NudgeKey, nudge)
             && ReferenceEquals(step.TypingFormat, typingFormat)
             && _undo.Count > 0
@@ -1033,6 +1204,9 @@ public sealed class EditHistory
         /// <summary>The notes the step added and removed (undo and redo apply them with the blocks), or null.</summary>
         public ObjectChange? Objects { get; init; }
 
+        /// <summary>The structural changes field refreshes made after the step (<see cref="AttachDerived"/>), in the order they were made, or null. Undo reverts them last to first before the step's blocks, redo replays them after.</summary>
+        public List<DerivedEntry>? Derived { get; set; }
+
         /// <summary>Set for a move of top-level blocks: the step then holds no blocks.</summary>
         public BlockMove? Move { get; init; }
 
@@ -1044,5 +1218,11 @@ public sealed class EditHistory
 
         /// <summary>Set for a step recorded from a caret in the body that changed only a header or footer story (insert page number): undo and redo carry <see cref="EditResult.KeepSelection"/>, so the owner keeps the body selection it has instead of moving it into that story.</summary>
         public bool KeepsBodySelection { get; init; }
+    }
+
+    /// <summary>One block change of a derived record, as the history keeps it: the list by story and path, the place, and clones of the blocks before and after.</summary>
+    private sealed record DerivedEntry(StoryRef Story, int[] Path, int First, Block[] Old, Block[] New)
+    {
+        public long Bytes => SizeOf(Old) + SizeOf(New);
     }
 }

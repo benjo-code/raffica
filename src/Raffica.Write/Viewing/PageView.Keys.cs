@@ -358,9 +358,25 @@ internal sealed partial class PageView
     /// </summary>
     private EditResult? ApplyGuarded(EditSession session, Func<TextEditor, EditResult?> operation, bool typing = false, bool outline = false)
     {
+        // A table of contents updates itself: an edit that the editor refused for that reason (it changed nothing and left its reason) says why (a save that queued the edit says nothing now, as for every refusal).
+        var refusedByToc = false;
+        EditResult? Watch(TextEditor editor)
+        {
+            editor.ClearFieldRefusal();
+            var result = operation(editor);
+            refusedByToc = editor.LastFieldRefusal is not null && result is null or { Changes.Count: 0, Selected: null, Style: null, Sections: null, Move: null };
+            return result;
+        }
+
         try
         {
-            return session.Apply(operation, outline ? ThroughPageInView() : ThroughPage(), typing: typing);
+            var done = session.Apply(Watch, outline ? ThroughPageInView() : ThroughPage(), typing: typing);
+            if (refusedByToc && session.BlockedReason is null)
+            {
+                StructureNote?.Invoke(WriteStrings.NoteTocProtected);
+            }
+
+            return done;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -540,7 +556,7 @@ internal sealed partial class PageView
 
     private bool Finish(EditSession session, bool extend, TextPosition anchor, TextPosition target, CaretAffinity affinity, bool vertical, float? goal)
     {
-        Place(session, new TextRange(extend ? anchor : target, target), affinity);
+        Place(session, new TextRange(extend ? anchor : target, target), affinity, session.Caret);
         _goalFor = vertical ? target : null;
         _goalX = vertical ? goal : null;
         EnsureCaretVisible();

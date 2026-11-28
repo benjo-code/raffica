@@ -16,7 +16,7 @@ public sealed record NumberingLabel(string Text, ResolvedRun Run, NumberSuffix S
 
 /// <summary>
 /// Counts list numbers in document order. Lists that share an abstract definition share their counters, as in Word; a
-/// <c>w:startOverride</c> restarts a level the first time its list is used. Call <see cref="Next"/> once per paragraph, in
+/// <c>w:startOverride</c> restarts a level the first time its list is used. Call <see cref="Next(ResolvedParagraph)"/> once per paragraph, in
 /// document order, and for every paragraph (a paragraph without a list gives null and changes nothing).
 /// </summary>
 public sealed class NumberingCounter
@@ -34,9 +34,18 @@ public sealed class NumberingCounter
     public NumberingCounter(NumberingDefinitions? numbering) => _numbering = numbering;
 
     /// <summary>The label of a numbered paragraph, advancing the counters; null when the paragraph has no list, or the list or level does not exist.</summary>
-    public NumberingLabel? Next(ResolvedParagraph paragraph)
+    public NumberingLabel? Next(ResolvedParagraph paragraph) => Advance(paragraph, withNumbers: false, out _);
+
+    /// <summary>
+    /// As <see cref="Next(ResolvedParagraph)"/>, and the numbers of the label alone: the label from its first to its last number, without the text of the level before and after them (<c>Chapter I:</c> gives <c>I</c>);
+    /// empty for a bullet, for a level whose text has no number and for a paragraph with no label. The numbers cost a second formatting of the level text, which only a field result asks for (the layout calls the other form).
+    /// </summary>
+    public NumberingLabel? Next(ResolvedParagraph paragraph, out string numbers) => Advance(paragraph, withNumbers: true, out numbers);
+
+    private NumberingLabel? Advance(ResolvedParagraph paragraph, bool withNumbers, out string numbers)
     {
         ArgumentNullException.ThrowIfNull(paragraph);
+        numbers = string.Empty;
         if (_numbering is null || paragraph.NumberingId <= 0 || paragraph.NumberingLevel is < 0 or >= Levels)
         {
             return null;
@@ -75,7 +84,12 @@ public sealed class NumberingCounter
         state.Started[level] = true;
         ResetDeeper(numId, state, level);
 
-        var label = Format(numId, state, level, value, facts);
+        var label = Format(numId, state, level, value, facts, facts.Text);
+        if (withNumbers && !facts.Bullet && NumberSpan(facts.Text) is { } span)
+        {
+            numbers = Format(numId, state, level, value, facts, span).Text;
+        }
+
         var run = paragraph.MarkRun.Clone();
         run.Overlay(facts.Level.RunProperties.Children);
         if (facts.Bullet && label.FromSymbolFont)
@@ -88,7 +102,7 @@ public sealed class NumberingCounter
     }
 
     /// <summary>
-    /// Everything that changes while <see cref="Next"/> runs: the counters and started flags of every list, and the set of levels whose
+    /// Everything that changes while <see cref="Next(ResolvedParagraph)"/> runs: the counters and started flags of every list, and the set of levels whose
     /// start override was applied. (The facts cache is derived from the immutable definitions and is not state.)
     /// </summary>
     /// <remarks>
@@ -191,14 +205,31 @@ public sealed class NumberingCounter
         }
     }
 
-    private (string Text, bool FromSymbolFont) Format(int numId, ListState state, int level, int value, LevelFacts facts)
+    // The part of a level text from its first placeholder (%1 to %9) to the end of its last one, or null when it has none.
+    private static string? NumberSpan(string text)
+    {
+        var first = -1;
+        var end = -1;
+        for (var i = 0; i + 1 < text.Length; i++)
+        {
+            if (text[i] == '%' && text[i + 1] is >= '1' and <= '9')
+            {
+                first = first < 0 ? i : first;
+                end = i + 2;
+                i++;
+            }
+        }
+
+        return first < 0 ? null : text[first..end];
+    }
+
+    private (string Text, bool FromSymbolFont) Format(int numId, ListState state, int level, int value, LevelFacts facts, string text)
     {
         if (facts.Bullet)
         {
-            return BulletText(facts.Text);
+            return BulletText(text);
         }
 
-        var text = facts.Text;
         var builder = new StringBuilder(text.Length + 4);
         for (var i = 0; i < text.Length; i++)
         {

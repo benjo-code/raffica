@@ -2,6 +2,7 @@ using Raffica.Shell.Frame;
 using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
+using Raffica.Write.Model;
 using Raffica.Write.Viewing;
 
 namespace Raffica.Write.Documents;
@@ -192,6 +193,95 @@ internal sealed class WriteTab : IDisposable
         return _editor;
     }
 
+    // ---- fields (milestone 4.5b): nothing below exists before the first dirty edit, the first complete layout of a document with fields or a save of one ----
+
+    private FieldRefreshRunner? _fields;
+
+    /// <summary>The refresh of the fields of this tab; null until it was needed (<see cref="EnsureFields"/>).</summary>
+    public FieldRefreshRunner? Fields => _fields;
+
+    /// <summary>The last page (from 0) the tab's view shows of the layout of a mode, 0 when it shows the other mode or nothing yet; null without a view. A field refresh lays out through it at once, as an edit does, and leaves the rest to the background.</summary>
+    internal Func<LayoutMode, int>? PageInView { get; set; }
+
+    /// <summary>False in a measurement run: no field refresh follows the edits there. The window sets it when it makes the tab.</summary>
+    internal bool RefreshesFields { get; set; } = true;
+
+    /// <summary>The clock of the refresh timer (a test sets one that it fires by hand before the first edit); null: the dispatcher clock, made with the runner.</summary>
+    internal IFieldClock? FieldClock { get; set; }
+
+    /// <summary>Test seam: replaces the scan for a field in the whole body (<see cref="AnyFields"/>).</summary>
+    internal Func<WordDocument, bool>? FieldScan { get; set; }
+
+    /// <summary>Whether any paragraph of the body holds a field (a scan that parses nothing).</summary>
+    internal bool AnyFields() => (FieldScan ?? (model => FieldView.AnyIn(model)))(Docx.Model);
+
+    /// <summary>How many times the wiring of the refresh threw (and was ignored): the refresh must never break an edit.</summary>
+    internal int FieldWiringFailures { get; set; }
+
+    /// <summary>Makes the refresh runner on first use (UI thread: it keeps that thread's dispatcher).</summary>
+    internal FieldRefreshRunner EnsureFields() => _fields ??= new FieldRefreshRunner(this, FieldClock ?? new DispatcherFieldClock());
+
+    /// <summary>
+    /// For the measurement runs of fields: drops the runner and makes one with <paramref name="clock"/> whose first refresh looks at the whole body again, as for a document that was just opened. UI thread.
+    /// </summary>
+    internal FieldRefreshRunner ResetFields(IFieldClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        _fields?.Dispose();
+        _fields = null;
+        FieldClock = clock;
+        var runner = EnsureFields();
+        runner.Notify(null);
+        return runner;
+    }
+
+    /// <summary>
+    /// Raised on the UI thread after a whole-body field refresh with the number of fields Write left alone (a name or switch outside the support table, a field in a note, a header, a footer, a comment or a tracked change); the window offers its
+    /// bar from it, once per document session.
+    /// </summary>
+    public event Action<int>? FieldsNotUpdated;
+
+    internal void ReportNotUpdated(int count) => FieldsNotUpdated?.Invoke(count);
+
+    /// <summary>A refresh rewrote results: whoever shows the document or reads it through the model (the view, the outline) reads again. Not an edit: the dirty mark and the session's events are untouched.</summary>
+    internal void NotifyFieldsRefreshed()
+    {
+        _runner?.NotifyContentChanged();
+        ModelEdited?.Invoke();
+    }
+
+    /// <summary>
+    /// Brings the field results up to date before a save writes the model (see <see cref="FieldRefreshRunner.SettleAsync"/>); a tab that never had a refresh and has no field makes none. Completes at once.
+    /// </summary>
+    internal Task SettleFieldsAsync(CancellationToken token)
+    {
+        if (!RefreshesFields || IsDisposed || token.IsCancellationRequested)
+        {
+            return Task.CompletedTask;
+        }
+
+        try
+        {
+            if (_fields is null)
+            {
+                if (Docx.IsPrefix || !AnyFields())
+                {
+                    return Task.CompletedTask;
+                }
+
+                EnsureFields().Notify(null);
+            }
+
+            return _fields!.SettleAsync(token);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The refresh is a convenience: a save goes on without it.
+            FieldWiringFailures++;
+            return Task.CompletedTask;
+        }
+    }
+
     private void OnEditorChanged()
     {
         var phases = _editor?.Phases;
@@ -257,6 +347,7 @@ internal sealed class WriteTab : IDisposable
         {
             try
             {
+                _fields?.Dispose();
                 _runner?.Dispose();
             }
             finally

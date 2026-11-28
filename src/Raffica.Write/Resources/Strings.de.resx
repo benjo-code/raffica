@@ -1236,6 +1236,9 @@
   <data name="NoteSectionBreakNoMarker" xml:space="preserve">
     <value>Ein Abschnittswechsel lässt sich nicht mit der Tastatur löschen. Verwenden Sie „Abschnitt entfernen“ auf der Registerkarte „Layout“ oder im Bereich „Abschnitte“.</value>
   </data>
+  <data name="NoteTocProtected" xml:space="preserve">
+    <value>Dieses Inhaltsverzeichnis aktualisiert sich selbst. Ändern Sie die Überschriften oder entfernen Sie es.</value>
+  </data>
   <data name="MarginNormal" xml:space="preserve">
     <value>Normal</value>
   </data>
@@ -2216,5 +2219,275 @@
   </data>
   <data name="PpOutOfRangeFormat" xml:space="preserve">
     <value>{0}: Diese Größe ist für ein Bild nicht möglich.</value>
+  </data>
+  <data name="TabReferences" xml:space="preserve">
+    <value>Verweise</value>
+  </data>
+  <data name="MenuReferences" xml:space="preserve">
+    <value>Verweise</value>
+  </data>
+  <data name="GroupLinks" xml:space="preserve">
+    <value>Verknüpfungen</value>
+  </data>
+  <data name="CmdBookmark" xml:space="preserve">
+    <value>Textmarke</value>
+  </data>
+  <data name="DescBookmark" xml:space="preserve">
+    <value>Markiert eine Stelle oder einen Textabschnitt mit einem Namen, damit Sie später dorthin springen und darauf verweisen können.</value>
+  </data>
+  <data name="BookmarkTitle" xml:space="preserve">
+    <value>Textmarken</value>
+  </data>
+  <data name="BookmarkNameLabel" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="BookmarkListLabel" xml:space="preserve">
+    <value>Textmarken in diesem Dokument</value>
+  </data>
+  <data name="BookmarkNone" xml:space="preserve">
+    <value>Es gibt noch keine Textmarken.</value>
+  </data>
+  <data name="BookmarkAdd" xml:space="preserve">
+    <value>Hinzufügen</value>
+  </data>
+  <data name="BookmarkGoTo" xml:space="preserve">
+    <value>Anspringen</value>
+  </data>
+  <data name="BookmarkDelete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="BookmarkProblemEmpty" xml:space="preserve">
+    <value>Geben Sie einen Namen für die Textmarke ein.</value>
+  </data>
+  <data name="BookmarkProblemTooLong" xml:space="preserve">
+    <value>Ein Name hat höchstens 40 Zeichen.</value>
+  </data>
+  <data name="BookmarkProblemBadStart" xml:space="preserve">
+    <value>Ein Name beginnt mit einem Buchstaben von A bis Z.</value>
+  </data>
+  <data name="BookmarkProblemBadCharacter" xml:space="preserve">
+    <value>Ein Name enthält nur Buchstaben von A bis Z, Ziffern und Unterstriche.</value>
+  </data>
+  <data name="BookmarkProblemDuplicate" xml:space="preserve">
+    <value>Eine Textmarke mit diesem Namen gibt es bereits.</value>
+  </data>
+  <data name="NoteBookmarkMissing" xml:space="preserve">
+    <value>Diese Textmarke gibt es nicht mehr.</value>
+  </data>
+  <data name="FieldsBarOne" xml:space="preserve">
+    <value>1 Feld verwendet Optionen, die Write nicht aktualisiert; es zeigt das zuletzt von Word gespeicherte Ergebnis.</value>
+  </data>
+  <data name="FieldsBarManyFormat" xml:space="preserve">
+    <value>{0} Felder verwenden Optionen, die Write nicht aktualisiert; sie zeigen das zuletzt von Word gespeicherte Ergebnis.</value>
+  </data>
+  <data name="FieldsBarDismiss" xml:space="preserve">
+    <value>Ausblenden</value>
+  </data>
+  <data name="StatusFieldNotUpdated" xml:space="preserve">
+    <value>Feld wird von Write nicht aktualisiert</value>
+  </data>
+  <data name="GroupCaptions" xml:space="preserve">
+    <value>Beschriftungen</value>
+  </data>
+  <data name="CmdCaption" xml:space="preserve">
+    <value>Beschriftung</value>
+  </data>
+  <data name="DescCaption" xml:space="preserve">
+    <value>Fügt eine nummerierte Beschriftung wie „Abbildung 1“ über oder unter dem gewählten Bild, der Tabelle oder dem Absatz ein. Die Nummern folgen jeder Änderung.</value>
+  </data>
+  <data name="CaptionTitle" xml:space="preserve">
+    <value>Beschriftung einfügen</value>
+  </data>
+  <data name="CaptionLabelLabel" xml:space="preserve">
+    <value>Bezeichnung</value>
+  </data>
+  <data name="CaptionNewLabelLabel" xml:space="preserve">
+    <value>Oder eine neue Bezeichnung</value>
+  </data>
+  <data name="CaptionTextLabel" xml:space="preserve">
+    <value>Text nach der Nummer</value>
+  </data>
+  <data name="CaptionPlaceLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="CaptionPlaceAbove" xml:space="preserve">
+    <value>Oberhalb</value>
+  </data>
+  <data name="CaptionPlaceBelow" xml:space="preserve">
+    <value>Unterhalb</value>
+  </data>
+  <data name="CaptionChapter" xml:space="preserve">
+    <value>Kapitelnummer einbeziehen</value>
+  </data>
+  <data name="CaptionChapterUnavailable" xml:space="preserve">
+    <value>Eine Kapitelnummer braucht nummerierte Überschriften. Schalten Sie diese zuerst ein.</value>
+  </data>
+  <data name="CaptionPreviewLabel" xml:space="preserve">
+    <value>Vorschau</value>
+  </data>
+  <data name="CaptionOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="CaptionProblemLabel" xml:space="preserve">
+    <value>Eine Bezeichnung beginnt mit einem Buchstaben und besteht nur aus Buchstaben, Ziffern und Unterstrichen, höchstens 40.</value>
+  </data>
+  <data name="CaptionProblemText" xml:space="preserve">
+    <value>Der Text muss eine einzelne Zeile mit höchstens 1000 Zeichen sein.</value>
+  </data>
+  <data name="ReasonCaptionRestricted" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur eine Zeile und kann daher keine Beschriftung aufnehmen.</value>
+  </data>
+  <data name="NoteCaptionSectionEnd" xml:space="preserve">
+    <value>Dieser Absatz beendet seinen Abschnitt, daher stünde eine Beschriftung darunter im nächsten Abschnitt. Wählen Sie oberhalb.</value>
+  </data>
+  <data name="NoteCaptionChapter" xml:space="preserve">
+    <value>Eine Kapitelnummer braucht nummerierte Überschriften und eine Überschrift 1 oberhalb der Beschriftung.</value>
+  </data>
+  <data name="CmdCrossReference" xml:space="preserve">
+    <value>Querverweis</value>
+  </data>
+  <data name="DescCrossReference" xml:space="preserve">
+    <value>Fügt einen Link auf eine Überschrift, Beschriftung, Fußnote, Endnote oder Textmarke ein, der Nummer, Text oder Seite zeigt und jeder Änderung folgt.</value>
+  </data>
+  <data name="CrossRefTitle" xml:space="preserve">
+    <value>Querverweis einfügen</value>
+  </data>
+  <data name="CrossRefTypeLabel" xml:space="preserve">
+    <value>Verweistyp</value>
+  </data>
+  <data name="CrossRefTypeHeading" xml:space="preserve">
+    <value>Überschrift</value>
+  </data>
+  <data name="CrossRefTypeCaption" xml:space="preserve">
+    <value>Beschriftung</value>
+  </data>
+  <data name="CrossRefTypeFootnote" xml:space="preserve">
+    <value>Fußnote</value>
+  </data>
+  <data name="CrossRefTypeEndnote" xml:space="preserve">
+    <value>Endnote</value>
+  </data>
+  <data name="CrossRefTypeBookmark" xml:space="preserve">
+    <value>Textmarke</value>
+  </data>
+  <data name="CrossRefTargetLabel" xml:space="preserve">
+    <value>Verweis einfügen auf</value>
+  </data>
+  <data name="CrossRefKindLabel" xml:space="preserve">
+    <value>Anzeigen</value>
+  </data>
+  <data name="CrossRefKindLabelAndNumber" xml:space="preserve">
+    <value>Bezeichnung und Nummer</value>
+  </data>
+  <data name="CrossRefKindNumber" xml:space="preserve">
+    <value>Nummer</value>
+  </data>
+  <data name="CrossRefKindText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="CrossRefKindPage" xml:space="preserve">
+    <value>Seitenzahl</value>
+  </data>
+  <data name="CrossRefNone" xml:space="preserve">
+    <value>Von diesem Typ gibt es nichts, worauf verwiesen werden kann.</value>
+  </data>
+  <data name="CrossRefOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="ReasonCrossRefRestricted" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und kann daher keinen Querverweis aufnehmen.</value>
+  </data>
+  <data name="NoteCrossRefGone" xml:space="preserve">
+    <value>Das Ziel hat sich seit dem Erstellen der Liste geändert. Öffnen Sie den Querverweis erneut.</value>
+  </data>
+  <data name="NoteCrossRefInside" xml:space="preserve">
+    <value>Ein Verweis kann nicht in dem Text stehen, den er anzeigt.</value>
+  </data>
+  <data name="NoteCrossRefNoNumber" xml:space="preserve">
+    <value>Dieses Ziel hat keine Nummer, die angezeigt werden könnte. Nummerieren Sie zuerst die Überschriften oder wählen Sie einen anderen Verweis.</value>
+  </data>
+  <data name="NoteCrossRefSeveral" xml:space="preserve">
+    <value>Der Text einer Textmarke über mehrere Absätze kann nicht angezeigt werden. Wählen Sie die Seitenzahl.</value>
+  </data>
+  <data name="NoteCrossRefNotOffered" xml:space="preserve">
+    <value>Das Ziel bietet diese Auswahl nicht an.</value>
+  </data>
+  <data name="NoteCrossRefIds" xml:space="preserve">
+    <value>Für den Verweis ist kein Name und keine Kennung für Textmarken mehr frei.</value>
+  </data>
+  <data name="NoteCrossRefCaptionUnread" xml:space="preserve">
+    <value>Die Nummer dieser Beschriftung lässt sich nicht finden. Verweisen Sie stattdessen auf ihren Text oder ihre Seite.</value>
+  </data>
+  <data name="GroupToc" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="CmdToc" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="DescToc" xml:space="preserve">
+    <value>Fügt ein Inhaltsverzeichnis, ein Abbildungsverzeichnis oder ein Tabellenverzeichnis ein, das den Überschriften oder Beschriftungen folgt.</value>
+  </data>
+  <data name="CmdTocRemove" xml:space="preserve">
+    <value>Inhaltsverzeichnis entfernen</value>
+  </data>
+  <data name="DescTocRemove" xml:space="preserve">
+    <value>Entfernt das Inhaltsverzeichnis oder Verzeichnis, in dem die Einfügemarke steht.</value>
+  </data>
+  <data name="TocTitle" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="TocKindLabel" xml:space="preserve">
+    <value>Art</value>
+  </data>
+  <data name="TocKindContents" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="TocKindList" xml:space="preserve">
+    <value>Abbildungs- oder Tabellenverzeichnis</value>
+  </data>
+  <data name="TocCaptionLabel" xml:space="preserve">
+    <value>Beschriftungsart</value>
+  </data>
+  <data name="TocFirstLevel" xml:space="preserve">
+    <value>Erste Ebene</value>
+  </data>
+  <data name="TocLastLevel" xml:space="preserve">
+    <value>Letzte Ebene</value>
+  </data>
+  <data name="TocPages" xml:space="preserve">
+    <value>Seitenzahlen anzeigen</value>
+  </data>
+  <data name="TocRight" xml:space="preserve">
+    <value>Seitenzahlen rechtsbündig</value>
+  </data>
+  <data name="TocLeaderLabel" xml:space="preserve">
+    <value>Füllzeichen</value>
+  </data>
+  <data name="TocLeaderDots" xml:space="preserve">
+    <value>Punkte</value>
+  </data>
+  <data name="TocLeaderHyphens" xml:space="preserve">
+    <value>Bindestriche</value>
+  </data>
+  <data name="TocLeaderLine" xml:space="preserve">
+    <value>Linie</value>
+  </data>
+  <data name="TocLeaderNone" xml:space="preserve">
+    <value>Keine</value>
+  </data>
+  <data name="TocOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="TocRemoveButton" xml:space="preserve">
+    <value>Entfernen</value>
+  </data>
+  <data name="TocProblemLevels" xml:space="preserve">
+    <value>Die erste Ebene darf nicht höher liegen als die letzte.</value>
+  </data>
+  <data name="ReasonTocNone" xml:space="preserve">
+    <value>Die Einfügemarke steht nicht in einem Inhaltsverzeichnis.</value>
+  </data>
+  <data name="NoteTocLabel" xml:space="preserve">
+    <value>Diese Beschriftungsart kann nicht für ein Verzeichnis verwendet werden.</value>
   </data>
 </root>

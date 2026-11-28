@@ -1,6 +1,7 @@
 using System.Globalization;
 using Raffica.TestSupport;
 using Raffica.Write.Docx;
+using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
 using Raffica.Write.Tests.Support;
@@ -333,7 +334,7 @@ public sealed class CorpusIncrementalTests
             var at = -1;
             for (var i = 0; i < body.Count - 1; i++)
             {
-                if (body[i] is Paragraph { SectionBreak: not null } && body[i + 1] is Paragraph { SectionBreak: null })
+                if (body[i] is Paragraph { SectionBreak: not null } && body[i + 1] is Paragraph { SectionBreak: null } && !FieldView.IsInTableOfContents(body, i))
                 {
                     at = i;
                     break;
@@ -353,7 +354,7 @@ public sealed class CorpusIncrementalTests
             Assert.True(await steps.MoveToAsync(at + 1, 1, at, false, $"{entry.Id} {mode} across section break"), entry.Id);
 
             // And a range that ends at the section break moves past the block after it.
-            var now = body.ToList().FindIndex(b => b is Paragraph { SectionBreak: not null });
+            var now = body.ToList().FindIndex(b => b is Paragraph { SectionBreak: not null } && !FieldView.IsInTableOfContents(body, body.IndexOf(b)));
             if (now >= 1 && now + 1 < body.Count)
             {
                 Assert.True(await steps.MoveToAsync(now - 1, 1, now + 2, false, $"{entry.Id} {mode} across section break 2"), entry.Id);

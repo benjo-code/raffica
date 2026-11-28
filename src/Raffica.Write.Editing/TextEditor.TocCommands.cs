@@ -1,0 +1,317 @@
+using System.Xml.Linq;
+using Raffica.Write.Model;
+
+namespace Raffica.Write.Editing;
+
+public sealed partial class TextEditor
+{
+    /// <summary>The reason the last <see cref="InsertToc"/> or <see cref="RemoveToc"/> returned null, or null when it succeeded. Set by every call.</summary>
+    public TocRefusal? LastTocRefusal { get; private set; }
+
+    /// <summary>
+    /// The reason a table of contents cannot be inserted at <paramref name="at"/> (see <see cref="InsertToc"/>), or null: a prefix document (<paramref name="prefixDocument"/>), a place outside the body or in a content control that holds
+    /// one line, and a place in a table of contents. A stale position throws <see cref="StalePositionException"/>.
+    /// </summary>
+    public TocRefusal? RefusalForToc(TextPosition at, bool prefixDocument = false)
+    {
+        if (CaptionRules.Refusal(_document, at, chapterNumber: false, prefixDocument) is { } refused)
+        {
+            return refused == CaptionRefusal.Prefix ? TocRefusal.Prefix : TocRefusal.NotInBody;
+        }
+
+        var (_, container, index) = Locate(at);
+        return _tocs.Around(container, index) is not null ? TocRefusal.InsideToc : null;
+    }
+
+    /// <summary>
+    /// The reason <see cref="RemoveToc"/> would refuse at <paramref name="at"/>, or null when there is a table of contents to remove: the position (an edge of the field counts) is not in one, or one of its paragraphs ends a section.
+    /// </summary>
+    public TocRefusal? RefusalForRemoveToc(TextPosition at)
+    {
+        ArgumentNullException.ThrowIfNull(at.Paragraph);
+        if (at.Story.Kind != StoryKind.Body)
+        {
+            return TocRefusal.NotInBody;
+        }
+
+        return SiteAt(at) is { } site && !HasSectionBreak(site) ? null : TocRefusal.NothingToRemove;
+    }
+
+    /// <summary>
+    /// Inserts a table of contents (or a list of figures or tables when <paramref name="options"/> names a label) as one history step: the field <c>TOC \o "a-b" \h \z \u</c> (<c>\n</c> without page numbers,
+    /// <c>\h \z \c "label"</c> for a list) and its entries, one paragraph each, with the begin, the instruction and the separate in the first paragraph and the end in the last. A list with no entry holds the sentence of an empty
+    /// one. Each entry has the style of its level (the built-in <c>toc 1</c> to <c>toc 9</c>, or <c>table of figures</c> for a list), found by name; the styles of the list's levels that the document lacks are made as companions of the
+    /// step (see <see cref="EditResult.Style"/>). An empty paragraph at <paramref name="at"/> is replaced; otherwise the paragraphs go above the paragraph when the position is its start and below it elsewhere. When no block would
+    /// follow the field in its body, cell or content control, an empty paragraph goes after it (the edges of the field take no text). Every heading (caption) an entry points at gets a hidden <c>_Toc</c> bookmark, a derived change
+    /// of the step (the paragraphs it changed swap with the step on undo and redo). The page numbers are those <paramref name="host"/> knows (<c>?</c> until the page results are refreshed). The caret ends at the end of the field.
+    /// Returns null, and changes nothing, when the options or the place are refused (<see cref="LastTocRefusal"/>). A stale position throws <see cref="StalePositionException"/> before anything changes.
+    /// </summary>
+    public EditResult? InsertToc(TextPosition at, TocOptions options, IFieldHost host, bool prefixDocument = false)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(host);
+        LastTocRefusal = null;
+        LastFieldRefusal = null;
+        if (options.Label is null && (options.FirstLevel is < 1 or > 9 || options.LastLevel is < 1 or > 9 || options.FirstLevel > options.LastLevel))
+        {
+            LastTocRefusal = TocRefusal.LevelRange;
+            return null;
+        }
+
+        if (options.Label is { } label && !CaptionLabels.IsAllowed(_document, label))
+        {
+            LastTocRefusal = TocRefusal.LabelNotAllowed;
+            return null;
+        }
+
+        if (RefusalForToc(at, prefixDocument) is { } refusal)
+        {
+            LastTocRefusal = refusal;
+            LastFieldRefusal = refusal == TocRefusal.InsideToc ? new FieldRefusal(FieldRefusalKind.InsideToc) : null;
+            return null;
+        }
+
+        var spec = TocSpec.TryParse(TocSpec.InstructionFor(options)) ?? throw new InvalidOperationException("The instruction of a new table of contents is not one.");
+        var (story, container, index) = Locate(at);
+        var map = Map(story, at.Paragraph);
+        var offset = EditRules.Snap(map, Math.Clamp(at.Offset, 0, map.Projection.Text.Length));
+        var replaces = at.Paragraph.SectionBreak is null && at.Paragraph.Inlines.All(i => i is Run { Content.Count: 0 });
+        var slot = replaces || offset == 0 ? index : index + 1;
+        var removed = replaces ? 1 : 0;
+        // The edges of the field take no text, so a list that would be the last block of its body, cell or content control (kept markers aside) gets an empty paragraph after it to write in.
+        var needsRoom = container.Skip(slot + removed).All(b => b is UnknownBlock);
+
+        var revision = History.BeginOperation();
+        var existing = TocRefresh.Find(_document.Body.Blocks);
+        var excluded = new HashSet<Paragraph>(ReferenceEqualityComparer.Instance);
+        foreach (var site in existing)
+        {
+            for (var i = site.First; i <= site.Last; i++)
+            {
+                if (site.Container[i] is Paragraph paragraph)
+                {
+                    excluded.Add(paragraph);
+                }
+            }
+        }
+
+        // The page of the headings and the bookmarks are taken from the document as it is now; the headings that get a bookmark change in place (the step carries them as derived changes, below).
+        var styles = new FieldStyles(_document);
+        var entries = TocBuilder.Collect(_document, styles, host, spec, excluded);
+        var bookmarks = new TocRefresh.TocBookmarks(_document);
+        var top = ReferenceEquals(container, _document.Body.Blocks) ? index : Math.Max(0, TopLevelIndexOf(_document.Body.Blocks, at.Paragraph));
+        // Word writes the right stop of the page numbers into every list, with dots where nothing leads to a page number; the stop after a number comes with each entry (TocTabs).
+        var right = TocBuilder.RightTab(TocBuilder.TextWidthTwips(_document, top), options.PageNumbers && options.RightAlign ? options.Leader : TocLeader.Dots);
+        var tabs = new TocTabs(styles, host);
+        // From here the model changes (the styles, the bookmarks of the headings, the paragraphs). Whatever throws in this part must not leave a changed model with no raise: the raise makes the history clear itself
+        // and the snapshot tracker write the whole body (an unattributed raise), the same fail-safe as every other operation of the editor; the exception goes on to the session, which faults.
+        StyleChange? style;
+        List<Paragraph> made;
+        Block[] old;
+        try
+        {
+            style = TocBuilder.EnsureStyles(_document, styles, spec);
+            made = TocBuilder.Entries(
+                _document,
+                styles,
+                spec,
+                entries,
+                entry => bookmarks.NameFor(entry.Source),
+                (entry, _) => host.PageOf(new TextPosition(StoryRef.Body, entry.Source, 0))?.PageText ?? "?",
+                (entry, paragraph) => entry is null ? new XElement(right) : tabs.ForNew(entry, paragraph, right));
+            var marks = FieldWriter.Make(TocSpec.InstructionFor(options), string.Empty, null);
+            for (var i = 2; i >= 0; i--)
+            {
+                made[0].Inlines.Insert(0, marks[i]);
+            }
+
+            if (made.Count == 1)
+            {
+                // A list of one line (or the sentence of an empty one) gets the end mark in a paragraph of its own, so that the field spans two paragraphs and is protected as a whole (see TocRefresh).
+                var end = new Paragraph();
+                end.Inlines.Add(marks[4]);
+                made.Add(end);
+            }
+            else
+            {
+                made[^1].Inlines.Add(marks[4]);
+            }
+
+            old = replaces ? [at.Paragraph.Clone()] : [];
+            if (replaces)
+            {
+                container.RemoveAt(index);
+            }
+
+            for (var k = 0; k < made.Count; k++)
+            {
+                container.Insert(slot + k, made[k]);
+            }
+
+            if (needsRoom)
+            {
+                container.Insert(slot + made.Count, new Paragraph());
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _document.Edits.Raise();
+            throw;
+        }
+
+        _document.Edits.Raise();
+        var last = made[^1];
+        var caret = new TextPosition(story, last, Map(story, last).Projection.Text.Length);
+        var change = new BlockChange(story, container, slot, removed, made.Count + (needsRoom ? 1 : 0), old);
+        var derived = DerivedOf(bookmarks.Changed);
+        var result = new EditResult(caret, [change], Style: style, DerivedChanges: derived.Count > 0 ? derived : null);
+        _document.Edits.Attribute([change, .. derived]);
+        History.Record(result, new EditHistory.Point(index, offset), revision, null, after: new EditHistory.Point(slot + made.Count - 1, caret.Offset));
+        if (derived.Count > 0)
+        {
+            History.AttachDerived(new DerivedRecord(derived));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Removes the table of contents the position is in (an edge of the field counts) as one history step: the field, its entries and the hidden <c>_Toc</c> bookmarks no link or page reference points at any more (the headings
+    /// that lose one are derived changes of the step). An empty paragraph stays where the list was when its body, cell or content control would be left with no paragraph, or when a table would then end it or stand right
+    /// before another table. The caret goes to that paragraph, else to the paragraph that follows (or the last one before). Returns null,
+    /// and changes nothing, when there is no table of contents at the position or one of its paragraphs ends a section (<see cref="LastTocRefusal"/>). Markers of other bookmarks that stand in the entries go with them.
+    /// </summary>
+    public EditResult? RemoveToc(TextPosition at)
+    {
+        LastTocRefusal = null;
+        LastFieldRefusal = null;
+        if (RefusalForRemoveToc(at) is { } refusal)
+        {
+            LastTocRefusal = refusal;
+            return null;
+        }
+
+        var site = SiteAt(at)!;
+        var story = at.Story;
+        var container = site.Container;
+        var revision = History.BeginOperation();
+        var count = site.Last - site.First + 1;
+        var old = new List<Block>(count);
+        for (var i = site.First; i <= site.Last; i++)
+        {
+            old.Add(container[i].Clone());
+        }
+
+        // The model changes from here: an exception must not leave it changed with no raise (see InsertToc).
+        var added = 0;
+        List<(Paragraph Paragraph, Paragraph Before)> orphans;
+        try
+        {
+            for (var i = 0; i < count; i++)
+            {
+                container.RemoveAt(site.First);
+            }
+
+            // A list of blocks with no paragraph left (a cell, a control, a body of tables) gets an empty one, as a caret needs a paragraph. So does a place where the removal leaves a table last or two tables together:
+            // Word does not open a cell that ends in a table, adds a paragraph to a body that ends in one and reads two adjacent tables as one.
+            if (!container.OfType<Paragraph>().Any() || LeavesATableOpen(container, site.First))
+            {
+                container.Insert(Math.Min(site.First, container.Count), new Paragraph());
+                added = 1;
+            }
+
+            orphans = TocRefresh.RemoveOrphans(_document);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _document.Edits.Raise();
+            throw;
+        }
+
+        _document.Edits.Raise();
+        var caretIndex = -1;
+        for (var i = site.First; i < container.Count && caretIndex < 0; i++)
+        {
+            caretIndex = container[i] is Paragraph ? i : -1;
+        }
+
+        var atStart = caretIndex >= 0;
+        for (var i = Math.Min(site.First, container.Count) - 1; i >= 0 && caretIndex < 0; i--)
+        {
+            caretIndex = container[i] is Paragraph ? i : -1;
+        }
+
+        var anchor = (Paragraph)container[caretIndex];
+        var caret = new TextPosition(story, anchor, atStart ? 0 : Map(story, anchor).Projection.Text.Length);
+        var change = new BlockChange(story, container, site.First, count, added, old);
+        var derived = DerivedOf(orphans);
+        var result = new EditResult(caret, [change], DerivedChanges: derived.Count > 0 ? derived : null);
+        _document.Edits.Attribute([change, .. derived]);
+        History.Record(result, new EditHistory.Point(site.First, 0), revision, null, after: new EditHistory.Point(caretIndex, caret.Offset));
+        if (derived.Count > 0)
+        {
+            History.AttachDerived(new DerivedRecord(derived));
+        }
+
+        return result;
+    }
+
+    // Whether the block before the place of a removal ends in a table and what follows it is a table or nothing. Markers between blocks (content the model does not read) are looked past.
+    private static bool LeavesATableOpen(IList<Block> container, int at) =>
+        container.Take(at).LastOrDefault(b => b is not UnknownBlock) is { } before && EndsInATable(before, 0)
+        && (container.Skip(at).FirstOrDefault(b => b is not UnknownBlock) is not { } after || StartsWithATable(after, 0));
+
+    private static bool EndsInATable(Block block, int depth) =>
+        block is Table || (block is ContentControlBlock control && depth < BookmarkOperations.MaxDepth && control.Content.LastOrDefault(b => b is not UnknownBlock) is { } last && EndsInATable(last, depth + 1));
+
+    private static bool StartsWithATable(Block block, int depth) =>
+        block is Table || (block is ContentControlBlock control && depth < BookmarkOperations.MaxDepth && control.Content.FirstOrDefault(b => b is not UnknownBlock) is { } first && StartsWithATable(first, depth + 1));
+
+    // The table of contents of the body (any list of it) that holds the paragraph of the position, or null.
+    private TocSite? SiteAt(TextPosition at)
+    {
+        if (StoryResolver.TryStory(_document, at.Story) is not { } story || FindIn(story.Blocks, at.Paragraph) is not { } found)
+        {
+            return null;
+        }
+
+        return at.Story.Kind == StoryKind.Body && _tocs.Around(found.Container, found.Index) is { } range
+            ? new TocSite(found.Container, range.First, range.Last, range.Instruction)
+            : at.Story.Kind == StoryKind.Body ? SingleParagraphSite(found.Container, found.Index) : null;
+    }
+
+    // A table of contents that stands in one paragraph (the sentence of an empty one): a complete TOC field that is the whole paragraph.
+    private static TocSite? SingleParagraphSite(IList<Block> container, int index)
+    {
+        var site = TocRefresh.Find(container).FirstOrDefault(s => ReferenceEquals(s.Container, container) && s.First == index && s.Last == index);
+        return site is not null && TocRefresh.Analyze(site) is not null ? site : null;
+    }
+
+    private static bool HasSectionBreak(TocSite site)
+    {
+        for (var i = site.First; i <= site.Last; i++)
+        {
+            if (site.Container[i] is Paragraph { SectionBreak: not null })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The block changes (one paragraph each, in place) of the paragraphs a step changed besides its own blocks, at the indices they have now.
+    private List<BlockChange> DerivedOf(IReadOnlyList<(Paragraph Paragraph, Paragraph Before)> changed)
+    {
+        var derived = new List<BlockChange>();
+        foreach (var (paragraph, before) in changed)
+        {
+            if (FindIn(_document.Body.Blocks, paragraph) is { } place)
+            {
+                derived.Add(new BlockChange(StoryRef.Body, place.Container, place.Index, 1, 1, [before]));
+            }
+        }
+
+        return derived;
+    }
+}

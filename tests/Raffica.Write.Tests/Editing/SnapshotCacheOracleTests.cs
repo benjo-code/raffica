@@ -298,6 +298,324 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void ABookmarkAddedAndDeletedWithItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => TestEdit.TextOf(p).Length >= 6).Take(2).ToList();
+        Assert.Equal(2, paragraphs.Count);
+        TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
+
+        // A bookmark across two paragraphs, a point, then the text of the first one deleted (the whole-range rule takes its markers), the bookmark removed by name, and every step undone and redone.
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[0], 1), At(paragraphs[1], 4)), "Across"));
+        Check("add across paragraphs");
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[0], 3), At(paragraphs[0], 3)), "Point"));
+        Check("add a point");
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[1], 4), At(paragraphs[1], 6)), "Inner"));
+        Check("add inner");
+        Assert.NotNull(editor.Delete(new TextRange(At(paragraphs[1], 4), At(paragraphs[1], 6))));
+        Assert.DoesNotContain(BookmarkOperations.Visible(model), b => b.Name == "Inner");
+        Check("delete the whole range");
+        Assert.NotNull(editor.DeleteBookmark("Across"));
+        Check("delete by name");
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
+    public void ACaptionInsertedMovedAndDeletedWithItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => TestEdit.TextOf(p).Length >= 6).Take(2).ToList();
+        Assert.Equal(2, paragraphs.Count);
+        TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
+
+        // Two captions (the first may make the style as a companion), the refresh that renumbers, a move, a delete, and every step undone and redone.
+        Assert.NotNull(editor.InsertCaption(At(paragraphs[1], 0), "Figure", ": b", CaptionPlace.Below, false, "Figure", host));
+        Check("insert below");
+        Assert.NotNull(editor.InsertCaption(At(paragraphs[0], 0), "Figure", ": a", CaptionPlace.Above, false, "Figure", host));
+        Check("insert above");
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh");
+        var index = model.Body.Blocks.IndexOf(paragraphs[0]) - 1;
+        Assert.NotNull(editor.MoveBlocks(index, 1, index + 3));
+        Check("move");
+        var caption = model.Body.Blocks.OfType<Paragraph>().First(p => TestEdit.TextOf(p).StartsWith("Figure", StringComparison.Ordinal));
+        Assert.NotNull(editor.Delete(new TextRange(At(caption, 0), At(caption, TestEdit.TextOf(caption).Length))));
+        Check("delete");
+        var steps = 0;
+        while (editor.History.CanUndo)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + steps++);
+        }
+
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
+    public void ACrossReferenceMadeReusedAndUndoneGivesTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => TestEdit.TextOf(p).Length >= 6).Take(3).ToList();
+        Assert.Equal(3, paragraphs.Count);
+        TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
+
+        // A bookmark, a caption and references to both from the last paragraph (a step across the blocks between them), the same target again (the bookmark is reused), then every step undone and redone.
+        Assert.NotNull(editor.AddBookmark(new TextRange(At(paragraphs[0], 1), At(paragraphs[0], 4)), "Mine"));
+        Check("bookmark");
+        Assert.NotNull(editor.InsertCaption(At(paragraphs[1], 0), "Figure", ": a", CaptionPlace.Below, false, "Figure", host));
+        Check("caption");
+        var bookmark = CrossReferences.Targets(model, host, CrossRefTargetKind.Bookmark).Single();
+        var caption = CrossReferences.Targets(model, host, CrossRefTargetKind.Caption).Single();
+        Assert.NotNull(editor.InsertCrossReference(At(paragraphs[2], 2), bookmark, CrossRefKind.Text, host));
+        Check("reference to a bookmark");
+        Assert.NotNull(editor.InsertCrossReference(At(paragraphs[2], 0), caption, CrossRefKind.LabelAndNumber, host));
+        Check("reference to a caption");
+        Assert.NotNull(editor.InsertCrossReference(At(paragraphs[2], 0), bookmark, CrossRefKind.Page, host));
+        Check("reuse");
+        var steps = 0;
+        while (editor.History.CanUndo)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + steps++);
+        }
+
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
+    public void ATableOfContentsInsertedRefreshedRemovedAndUndoneGivesTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "thesis", "thesis.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        void Refresh(string label)
+        {
+            var result = editor.RefreshFields(host, RefreshScope.OrderBased);
+            if (result.Structural is { } record)
+            {
+                Assert.NotEqual(AttachOutcome.MustWait, editor.History.AttachDerived(record));
+            }
+
+            Check(label);
+        }
+
+        var blocks = model.Body.Blocks;
+        var plain = Enumerable.Range(0, blocks.Count).Where(i => blocks[i] is Paragraph p && p.Properties.StyleId is null && TestEdit.TextOf(p).Length > 8).Take(3).ToList();
+        Assert.Equal(3, plain.Count);
+        TextPosition At(int block, int offset) => new(StoryRef.Body, (Paragraph)blocks[block], offset);
+
+        // A list of the headings (made right at once, with the hidden bookmarks as derived changes of the step), a paragraph made a heading and a structural refresh, the list removed, every step undone and redone.
+        var inserted = editor.InsertToc(At(plain[0], 0), new TocOptions(1, 3, true, true, TocLeader.Dots, null), host);
+        Assert.NotNull(inserted);
+        var moved = inserted.Changes[0].Added - inserted.Changes[0].Removed;
+        Check("insert");
+        Refresh("refresh after the insert");
+        Assert.NotNull(editor.ApplyParagraphStyle(new TextRange(At(plain[1] + moved, 0), At(plain[1] + moved, 4)), "Heading2"));
+        Check("a new heading");
+        Refresh("structural refresh");
+        Assert.NotNull(editor.RemoveToc(At(plain[0], 0)));
+        Check("remove");
+        var steps = 0;
+        while (editor.History.CanUndo)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + steps++);
+        }
+
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+
+        Refresh("refresh after the redos");
+    }
+
+    [Theory]
+    [InlineData("body")]
+    [InlineData("cell")]
+    [InlineData("control")]
+    public void ATableOfContentsInsertedLastInItsContainerGivesTheBytesOfAFullWriteWithItsUndoAndRedo(string kind)
+    {
+        var inner = TocEdgeTests.P(TocEdgeTests.Run("Inside."));
+        var end = TocEdgeTests.P(TocEdgeTests.Run("The end."));
+        // The host of the insert is the last paragraph of the body, or the only paragraph of a cell or a control.
+        var rest = kind switch
+        {
+            "cell" => TocEdgeTests.Cell(inner) + end,
+            "control" => TocEdgeTests.Control(inner) + end,
+            _ => end + inner,
+        };
+        using var file = TocEdgeTests.File(TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1") + rest);
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var host = Support.ModelWalk.Blocks(file.Model.Body.Blocks).OfType<Paragraph>().Single(p => TestEdit.TextOf(p) == "Inside.");
+        var container = TextEditor.FindIn(file.Model.Body.Blocks, host)!.Value.Container;
+        var at = new TextPosition(StoryRef.Body, host, TestEdit.TextOf(host).Length);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.InsertToc(at, new TocOptions(1, 3, true, true, TocLeader.Dots, null), new Support.FakeFieldHost(file.Model)));
+
+        // The shape the case is about: nothing followed the list, so the insert added an empty paragraph after it.
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        Assert.Same(container, site.Container);
+        Assert.Equal(container.Count - 2, site.Last);
+        Assert.Empty(Assert.IsType<Paragraph>(container[^1]).Inlines);
+    }
+
+    [Theory]
+    [InlineData("body")]
+    [InlineData("cell")]
+    [InlineData("control")]
+    public void EnterAtTheEndEdgeOfATableOfContentsGivesTheBytesOfAFullWriteWithItsUndoAndRedo(string kind)
+    {
+        var inner = TocEdgeTests.P(TocEdgeTests.Run("Above.")) + TocEdgeTests.TocXml();
+        var end = TocEdgeTests.P(TocEdgeTests.Run("The end."));
+        var rest = kind switch
+        {
+            "cell" => TocEdgeTests.Cell(inner) + end,
+            "control" => TocEdgeTests.Control(inner) + end,
+            _ => inner,
+        };
+        using var file = TocEdgeTests.File(TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1") + rest);
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        var last = Assert.IsType<Paragraph>(site.Container[site.Last]);
+        var at = new TextPosition(StoryRef.Body, last, TestEdit.TextOf(last).Length);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.SplitParagraph(new TextRange(at, at)));
+
+        Assert.Equal(site.Last + 2, site.Container.Count);
+        Assert.Empty(Assert.IsType<Paragraph>(site.Container[^1]).Inlines);
+    }
+
+    [Theory]
+    [InlineData("body")]
+    [InlineData("cell")]
+    [InlineData("control")]
+    public void EnterAtTheStartEdgeOfATableOfContentsThatIsFirstGivesTheBytesOfAFullWriteWithItsUndoAndRedo(string kind)
+    {
+        var inner = TocEdgeTests.TocXml() + TocEdgeTests.P(TocEdgeTests.Run("Below."));
+        var rest = kind switch
+        {
+            "cell" => TocEdgeTests.Cell(inner),
+            "control" => TocEdgeTests.Control(inner),
+            _ => inner,
+        };
+        using var file = TocEdgeTests.File(rest + TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1"));
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        Assert.Equal(0, site.First);
+        var first = Assert.IsType<Paragraph>(site.Container[0]);
+        var at = new TextPosition(StoryRef.Body, first, 0);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.SplitParagraph(new TextRange(at, at)));
+
+        Assert.Empty(Assert.IsType<Paragraph>(site.Container[0]).Inlines);
+        Assert.Same(first, site.Container[1]);
+    }
+
+    [Fact]
+    public void EnterAtTheEndEdgeOfATableOfContentsThatEndsASectionGivesTheBytesOfAFullWriteWithItsUndoAndRedo()
+    {
+        const string section = "<w:pPr><w:sectPr><w:type w:val=\"nextPage\"/><w:pgSz w:w=\"12240\" w:h=\"15840\"/></w:sectPr></w:pPr>";
+        using var file = TocEdgeTests.File(TocEdgeTests.P(TocEdgeTests.Run("Chapter"), "Heading1") + TocEdgeTests.TocXml(endPPr: section) + TocEdgeTests.P(TocEdgeTests.Run("Next section.")));
+        var editor = new TextEditor(file.Model, (_, _) => ProjectionHost.Plain);
+        var site = Assert.Single(TocRefresh.Find(file.Model.Body.Blocks));
+        var last = Assert.IsType<Paragraph>(site.Container[site.Last]);
+        Assert.NotNull(last.SectionBreak);
+        var at = new TextPosition(StoryRef.Body, last, TestEdit.TextOf(last).Length);
+
+        AssertTheWarmCacheFollows(file, editor, () => editor.SplitParagraph(new TextRange(at, at)));
+
+        // The break went to the new paragraph, so the list's end paragraph changed in place: a range that missed it would leave its old bytes in the cache.
+        Assert.Null(Assert.IsType<Paragraph>(site.Container[site.Last]).SectionBreak);
+        Assert.NotNull(Assert.IsType<Paragraph>(site.Container[site.Last + 1]).SectionBreak);
+    }
+
+    // An operation on a warm cache, then its undo and its redo. After each one the cached main part is the full write's, and the pass reused blocks: after a raise that nobody attributed the cache writes the whole body again, which
+    // gives the same bytes, so the byte comparison alone would not see a missing attribution.
+    private static void AssertTheWarmCacheFollows(DocxFile file, TextEditor editor, Func<EditResult?> run)
+    {
+        file.SerialiseMainForTest(cached: true);
+        file.SerialiseMainForTest(cached: true);
+        Assert.Equal(0, file.LastSnapshotPass.Written);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+            Assert.True(file.LastSnapshotPass.Reused > 0, label + ": the whole body was written again");
+        }
+
+        var result = run();
+        Assert.NotNull(result);
+        Assert.NotEmpty(result.Changes);
+        Check("operation");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo");
+    }
+
+    [Fact]
     public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
@@ -654,6 +972,45 @@ public sealed class SnapshotCacheOracleTests
             Assert.NotNull(editor.History.Redo());
             Check("redo " + i);
         }
+    }
+
+    [Fact]
+    public void ARefreshGivesTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("fields.docx");
+        Support.DocxBuilder.WithBody(path, Layout.FieldOracleTests.FieldsBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var host = new Support.FakeFieldHost(model);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        // The refresh writes many results without an edit: the blocks it changed must be written again, the others reused.
+        Check("before");
+        Assert.True(editor.RefreshFields(host, RefreshScope.OrderBased).Written > 0);
+        Check("refresh");
+        Assert.False(model.Edits.IsDirty);
+
+        // An edit that moves the numbers, its refresh, and the undo and redo with a refresh after each.
+        var heading = (Paragraph)model.Body.Blocks[4];
+        Assert.NotNull(editor.ApplyParagraphStyle(new TextRange(new TextPosition(StoryRef.Body, heading, 0), new TextPosition(StoryRef.Body, heading, 3)), null));
+        Check("edit");
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh after the edit");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh after the undo");
+        Assert.NotNull(editor.History.Redo());
+        editor.RefreshFields(host, RefreshScope.OrderBased);
+        Check("refresh after the redo");
     }
 
     [Fact]

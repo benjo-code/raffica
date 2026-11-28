@@ -65,6 +65,10 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         _ when WriteCommandIds.IsStructure(id) => hasDocument() && StructureReason(id) is null,
         _ when WriteCommandIds.IsSection(id) => hasDocument() && SectionReason(id) is null,
         _ when WriteCommandIds.IsNote(id) => hasDocument() && NoteReason(id) is null,
+        _ when WriteCommandIds.IsBookmark(id) => hasDocument() && BookmarkReason(id) is null,
+        _ when WriteCommandIds.IsCaption(id) => hasDocument() && CaptionReason(id) is null,
+        _ when WriteCommandIds.IsCrossReference(id) => hasDocument() && CrossReferenceReason(id) is null,
+        _ when WriteCommandIds.IsToc(id) => hasDocument() && TocReason(id) is null,
         _ when WriteCommandIds.IsTable(id) => hasDocument() && TableReason(id) is null,
         _ when WriteCommandIds.IsPicture(id) => hasDocument() && PictureReason(id) is null,
         _ => hasDocument(),
@@ -109,6 +113,26 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         if (WriteCommandIds.IsNote(id))
         {
             return NoteReason(id);
+        }
+
+        if (WriteCommandIds.IsBookmark(id))
+        {
+            return BookmarkReason(id);
+        }
+
+        if (WriteCommandIds.IsCaption(id))
+        {
+            return CaptionReason(id);
+        }
+
+        if (WriteCommandIds.IsCrossReference(id))
+        {
+            return CrossReferenceReason(id);
+        }
+
+        if (WriteCommandIds.IsToc(id))
+        {
+            return TocReason(id);
         }
 
         if (WriteCommandIds.IsTable(id))
@@ -235,6 +259,38 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
 
         return ObjectWording.ReasonText((objectFacts?.Invoke(id) ?? ObjectCommandFacts.Permissive).Block);
     }
+
+    // The reason the bookmark command (the Links group of the References tab) is disabled, or null when it may run. The block comes first, a save included (the card lists and changes the bookmarks of the model as it is
+    // now), then the prefix document; what a name or a selection lacks is the card's to say, never a disabled command.
+    private string? BookmarkReason(string id)
+    {
+        switch (State.Blocked)
+        {
+            case EditBlockedReason.StillOpening:
+                return WriteStrings.ReasonEditOpening;
+            case EditBlockedReason.Faulted:
+                return WriteStrings.EditUnavailable;
+            case EditBlockedReason.Saving:
+                return WriteStrings.ReasonEditSaving;
+            default:
+                break;
+        }
+
+        return ObjectWording.ReasonText((objectFacts?.Invoke(id) ?? ObjectCommandFacts.Permissive).Block);
+    }
+
+    // The reason the caption command (the Captions group of the References tab) is disabled, or null when it may run. The same ladder as the bookmark command: the block first, a save included (the caption is placed
+    // from the model as it is now), then what the place says (a prefix document, a caret in a table of contents, a header, a footer, a note, a comment or a one-line content control); the facts are read only while editing
+    // is not blocked. What the card asks (the label, the text, the chapter number) is the card's to say, never a disabled command.
+    private string? CaptionReason(string id) => BookmarkReason(id);
+
+    // The reason the cross-reference command (the Links group of the References tab) is disabled, or null when it may run: the same ladder (the block first, a save included, then what the place says); what the card asks for
+    // (a type, a target, a choice) is the card's to say, never a disabled command.
+    private string? CrossReferenceReason(string id) => BookmarkReason(id);
+
+    // The reason a table of contents command (the Table of contents group of the References tab) is disabled, or null when it may run: the same ladder (the block first, a save included, then what the place says: a prefix
+    // document, a caret in a table of contents or a place that takes none for Insert, a caret outside a table of contents for Remove); what the card asks for (the levels, the kind) is the card's to say, never a disabled command.
+    private string? TocReason(string id) => BookmarkReason(id);
 
     // The reason a table command (the grid of the Insert tab and the Table tab) is disabled, or null when it may run. The block comes first, a save included (the commands read the cells from the model as it is
     // now), then what the place says (a prefix document, the writing view for the width commands, a caret outside a table, the editor's refusal); the facts are read only while editing is not blocked.

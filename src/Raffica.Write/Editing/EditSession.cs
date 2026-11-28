@@ -61,11 +61,11 @@ internal sealed partial class EditSession
     private readonly Dispatcher _ui;
     private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key, bool Typing)> _queue = [];
     private readonly RefreshableFormat _format = new();
-    private ((WordDocument Model, int Revision, TextRange Range) Key, FormatFacts Facts)? _facts;
-    private ((WordDocument Model, int Revision, TextRange Range) Key, InspectorView? View)? _inspected;
-    private ((WordDocument Model, int Revision, TextRange Range) Key, ListFacts Facts)? _listed;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, FormatFacts Facts)? _facts;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, InspectorView? View)? _inspected;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, ListFacts Facts)? _listed;
     private object? _numberingSeen;
-    private ((WordDocument Model, int Revision, TextRange Range) Key, SelectionFormat Format)? _shown;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, SelectionFormat Format)? _shown;
     private (SelectionFormat Base, IReadOnlyList<PropertyChange> Pending, SelectionFormat Result)? _overlay;
     private bool _selectionDirty;
     private TextEditor? _editor;
@@ -239,6 +239,7 @@ internal sealed partial class EditSession
             if (value == LayoutMode.Pages && !_tab.IsDisposed)
             {
                 _tab.Runner.RebuildPageLayoutIfStale();
+                WakeFields();
             }
         }
     }
@@ -257,13 +258,13 @@ internal sealed partial class EditSession
 
     /// <summary>
     /// The facts the rules of the formatting commands need about <paramref name="range"/> (see <see cref="TextEditor.ReadFormatFacts"/>, which bounds the read for a large selection). The answer
-    /// is remembered for the model, its revision and the range, so every further question while nothing of the three changed (a scroll, a zoom, the next command asked) costs nothing; a
+    /// is remembered for the model, its edit stamp (revision and derived version) and the range, so every further question while nothing of the three changed (a scroll, a zoom, the next command asked) costs nothing; a
     /// selection change, an edit (a style edit raises the revision too) or a new model reads again. Call it on the UI thread and only while <see cref="CanEdit"/>.
     /// </summary>
     public FormatFacts ReadFormatFacts(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_facts is { } known && known.Key.Equals(key))
         {
             return known.Facts;
@@ -277,12 +278,12 @@ internal sealed partial class EditSession
 
     /// <summary>
     /// What the formatting pane lists for <paramref name="range"/> (see <see cref="TextEditor.InspectBounded"/>): null when the selection touches more blocks than the pane reads. The answer is
-    /// remembered for the model, its revision and the range, so asking again while none of the three changed costs nothing. Call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// remembered for the model, its edit stamp and the range, so asking again while none of the three changed costs nothing. Call it on the UI thread and only while <see cref="CanEdit"/>.
     /// </summary>
     public InspectorView? ReadInspector(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_inspected is { } known && known.Key.Equals(key))
         {
             return known.View;
@@ -302,13 +303,13 @@ internal sealed partial class EditSession
 
     /// <summary>
     /// What the list commands need to know about <paramref name="range"/> (see <see cref="TextEditor.ReadListFacts"/>, which builds story-wide data and is not remembered by the editor). The answer is
-    /// remembered for the model, its revision and the range, so asking again while none of the three changed costs nothing. Call it on the UI thread and only while <see cref="CanEdit"/>, and never
+    /// remembered for the model, its edit stamp and the range, so asking again while none of the three changed costs nothing. Call it on the UI thread and only while <see cref="CanEdit"/>, and never
     /// from the key path: it is asked by the debounced refresh of the ribbon.
     /// </summary>
     public ListFacts ReadListFacts(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_listed is { } known && known.Key.Equals(key))
         {
             return known.Facts;
@@ -325,13 +326,13 @@ internal sealed partial class EditSession
 
     /// <summary>
     /// The formatting of <paramref name="range"/> as the ribbon shows it (see <see cref="SelectionFormat"/>), with the pending format on top at a caret. The read of the model is remembered for the
-    /// model, its revision and the range, so every further question while nothing of the three changed costs nothing, and it never walks more than <see cref="TextEditor.MaxFactBlocks"/> blocks
+    /// model, its edit stamp and the range, so every further question while nothing of the three changed costs nothing, and it never walks more than <see cref="TextEditor.MaxFactBlocks"/> blocks
     /// (a larger selection shows everything as mixed). Call it on the UI thread and only while <see cref="CanEdit"/>.
     /// </summary>
     public SelectionFormat ReadSelectionFormat(TextRange range)
     {
         var model = _tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_shown is not { } known || !known.Key.Equals(key))
         {
             var covered = Editor.ReadCovered(range);
@@ -432,6 +433,7 @@ internal sealed partial class EditSession
             }
 
             Mark(EditPhases.Changed, stamp);
+            PublishFieldNotice();
             stamp = Stamp();
             RaiseSelectionChanged();
             RaiseObjectSelectionChanged();
@@ -561,6 +563,7 @@ internal sealed partial class EditSession
                 Changed?.Invoke();
             }
 
+            PublishFieldNotice();
             RaiseSelectionChanged();
             RaiseObjectSelectionChanged();
         }
@@ -576,17 +579,29 @@ internal sealed partial class EditSession
     {
         var stamp = Stamp();
         var editor = Bind();
+        var model = _tab.Docx.Model;
+        var derivedBefore = model.Edits.Stamp.DerivedVersion;
         var result = operation(editor);
         NoteNumbering(_tab.Docx.Model);
         Mark(EditPhases.Operation, stamp);
+
+        // The derived version moved and the result does not say why (a refused undo that rolled a derived record back swaps equal clones into the document): the layout still shows the old objects, so it starts over.
+        var unexplained = model.Edits.Stamp.DerivedVersion != derivedBefore && result?.DerivedChanges is null;
         if (result is null)
         {
+            if (unexplained)
+            {
+                changed = true;
+                NoteForFields(null, resync: true);
+                ResyncLayout(throughPage);
+            }
+
             return null;
         }
 
         var styled = result.Style is not null;
         var sectioned = result.Sections is not null;
-        if (result.Changes.Count == 0 && !styled && !sectioned)
+        if (result.Changes.Count == 0 && !styled && !sectioned && result.DerivedChanges is null && !unexplained)
         {
             if (result.Selected is { } selected)
             {
@@ -606,6 +621,7 @@ internal sealed partial class EditSession
 
         // The model has changed now: whatever happens next, the view must hear of it.
         changed = true;
+        NoteForFields(result, unexplained);
         if (result.Objects is { } objects && (objects.MediaAdded.Count > 0 || objects.MediaRemoved.Count > 0))
         {
             _picturesChanged = true;
@@ -625,7 +641,7 @@ internal sealed partial class EditSession
         Mark(EditPhases.Selection, stamp);
 
         var runner = _tab.Runner;
-        var active = _activeMode == LayoutMode.Flow ? runner.FlowLayout : (runner.PageLayoutIsStale ? null : runner.PageLayout);
+        var active = ActiveLayout;
         stamp = Stamp();
         try
         {
@@ -637,7 +653,7 @@ internal sealed partial class EditSession
                     // as for a style, and the block changes (a carrier paragraph) are not applied into it either. Nothing else is rebuilt: the editor's format does not read sections.
                     active.Resection(throughPage);
                 }
-                else if (styled)
+                else if (styled || unexplained)
                 {
                     // Restyle starts the layout over on a fresh engine that reads the model as it is now, block changes included: applying the block changes into it as well
                     // would plan the same blocks twice, so they are not applied (the oracle gates of the formatting steps do the same).
@@ -645,7 +661,7 @@ internal sealed partial class EditSession
                 }
                 else
                 {
-                    foreach (var change in result.Changes)
+                    foreach (var change in result.ChangesInApplyOrder())
                     {
                         active.ApplyEdit(change, throughPage);
                     }
@@ -677,6 +693,133 @@ internal sealed partial class EditSession
             _format.Invalidate(model);
         }
     }
+
+    /// <summary>The layout the next edit follows (pages, or strips in the writing view); null while the pages layout is stale.</summary>
+    internal DocumentLayout? ActiveLayout => _activeMode == LayoutMode.Flow ? _tab.Runner.FlowLayout : (_tab.Runner.PageLayoutIsStale ? null : _tab.Runner.PageLayout);
+
+    /// <summary>The projection host of the active layout for a paragraph: what the layout counts as the text of a field result there.</summary>
+    internal IProjectionHost ProjectionHostFor(StoryRef story, Paragraph paragraph) => Host(story, paragraph);
+
+    // The layout starts over on the model as it is now (its objects were swapped for equal clones, or it is unknown which blocks changed); a failure faults the session as for an edit.
+    private void ResyncLayout(int throughPage)
+    {
+        var runner = _tab.Runner;
+        try
+        {
+            ActiveLayout?.Restyle(throughPage);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            runner.FailEdit(ex);
+            DropOther(runner);
+            throw;
+        }
+
+        DropOther(runner);
+    }
+
+    // What the field refresh has to look at after the operations of one batch: the blocks they changed, or everything (a style or section change, or a layout that had to start over).
+    private List<BlockChange>? _fieldTouched;
+    private bool _fieldAll;
+
+    private void NoteForFields(EditResult? result, bool resync)
+    {
+        if (!_tab.RefreshesFields)
+        {
+            return;
+        }
+
+        if (resync || result is null || result.Style is not null || result.Sections is not null)
+        {
+            _fieldAll = true;
+            return;
+        }
+
+        (_fieldTouched ??= []).AddRange(result.Changes);
+        if (result.DerivedChanges is { } derived)
+        {
+            _fieldTouched.AddRange(derived);
+        }
+    }
+
+    // The pages view is back: a refresh runner the tab already has (a mode switch makes none) brings the page results current that it could not read in the writing view. It only restarts its timer; nothing is refreshed here.
+    private void WakeFields()
+    {
+        if (!_tab.RefreshesFields)
+        {
+            return;
+        }
+
+        try
+        {
+            _tab.Fields?.PagesBack();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The refresh is a convenience: it must never break the switch of the view.
+            _tab.FieldWiringFailures++;
+        }
+    }
+
+    // Once per batch, after Changed: tells the tab's refresh runner (made here on the first edit) which blocks changed. It only stores them and restarts a timer; nothing is refreshed in the key handler.
+    private void PublishFieldNotice()
+    {
+        if (_fieldTouched is null && !_fieldAll)
+        {
+            return;
+        }
+
+        var touched = _fieldAll ? null : _fieldTouched;
+        _fieldTouched = null;
+        _fieldAll = false;
+        if (_tab.IsDisposed || !_tab.RefreshesFields)
+        {
+            return;
+        }
+
+        try
+        {
+            _tab.EnsureFields().Notify(touched);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The refresh is a convenience: it must never break the edit that asked for it.
+            _tab.FieldWiringFailures++;
+        }
+    }
+
+    /// <summary>
+    /// A field refresh rewrote the results of <paramref name="content"/> (under the lease, on the UI thread): the selection follows them (a position inside a replaced result goes to its start, one behind it moves with it). Raises
+    /// <see cref="SelectionChanged"/> when it moved. Not an edit: nothing is recorded and the pending format stays.
+    /// </summary>
+    internal void FollowDerivedContent(IReadOnlyList<BlockChange> content)
+    {
+        VerifyAccess();
+        if (_selection is not { } selection || content.Count == 0)
+        {
+            return;
+        }
+
+        var moved = new TextRange(FieldPositions.Follow(selection.Start, content), FieldPositions.Follow(selection.End, content));
+        if (SameSelection(selection, moved))
+        {
+            return;
+        }
+
+        _selection = moved;
+        _selectionDirty = true;
+        RaiseSelectionChanged();
+    }
+
+    /// <summary>The style sheet gained styles outside an edit (a field refresh added entry styles): the editor's format, whose resolver snapshots the styles, is made again.</summary>
+    internal void FollowAddedStyles()
+    {
+        VerifyAccess();
+        _format.Invalidate(_tab.Docx.Model);
+    }
+
+    /// <summary>Drops the layout the session does not follow (needs the edit lease): a refresh changed the model, so the other view is made again from it on its next use.</summary>
+    internal void DropInactiveLayout() => DropOther(_tab.Runner);
 
     private void DropOther(LayoutRunner runner)
     {

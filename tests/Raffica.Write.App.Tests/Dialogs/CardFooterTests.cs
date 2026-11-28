@@ -31,6 +31,10 @@ public sealed class CardFooterTests
         yield return ("TablePropertiesCard.Create", () => TablePropertiesCard.Create(new TablePropertiesContext(new TablePropertiesFacts([2000, 2000], 4000, false, 0, false, 0, 0), false), _ => { }));
         yield return ("PictureInsertCard.Create", () => PictureInsertCard.Create(_ => { }));
         yield return ("PicturePropertiesCard.Create", () => PicturePropertiesCard.Create(new PicturePropertiesContext(2000, 1000, string.Empty, "inline", false, true, false), _ => { }));
+        yield return ("BookmarkCard.Create", () => BookmarkCard.Create(new BookmarkContext(["Intro", "Summary"], ["Intro", "Summary", "_Ref1"]), _ => { }));
+        yield return ("CaptionCard.Create", () => CaptionCard.Create(new CaptionContext(["Figure", "Table", "Equation"], "Figure", true, label => label), _ => { }));
+        yield return ("TocCard.Create", () => TocCard.Create(new TocContext(["Figure", "Table"], true), _ => { }));
+        yield return ("CrossReferenceCard.Create", () => CrossReferenceCard.Create(new CrossRefContext(_ => [new CrossRefTarget(CrossRefTargetKind.Heading, new TextPosition(StoryRef.Body, new Paragraph(), 0), "Introduction")], CrossRefTargetKind.Heading), _ => { }));
     }
 
     // The button that Enter presses on each card: the safe answer, never Overwrite or Don't save.
@@ -47,6 +51,10 @@ public sealed class CardFooterTests
         ["TablePropertiesCard.Create"] = "PART_Ok",
         ["PictureInsertCard.Create"] = "PART_Ok",
         ["PicturePropertiesCard.Create"] = "PART_Ok",
+        ["BookmarkCard.Create"] = "PART_Ok",
+        ["CaptionCard.Create"] = "PART_Ok",
+        ["TocCard.Create"] = "PART_Ok",
+        ["CrossReferenceCard.Create"] = "PART_Ok",
     };
 
     private static List<Button> Buttons(Dialog dialog) => [.. Assert.IsType<StackPanel>(dialog.Footer).Children.OfType<Button>()];

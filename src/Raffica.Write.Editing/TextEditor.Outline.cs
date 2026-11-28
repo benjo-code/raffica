@@ -43,6 +43,11 @@ public sealed partial class TextEditor
             return null;
         }
 
+        if (TocRefusesIndices(top, firstBlock, lastBlock, FieldRefusalKind.PartOfToc))
+        {
+            return null;
+        }
+
         var plan = PlanOutlineShift(top, firstBlock, lastBlock, delta, out _);
         if (plan is null || plan.Count == 0)
         {

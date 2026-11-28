@@ -106,6 +106,7 @@ internal sealed partial class PageView : Control, IDisposable
         _runner.Changed += OnRunnerChanged;
         _runner.Faulted += OnRunnerFaulted;
         tab.Disposing += Release;
+        tab.PageInView = LastPageInView;
         TextInputMethodClientRequested += OnImeRequested;
         if (mode == WriteView.Writing)
         {
@@ -262,6 +263,11 @@ internal sealed partial class PageView : Control, IDisposable
         _runner.Changed -= OnRunnerChanged;
         _runner.Faulted -= OnRunnerFaulted;
         _tab.Disposing -= Release;
+        if (_tab.PageInView == LastPageInView)
+        {
+            _tab.PageInView = null;
+        }
+
         _images.Decoded -= OnPicturesDecoded;
         _prefetchNext = null;
         CancelPrefetch();
@@ -275,6 +281,10 @@ internal sealed partial class PageView : Control, IDisposable
     }
 
     // Layout.
+
+    // The last page in view of the layout of a mode, for a field refresh that tells that layout of its results (WriteTab.PageInView); 0 while the view shows the other mode or has built nothing. It reads the scroll state as it is and changes nothing.
+    private int LastPageInView(LayoutMode mode) =>
+        ToLayoutMode(_mode) == mode && _scrollerMode == _mode && _scroller is { Count: > 0 } scroller ? scroller.PageAt(_offsetY + _viewport.Height) : 0;
 
     private static LayoutMode ToLayoutMode(WriteView view) => view == WriteView.Writing ? LayoutMode.Flow : LayoutMode.Pages;
 

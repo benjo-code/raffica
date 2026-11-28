@@ -705,6 +705,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             ForgetOutline(tab);
             ForgetFormatting(tab);
             ForgetRecovery(tab);
+            ForgetFields(tab);
             Tabs.Items.Remove(tab.Tab);
         }
 
@@ -737,6 +738,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         }
 
         DocumentPane.Content = area;
+        SyncFieldsBar();
     }
 
     /// <summary>The start view while no tab is open (no status bar), else the document view with the frame parts that exist.</summary>

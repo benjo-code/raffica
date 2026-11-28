@@ -7,7 +7,7 @@ namespace Raffica.Write.Editing;
 /// Makes the paragraphs of a clipboard fragment fit to be copied or pasted. Both directions drop what must never travel on its own: a
 /// section break, <c>w14:paraId</c> and <c>w14:textId</c>, bookmarks and comment range markers (a comment goes only through its own
 /// command and a bookmark name is unique), comment references and tracked changes (the accepted text stays as plain runs, deleted text
-/// goes). A paste also flattens what cannot be pasted as itself: a field becomes its current result text, a picture, a note reference and
+/// goes). A paste also flattens what cannot be pasted as itself: a field becomes its current result text (except a complete, supported <c>SEQ</c> or <c>STYLEREF</c> field, which stays a field: a caption keeps its number), a picture, a note reference and
 /// a drawing become nothing, a content control becomes its content, and, unless the paste is into the
 /// same part of the document it was copied from (relationship ids belong to a part), a link with a relationship id becomes its text and
 /// unknown inline or run content with any attribute of the relationships namespace is dropped. Into another document a style id the
@@ -55,11 +55,12 @@ internal static class FragmentCleaner
             }
         }
 
-        var fields = new List<bool>();
+        var fields = new List<FieldFrame>();
+        options.KeptFields = options.Paste ? KeptFieldsOf(paragraph) : null;
         Walk(paragraph.Inlines, options, fields);
     }
 
-    private static void Walk(IList<Inline> list, Options options, List<bool> fields)
+    private static void Walk(IList<Inline> list, Options options, List<FieldFrame> fields)
     {
         var output = new List<Inline>(list.Count);
         foreach (var inline in list)
@@ -74,7 +75,7 @@ internal static class FragmentCleaner
         }
     }
 
-    private static void Emit(Inline inline, List<Inline> output, Options options, List<bool> fields)
+    private static void Emit(Inline inline, List<Inline> output, Options options, List<FieldFrame> fields)
     {
         switch (inline)
         {
@@ -105,7 +106,7 @@ internal static class FragmentCleaner
                 }
 
                 break;
-            case SimpleField field when options.Paste:
+            case SimpleField field when options.Paste && !IsKeptSimpleField(field):
                 foreach (var child in field.Inlines)
                 {
                     Emit(child, output, options, fields);
@@ -132,10 +133,45 @@ internal static class FragmentCleaner
         }
     }
 
+    // The complete fields of the paragraph a paste keeps as fields: a SEQ or STYLEREF Write supports, whole (begin, instruction, separate, result and end), at the top level of the paragraph, holding no other field and
+    // outside a tracked change. The keys are the begin characters. Everything else flattens to its result text, as does a field the fragment cut off.
+    private static HashSet<FieldChar>? KeptFieldsOf(Paragraph paragraph)
+    {
+        var infos = FieldScanner.Scan(paragraph.Inlines, intoContentControls: true);
+        HashSet<FieldChar>? kept = null;
+        foreach (var info in infos)
+        {
+            if (info.Simple is not null || info.Parent is not null || !info.IsComplete || info.InTrackedChange || info.BeginRun is null || info.SeparateRun is null || info.EndRun is null)
+            {
+                continue;
+            }
+
+            if (!KeepsKind(info.Instruction) || infos.Any(other => ReferenceEquals(other.Parent, info)))
+            {
+                continue;
+            }
+
+            if (info.BeginRun.Content.OfType<FieldChar>().FirstOrDefault(c => c.Kind == FieldCharKind.Begin) is { } begin)
+            {
+                (kept ??= new HashSet<FieldChar>(ReferenceEqualityComparer.Instance)).Add(begin);
+            }
+        }
+
+        return kept;
+    }
+
+    private static bool IsKeptSimpleField(SimpleField field) => KeepsKind(field.Instruction);
+
+    private static bool KeepsKind(string instruction)
+    {
+        var support = FieldSupport.Of(FieldInstruction.Parse(instruction));
+        return support.IsSupported && support.Kind is FieldKind.Seq or FieldKind.StyleRef;
+    }
+
     private static bool IsAnchorLike(XName name) =>
         name.NamespaceName == W.NamespaceName && (name.LocalName.EndsWith("RangeStart", StringComparison.Ordinal) || name.LocalName.EndsWith("RangeEnd", StringComparison.Ordinal) || name.LocalName.StartsWith("perm", StringComparison.Ordinal));
 
-    private static void CleanRun(Run run, Options options, List<bool> fields)
+    private static void CleanRun(Run run, Options options, List<FieldFrame> fields)
     {
         if (options.Paste)
         {
@@ -162,7 +198,7 @@ internal static class FragmentCleaner
         }
     }
 
-    private static bool Keep(RunContent content, Options options, List<bool> fields)
+    private static bool Keep(RunContent content, Options options, List<FieldFrame> fields)
     {
         if (content is DeletedText or CommentReference)
         {
@@ -176,28 +212,32 @@ internal static class FragmentCleaner
 
         switch (content)
         {
-            case FieldChar { Kind: FieldCharKind.Begin }:
-                fields.Add(false);
-                return false;
+            case FieldChar { Kind: FieldCharKind.Begin } begin:
+                var frame = new FieldFrame(options.KeptFields?.Contains(begin) == true);
+                fields.Add(frame);
+                return frame.Kept;
             case FieldChar { Kind: FieldCharKind.Separate }:
                 if (fields.Count > 0)
                 {
-                    fields[^1] = true;
+                    fields[^1].Separated = true;
+                    return fields[^1].Kept;
                 }
 
                 return false;
             case FieldChar:
                 if (fields.Count > 0)
                 {
+                    var closed = fields[^1];
                     fields.RemoveAt(fields.Count - 1);
+                    return closed.Kept;
                 }
 
                 return false;
             case InstructionText:
-                return false;
+                return fields.Count > 0 && fields[^1] is { Kept: true, Separated: false };
         }
 
-        if (fields.Contains(false))
+        if (fields.Any(f => !f.Separated))
         {
             return false;
         }
@@ -245,9 +285,20 @@ internal static class FragmentCleaner
         return false;
     }
 
+    // One open complex field of a paste: whether it stays a field and whether its separate was seen.
+    private sealed class FieldFrame(bool kept)
+    {
+        public bool Kept { get; } = kept;
+
+        public bool Separated { get; set; }
+    }
+
     private sealed record Options(bool Paste, bool SameDocument, bool SameRelationships, Func<string, bool>? StyleExists)
     {
         /// <summary>The pictures and drawings a paste left out (counted so that the caller can say so).</summary>
         public int DrawingsDropped { get; set; }
+
+        /// <summary>The begin characters of the complex fields the paste keeps (see <see cref="KeptFieldsOf"/>).</summary>
+        public HashSet<FieldChar>? KeptFields { get; set; }
     }
 }

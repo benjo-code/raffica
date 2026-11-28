@@ -377,7 +377,8 @@ internal sealed partial class Measurement
         if (_jobs is null)
         {
             // The background run starts as soon as the whole model is there, with the layout of the rest still running; the others wait for the complete layout.
-            if (!view.Runner.FullModelReady || (!_background && !view.IsLayoutComplete))
+            // The preparation of the fields runs waits for the layout itself, step by step (PrepareFields).
+            if (!view.Runner.FullModelReady || (!_background && _fieldsSetup == 0 && !view.IsLayoutComplete))
             {
                 if (_waitStarted == 0)
                 {
@@ -391,6 +392,11 @@ internal sealed partial class Measurement
                 }
 
                 NextTypingFrame();
+                return;
+            }
+
+            if ((_fieldsRun || _typingFieldsRun) && !PrepareFields(view))
+            {
                 return;
             }
 
@@ -470,9 +476,29 @@ internal sealed partial class Measurement
                 NextTypingFrame();
                 return;
             }
+            else if (_fieldsRun)
+            {
+                // The refresh that completes the change is timed before the undo (see FinishFieldsSample).
+                _fieldsAfter = 1;
+                NextTypingFrame();
+                return;
+            }
+            else if (_typingFieldsRun && _keyInJob % FieldKeysPerPause == 0)
+            {
+                // The user pauses: the refresh the keys asked for runs now.
+                BeginSettle(view);
+                _fieldsPause = true;
+                NextTypingFrame();
+                return;
+            }
         }
 
         if (_fullPending && !WaitForSectionsLayout(view))
+        {
+            return;
+        }
+
+        if ((_fieldsAfter > 0 && !FinishFieldsSample(view)) || (_fieldsPause && !FinishTypingPause(view)))
         {
             return;
         }
@@ -481,7 +507,7 @@ internal sealed partial class Measurement
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : _structureRun ? "structure" : _sectionsRun ? "sections" : _objectsRun ? "objects" : _gestureRun ? "gesture" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : _structureRun ? "structure" : _sectionsRun ? "sections" : _objectsRun ? "objects" : _gestureRun ? "gesture" : _fieldsRun ? "fields" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
             }
 
             if (_job is not null && _paneRun)
@@ -507,6 +533,16 @@ internal sealed partial class Measurement
             if (_job is not null && _sectionsRun)
             {
                 WriteSectionsExtras();
+            }
+
+            if (_job is not null && _fieldsRun)
+            {
+                WriteFieldsSettle();
+            }
+
+            if (_job is not null && _typingFieldsRun)
+            {
+                WriteTypingFieldsRefresh();
             }
 
             if (_jobIndex >= _jobs.Count)
@@ -540,7 +576,11 @@ internal sealed partial class Measurement
             _leaseSamples.Clear();
             _incompleteSamples.Clear();
             _fullSamples.Clear();
-            _placeStage = 0;
+            _settleFlushSamples.Clear();
+            _settleFullSamples.Clear();
+            _settlePasses = 0;
+            // A case of the fields run places itself for every sample (SendFields): an undo may replace paragraph objects, so it reads them from the body again.
+            _placeStage = _fieldsRun ? 2 : 0;
         }
 
         if (view.Mode != _job.View)
@@ -598,6 +638,10 @@ internal sealed partial class Measurement
             else if (_gestureRun)
             {
                 SendGesture(view, formatKind["gesture-".Length..]);
+            }
+            else if (_fieldsRun)
+            {
+                SendFields(view, formatKind["fields-".Length..]);
             }
             else
             {
@@ -749,6 +793,16 @@ internal sealed partial class Measurement
             return PlanGesture(view);
         }
 
+        if (_fieldsRun)
+        {
+            return PlanFields(view);
+        }
+
+        if (_typingFieldsRun)
+        {
+            return PlanTypingFields(view);
+        }
+
         var layout = view.Runner.PageLayout;
         var places = _typingObjectsRun ? PickTypingObjects(view) : TypingPlaces.Pick(view.Tab.Docx.Model, layout);
         var jobs = new List<Job>();
@@ -845,7 +899,7 @@ internal static class TypingPlaces
             }
         }
 
-        foreach (var i in Enumerable.Range(1, Math.Max(0, blocks.Count - 1)).Where(i => blocks[i] is Paragraph { SectionBreak: not null }).OrderBy(i => Math.Abs(i - middleIndex)))
+        foreach (var i in Enumerable.Range(1, Math.Max(0, blocks.Count - 1)).Where(i => blocks[i] is Paragraph { SectionBreak: not null }).Where(i => !FieldView.IsInTableOfContents(blocks, i - 1)).OrderBy(i => Math.Abs(i - middleIndex)))
         {
             if (blocks[i - 1] is Paragraph before && before.SectionBreak is null && Length(StoryRef.Body, before) > 0)
             {

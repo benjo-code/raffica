@@ -29,6 +29,7 @@ public sealed partial class TextEditor
     private readonly WordDocument _document;
     private readonly Func<StoryRef, Paragraph, IProjectionHost> _hosts;
     private readonly IEffectiveFormat? _format;
+    private readonly TocIndex _tocs;
 
     /// <summary>
     /// Makes an editor. The optional parameters come in the order <paramref name="time"/>, <paramref name="limits"/>, <paramref name="format"/>; a caller
@@ -42,6 +43,7 @@ public sealed partial class TextEditor
         _document = document;
         _hosts = hosts;
         _format = format;
+        _tocs = new TocIndex(document.Edits);
         History = new EditHistory(document, time ?? TimeProvider.System, limits ?? HistoryLimits.Default);
     }
 
@@ -68,11 +70,17 @@ public sealed partial class TextEditor
     private EditResult InsertCore(TextRange selection, string text, IReadOnlyList<PropertyChange>? typingFormat)
     {
         ArgumentNullException.ThrowIfNull(text);
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         var lines = TextBoundaries.Lines(text);
         if (Resolve(selection) is not { } span)
         {
             return NoChange(selection.Start);
+        }
+
+        if (TocRefusalOf(span) is { } tocRefusal)
+        {
+            return RefuseToc(span, tocRefusal);
         }
 
         // In a text, combo box, drop-down list or date control a line break is a w:br or nothing, never a new paragraph.
@@ -155,6 +163,7 @@ public sealed partial class TextEditor
     /// <summary>Removes the selection. Paragraphs it spans are merged: the first paragraph's properties win unless it is left empty, then the last one's.</summary>
     public EditResult Delete(TextRange selection)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         if (Resolve(selection) is not { } span)
         {
@@ -180,11 +189,17 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? Backspace(TextPosition caret, DeleteUnit unit)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
         var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
+        if (SelectTocNextTo(caret, story, container, index, offset, text.Length, forward: false) is { } tocSelected)
+        {
+            return tocSelected;
+        }
+
         if (offset == 0)
         {
             if (RemoveListAtStart(story, container, index, caret.Paragraph, revision) is { } unlisted)
@@ -219,11 +234,17 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? DeleteForward(TextPosition caret, DeleteUnit unit)
     {
+        LastFieldRefusal = null;
         var revision = History.BeginOperation();
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
         var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
+        if (SelectTocNextTo(caret, story, container, index, offset, text.Length, forward: true) is { } tocSelected)
+        {
+            return tocSelected;
+        }
+
         if (offset == text.Length)
         {
             if (index + 1 < container.Count && container[index + 1] is Paragraph next)
@@ -245,8 +266,13 @@ public sealed partial class TextEditor
         return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index, caret.Paragraph, end), revision, new EditHistory.Point(index, offset));
     }
 
-    /// <summary>Replaces the selection with a paragraph break (on an empty list paragraph, Enter ends the list instead: see <see cref="ToggleList"/>): the second paragraph has the properties of the first and takes what follows the caret.</summary>
-    public EditResult SplitParagraph(TextRange selection) => (selection.IsEmpty ? EndEmptyListItem(selection.Start) : null) ?? InsertText(selection, "\n");
+    /// <summary>
+    /// Replaces the selection with a paragraph break (on an empty list paragraph, Enter ends the list instead: see <see cref="ToggleList"/>): the second paragraph has the properties of the first and takes what follows the caret.
+    /// At an outer edge of a table of contents, where nothing else may be typed, it makes room instead: at the end edge a plain paragraph after the field (it takes the section break of the paragraph that holds the end of the
+    /// field), and at the start edge of a field that is first in its body, cell or content control a plain paragraph above it, with the caret in the new paragraph in both cases.
+    /// </summary>
+    public EditResult SplitParagraph(TextRange selection) =>
+        (selection.IsEmpty ? SplitAtTocEdge(selection.Start) ?? EndEmptyListItem(selection.Start) : null) ?? InsertText(selection, "\n");
 
     // The first Backspace or Delete next to a field: it selects the unit and changes nothing; the caller deletes the selection next.
     private static EditResult Select(TextPosition caret, (int Start, int End) unit) =>
@@ -428,7 +454,19 @@ public sealed partial class TextEditor
                 InsertRange(item.Run.Content, item.Index, replacement);
                 break;
             case PointKind.AfterContent:
-                InsertRange(map.Items[point.Flat].Run.Content, map.Items[point.Flat].Index + 1, contents);
+                var previous = map.Items[point.Flat];
+                // Text right after a field never goes into the run of its end mark: a run that holds the end mark and other content cannot take a new result (FieldWriter), so the field would never be updated again.
+                if (previous.Content is FieldChar { Kind: FieldCharKind.End } && previous.Index == previous.Run.Content.Count - 1)
+                {
+                    var next = MakeRun(paragraph, previous.Run);
+                    InsertRange(next.Content, 0, contents);
+                    previous.Owner.Insert(previous.Owner.IndexOf(previous.Run) + 1, next);
+                }
+                else
+                {
+                    InsertRange(previous.Run.Content, previous.Index + 1, contents);
+                }
+
                 break;
             case PointKind.BeforeContent:
                 InsertRange(map.Items[point.Flat].Run.Content, map.Items[point.Flat].Index, contents);
@@ -722,6 +760,7 @@ public sealed partial class TextEditor
         }
 
         EditRules.KillUnknownBetween(map, lowest, highest, kill);
+        KillFieldsBetween(map, lowest, highest, kill, simpleKill);
 
         var touched = new HashSet<Run>();
         foreach (var (flat, cut) in cuts)
@@ -745,6 +784,32 @@ public sealed partial class TextEditor
 
         Prune(map.Paragraph.Inlines, touched);
         return true;
+    }
+
+    // A field with an empty result has no piece a delete could take: one that stands wholly between the removed contents goes with them, as in Word (a bookmark around the deleted text would otherwise stay for a field nobody sees). A field in a
+    // tracked change is left as it is.
+    private static void KillFieldsBetween(ParagraphMap map, int lowest, int highest, HashSet<int> kill, List<SimpleFieldSpan> simpleKill)
+    {
+        var inside = map.ComplexFields.Where(f => f.Begin > lowest && f.End < highest && !kill.Contains(f.Begin)).ToList();
+        var simple = map.SimpleFields.Where(s => s.Start == s.End && s.Start > lowest && s.Start <= highest && !simpleKill.Contains(s)).ToList();
+        if (inside.Count == 0 && simple.Count == 0)
+        {
+            return;
+        }
+
+        var tracked = FieldView.InParagraph(map.Paragraph).Where(f => f.InTrackedChange).ToList();
+        foreach (var (begin, end) in inside)
+        {
+            if (!tracked.Any(f => ReferenceEquals(f.Info!.BeginRun, map.Items[begin].Run)))
+            {
+                for (var i = begin; i <= end; i++)
+                {
+                    kill.Add(i);
+                }
+            }
+        }
+
+        simpleKill.AddRange(simple.Where(s => !tracked.Any(f => ReferenceEquals(f.Info!.Simple, s.Field))));
     }
 
     // Removes the runs that lost their last content and the links, fields and insertions that were left empty by it.
@@ -842,6 +907,12 @@ public sealed partial class TextEditor
             return null;
         }
 
+        if (TocRefusalOf(span) is { } tocRefusal)
+        {
+            LastFieldRefusal = tocRefusal;
+            return null;
+        }
+
         var old = CloneBlocks(span);
         var references = ReferencesIn(span);
         var deleted = DeleteSpan(span);
@@ -882,7 +953,20 @@ public sealed partial class TextEditor
         return false;
     }
 
+    // The text delete and the bookmark rule: a bookmark whose whole range lies in the deleted range is removed with both markers; a bookmark that is only partly deleted keeps them (moved by the anchor rule).
     private Deleted DeleteSpan(Span span)
+    {
+        var inside = EditRules.BookmarksInside(span.Container, span.FirstIndex, span.LastIndex);
+        var deleted = DeleteSpanCore(UnwrapWholeTocs(span));
+        if (inside is not null && deleted.Changed)
+        {
+            EditRules.RemoveEmptiedBookmarks(deleted.Survivor, inside);
+        }
+
+        return deleted;
+    }
+
+    private Deleted DeleteSpanCore(Span span)
     {
         var first = Map(span.Story, span.First);
         var firstLength = first.Projection.Text.Length;

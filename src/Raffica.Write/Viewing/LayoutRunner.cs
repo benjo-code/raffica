@@ -578,6 +578,20 @@ internal sealed class LayoutRunner : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// A pages layout of the current model that belongs to the caller: the runner does not follow it, no view shows it and the tab's own layouts and their stale mark stay as they are (a save in the writing view reads page numbers
+    /// from it). Nothing is laid out yet. Needs the lease of the calling thread; the caller lays it out and brings it up to date while it holds the lease, and lets it go before it gives the lease back.
+    /// </summary>
+    internal DocumentLayout CreateDetachedPageLayout()
+    {
+        lock (_gate)
+        {
+            RequireLease();
+        }
+
+        return DocumentLayout.Create(_tab.Docx.Model, _tab.Fonts, Options(LayoutMode.Pages));
+    }
+
     private void RequireLease()
     {
         if (!_leased || _leaseOwner != Environment.CurrentManagedThreadId)
@@ -732,6 +746,9 @@ internal sealed class LayoutRunner : IDisposable
             throw;
         }
     }
+
+    /// <summary>Tells the owners of the layout (the view, the panes that follow it) that the content changed under them without an edit (a field refresh): <see cref="Changed"/> is raised now, on the UI thread, which the caller is on.</summary>
+    internal void NotifyContentChanged() => RaiseChanged();
 
     // Always reaches the UI thread; used for the events that must not be lost (a layout replaced, the first strip, the end).
     private void PostChanged()

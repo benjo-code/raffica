@@ -7,7 +7,7 @@ namespace Raffica.Write.Layout;
 /// The resolver snapshots the styles when it is made: make a new instance after a style change. A paragraph in a table cell is resolved
 /// with the cell's format as the layout does it. The enclosing cell of every paragraph that is in a table is found by one walk of the tables of that story
 /// (<see cref="TableGeometry.Of"/> once per table; a paragraph outside every table is not stored, its absence is the answer: the walk of the thesis
-/// stored every one of its thousands of paragraphs per revision, which was most of the 3.5 ms of a formatting operation and its garbage collections on a laptop) and remembered for as long as <see cref="DocumentEdits.Revision"/> stays the same:
+/// stored every one of its thousands of paragraphs per revision, which was most of the 3.5 ms of a formatting operation and its garbage collections on a laptop) and remembered for as long as <see cref="DocumentEdits.Stamp"/> stays the same:
 /// every edit that restructures blocks (insert, delete, split, merge, table change, undo, redo) raises the revision and drops the index.
 /// A formatting operation changes properties in place and never moves a block, so one operation reads one index. A paragraph the index
 /// does not know is looked up once more with a fresh walk (once per revision, not when the index was made by this very call) before it counts as outside every table.
@@ -19,7 +19,7 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
     private readonly StyleResolver _resolver = new(document.Styles, document.Settings, document.Numbering);
     private readonly object _gate = new();
     private readonly Dictionary<StoryRef, Dictionary<Paragraph, Place>> _stories = [];
-    private int _revision = int.MinValue;
+    private EditStamp _stamp = new(int.MinValue, int.MinValue);
     private bool _rewalked;
 
     /// <summary>How many story walks were made (for tests: the walks are one per story and revision, not one per call).</summary>
@@ -71,11 +71,11 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
                 return null;
             }
 
-            var revision = _document.Edits.Revision;
-            if (revision != _revision)
+            var stamp = _document.Edits.Stamp;
+            if (stamp != _stamp)
             {
                 _stories.Clear();
-                _revision = revision;
+                _stamp = stamp;
                 _rewalked = false;
             }
 

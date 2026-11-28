@@ -106,7 +106,7 @@ internal sealed record PartIds(string? Default, string? First, string? Even)
 internal sealed record SectionsView(IReadOnlyList<SectionRow> Rows, bool TooMany, int SectionCount, bool LeftRight);
 
 /// <summary>
-/// Reads the sections of a document for the Sections pane, the way the formatting inspector reads a selection: on the UI thread, where the model is edited, remembered for the model, its revision and the page
+/// Reads the sections of a document for the Sections pane, the way the formatting inspector reads a selection: on the UI thread, where the model is edited, remembered for the model, its edit stamp and the page
 /// list it was read with (the same question asks nothing again) and bounded (<see cref="MaximumSections"/>). Nothing exists and nothing is read before the first ask.
 /// </summary>
 internal sealed class SectionsSource
@@ -116,7 +116,7 @@ internal sealed class SectionsSource
 
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-    private (WordDocument Model, int Revision, int[] Pages, SectionsView View)? _memo;
+    private (WordDocument Model, EditStamp Stamp, int[] Pages, SectionsView View)? _memo;
 
     /// <summary>How many times the sections were really read (the memo answers are not counted; tests pin that typing asks for none).</summary>
     internal int Reads { get; private set; }
@@ -141,8 +141,8 @@ internal sealed class SectionsSource
 
     private SectionsView Read(WordDocument document, IReadOnlyList<SectionInfo> sections, IReadOnlyList<int> firstPages)
     {
-        var revision = document.Edits.Revision;
-        if (_memo is { } memo && ReferenceEquals(memo.Model, document) && memo.Revision == revision && memo.Pages.AsSpan().SequenceEqual(firstPages.ToArray()))
+        var stamp = document.Edits.Stamp;
+        if (_memo is { } memo && ReferenceEquals(memo.Model, document) && memo.Stamp == stamp && memo.Pages.AsSpan().SequenceEqual(firstPages.ToArray()))
         {
             return memo.View;
         }
@@ -166,7 +166,7 @@ internal sealed class SectionsSource
             view = new SectionsView(rows, false, sections.Count, leftRight);
         }
 
-        _memo = (document, revision, [.. firstPages], view);
+        _memo = (document, stamp, [.. firstPages], view);
         return view;
     }
 

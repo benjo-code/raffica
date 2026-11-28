@@ -164,4 +164,9 @@
   <StreamGeometry x:Key="Raffica.Icon.TextWrap">M 16 16 l -3 3 3 3 M 3 12 h 14.5 a 1 1 0 0 1 0 7 H 13 M 3 19 h 6 M 3 5 h 18</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.ImageUpscale">M 16 3 h 5 v 5 M 17 21 h 2 a 2 2 0 0 0 2 -2 M 21 12 v 3 M 21 3 l -5 5 M 3 7 V 5 a 2 2 0 0 1 2 -2 M 5 21 l 4.144 -4.144 a 1.21 1.21 0 0 1 1.712 0 L 13 19 M 9 3 h 3 M 4 11 H 12 a 1 1 0 0 1 1 1 V 20 a 1 1 0 0 1 -1 1 H 4 a 1 1 0 0 1 -1 -1 V 12 a 1 1 0 0 1 1 -1 z</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.ImageOff">M 2 2 L 22 22 M 10.41 10.41 a 2 2 0 1 1 -2.83 -2.83 M 13.5 13.5 L 6 21 M 18 12 L 21 15 M 3.59 3.59 A 1.99 1.99 0 0 0 3 5 v 14 a 2 2 0 0 0 2 2 h 14 c .55 0 1.052 -.22 1.41 -.59 M 21 15 V 5 a 2 2 0 0 0 -2 -2 H 9</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Bookmark">M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Captions">M 5 5 H 19 a 2 2 0 0 1 2 2 V 17 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 V 7 a 2 2 0 0 1 2 -2 z M 7 15 h 4 M 15 15 h 2 M 7 11 h 2 M 13 11 h 4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ExternalLink">M 15 3 h 6 v 6 M 10 14 L 21 3 M 18 13 v 6 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 V 8 a 2 2 0 0 1 2 -2 h 6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.TableOfContents">M 16 5 H 3 M 16 12 H 3 M 16 19 H 3 M 21 5 h .01 M 21 12 h .01 M 21 19 h .01</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ListMinus">M 11 12 H 3 M 16 6 H 3 M 16 18 H 3 M 21 12 h -6</StreamGeometry>
 </ResourceDictionary>

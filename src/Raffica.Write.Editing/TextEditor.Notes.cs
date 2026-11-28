@@ -34,6 +34,11 @@ public sealed partial class TextEditor
     /// </summary>
     public EditResult? InsertNote(TextPosition caret, NoteType kind, bool prefixDocument = false)
     {
+        if (TocRefusesAt(caret))
+        {
+            return null;
+        }
+
         if (RefusalForNote(caret, prefixDocument) is not null)
         {
             return null;
@@ -140,7 +145,7 @@ public sealed partial class TextEditor
     // Puts a run of its own into the paragraph at a caret offset (already snapped to a unit edge). The run around the place is cut in two when the place is inside it (neither InlineSplitter nor a hyperlink
     // split is used, so a reference inside a link stays inside it); a place at the edge of a field is outside the field. The run goes next to the visible content that the offset names, never next to hidden
     // content (deleted text, moved-from text): a paragraph with no visible content gets it at its end, in the paragraph itself, where a tracked change cannot hide it.
-    private static void PlaceRun(Paragraph paragraph, ParagraphMap map, int offset, Run placed)
+    private static void PlaceRun(Paragraph paragraph, ParagraphMap map, int offset, Inline placed)
     {
         var point = ResolvePoint(map, offset);
         switch (point.Kind)

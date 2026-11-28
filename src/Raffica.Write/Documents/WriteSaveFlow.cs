@@ -218,6 +218,14 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
             await RecoverySnapshot.WhenIdleAsync(tab.Docx);
         }
 
+        // The field results are brought up to date before the model is read (a refresh is not an edit: the revision, the dirty mark and the history stay as they are). The call finishes synchronously, so no edit can come in between it
+        // and BeginSave below; a save of a document without fields makes no runner.
+        var settle = tab.SettleFieldsAsync(tab.Token);
+        if (!settle.IsCompletedSuccessfully)
+        {
+            await settle;
+        }
+
         var session = tab.EnsureEditor();
         var docx = tab.Docx;
         var model = docx.Model;

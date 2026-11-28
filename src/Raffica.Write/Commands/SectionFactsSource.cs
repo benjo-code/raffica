@@ -59,7 +59,7 @@ internal static class SectionWording
 /// <summary>
 /// Reads <see cref="SectionCommandFacts"/> for the rules and the switches of the Layout tab, lazily per command: nothing exists before the first question, and nothing is read for a tab without an editing
 /// session (only the prefix refusal, a flag of the file, is answered without one). The read walks the top-level blocks of the body once for the section list; a body with more than
-/// <see cref="MaxSections"/> sections is not described (the commands are offered and the operation, which reads the live model, is authoritative). Answers are remembered for the model, its revision and the
+/// <see cref="MaxSections"/> sections is not described (the commands are offered and the operation, which reads the live model, is authoritative). Answers are remembered for the model, its edit stamp and the
 /// selection. The asks come from the refresh of the ribbon, never from the key path.
 /// </summary>
 internal sealed class SectionFactsSource
@@ -69,7 +69,7 @@ internal sealed class SectionFactsSource
 
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-    private ((WordDocument Model, int Revision, TextRange Range) Key, Computed Value)? _known;
+    private ((WordDocument Model, EditStamp Stamp, TextRange Range) Key, Computed Value)? _known;
 
     /// <summary>How many times the section list of the body was read for the facts (tests; 0 before the first ask of a section command).</summary>
     public int Reads { get; private set; }
@@ -94,7 +94,7 @@ internal sealed class SectionFactsSource
         }
 
         var model = tab.Docx.Model;
-        var key = (model, model.Edits.Revision, range);
+        var key = (model, model.Edits.Stamp, range);
         if (_known is not { } known || !known.Key.Equals(key))
         {
             try

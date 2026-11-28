@@ -925,7 +925,7 @@ public sealed class EditCommandTests : IDisposable
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
 
-        Assert.Equal(["File", "Edit", "Format", "Insert", "Table", "Layout", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "Edit", "Format", "Insert", "Table", "Layout", "References", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
         var edit = menu.Menu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Edit").Menu!;
         var items = edit.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).ToList();
         Assert.Equal(["Undo", "Redo", "Cut", "Copy", "Paste", "Select all"], items.Select(i => i.Header!).ToArray());
