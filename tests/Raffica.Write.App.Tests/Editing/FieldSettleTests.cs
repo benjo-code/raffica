@@ -493,6 +493,50 @@ public sealed class FieldSettleTests
         Assert.False(h.Tab.Runner.IsFaulted);
     }
 
+    // A save in the writing view whose pass over its own pages adds an entry style (headings of a second level arrived, which the file has no style for): the pages it reads the numbers from start over on the new style sheet, so the
+    // numbers in the file are those of a layout made from scratch.
+    [AvaloniaFact]
+    public async Task ASaveInTheWritingViewThatAddsAnEntryStyleWritesTheNumbersOfPagesThatKnowIt()
+    {
+        using var h = await FieldHarness.OpenAsync(bytes: FieldTestDocument.LongTocBytes());
+        var model = h.Tab.Docx.Model;
+        var session = h.Tab.EnsureEditor();
+        session.ActiveMode = LayoutMode.Flow;
+        h.Tab.Runner.EnsureFlow();
+        await ViewHarness.WaitAsync(() => h.Tab.Runner.FlowLayout is { IsComplete: true }, 30000);
+
+        // A first edit and its tick: the writing view owes the page results from now on, and the style of the first level is made.
+        var last = (Paragraph)model.Body.Blocks[^1];
+        Assert.NotNull(session.Apply(e => e.InsertText(new TextRange(new TextPosition(StoryRef.Body, last, 0), new TextPosition(StoryRef.Body, last, 0)), "x"), 0));
+        // The tick waits for a complete layout of the view (the edit left it to the background).
+        await h.FireAsync();
+        Assert.NotNull(model.Styles!.Find("TOC1"));
+        Assert.Null(model.Styles.Find("TOC2"));
+        Assert.Equal(0, h.Tab.Fields!.SettlePageLayouts);
+
+        // Every second chapter becomes a section: its entry names a level the file has no style for.
+        var headings = model.Body.Blocks.OfType<Paragraph>().Where(p => p.Properties.StyleId == "Heading1").ToList();
+        foreach (var heading in headings.Where((_, i) => i % 2 == 1))
+        {
+            var at = new TextPosition(StoryRef.Body, heading, 0);
+            Assert.NotNull(session.Apply(e => e.ApplyParagraphStyle(new TextRange(at, at), "Heading2"), 0));
+        }
+
+        Assert.Null(model.Styles.Find("TOC2"));
+        var save = new ManualSave(h);
+
+        var path = await save.SaveAsAsync("writing-style.docx");
+
+        Assert.Equal(1, h.Tab.Fields!.SettlePageLayouts);
+        Assert.Equal(0, h.Tab.Fields.Failures);
+        Assert.Equal(LayoutMode.Flow, session.ActiveMode);
+        await AssertSavedPagesAsync(h.Tab, path, [.. Enumerable.Range(1, FieldTestDocument.LongChapters).Select(i => "Chapter " + i.ToString(System.Globalization.CultureInfo.InvariantCulture))]);
+        using var again = DocxFile.Open(path);
+        var entries = again.Model.Body.Blocks.OfType<Paragraph>().Where(p => TextOf(p).Contains('\t', StringComparison.Ordinal)).Select(p => p.Properties.StyleId!).ToList();
+        Assert.Equal(["TOC1", "TOC2"], entries.Distinct());
+        Assert.All(entries, id => Assert.NotNull(again.Model.Styles!.Find(id)));
+    }
+
     // A save that owes no page result lays nothing out: only order-based results (SEQ), and a field Write leaves alone.
     [AvaloniaFact]
     public async Task ASaveInTheWritingViewWithNoPageResultsLaysNothingOut()

@@ -853,6 +853,31 @@ public sealed class FieldRefreshRunnerTests
         Assert.Equal(Distance(fresh, first, second), Distance(h.Tab.Runner.PageLayout, first, second));
     }
 
+    // A pass that added a style and changed no block (it failed right after making it, or says so alone): the layouts start over, and the view is told as for a result it rewrote.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task APassThatOnlyAddedAStyleIsFollowedAndTold(bool fails)
+    {
+        using var h = await FieldHarness.OpenAsync();
+        h.Type("a");
+        var runner = h.Tab.Fields!;
+        var told = 0;
+        var layouts = 0;
+        h.Tab.ModelEdited += () => told++;
+        runner.AfterApply = _ => layouts++;
+        runner.Refresher = (_, _, _, _) => fails
+            ? throw new FieldRefreshException([], new InvalidOperationException("test")) { StylesAdded = true }
+            : new FieldRefreshResult([], null, 0, 0, true, StylesAdded: true);
+
+        h.Clock.Fire();
+
+        Assert.Equal(1, layouts);
+        Assert.Equal(1, told);
+        Assert.Equal(fails ? 1 : 0, runner.Failures);
+        Assert.False(h.Tab.Runner.IsFaulted);
+    }
+
     // What the list says: the stored text of every paragraph of the first list (enough to tell that nothing was rewritten).
     private static string ModelBytes(WriteTab tab) =>
         TocRefresh.Find(tab.Docx.Model.Body.Blocks) is [var site, ..]

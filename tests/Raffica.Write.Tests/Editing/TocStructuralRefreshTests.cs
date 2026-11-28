@@ -32,9 +32,10 @@ public sealed class TocStructuralRefreshTests
         + Run(result)
         + "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>";
 
+    // TOC1 is defined: the hand-written lists name it, as every list of Word names a style the file has.
     private static string Styles()
     {
-        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>";
+        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style><w:style w:type=\"paragraph\" w:styleId=\"TOC1\"><w:name w:val=\"toc 1\"/><w:basedOn w:val=\"Normal\"/></w:style>";
         for (var i = 1; i <= 9; i++)
         {
             styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr><w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";

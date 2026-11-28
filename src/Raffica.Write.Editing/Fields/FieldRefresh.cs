@@ -72,7 +72,7 @@ internal static class FieldRefresh
             {
                 var known = state.Finish();
                 known.AddRange(tocs.Changes);
-                Announce(document, known);
+                Announce(document, known, tocs.StylesAdded);
                 partial = known;
                 partialRecord = tocs.Structural.Count > 0 ? new DerivedRecord([.. tocs.Structural]) : null;
             }
@@ -89,7 +89,7 @@ internal static class FieldRefresh
             changes.AddRange(pass.Changes);
         }
 
-        Announce(document, changes);
+        Announce(document, changes, tocs.StylesAdded);
 
         var notUpdated = state.NotUpdated + (targets is null ? OtherStories(document) + (pass?.NotUpdated ?? 0) : 0);
         var record = pass is { Structural.Count: > 0 } ? new DerivedRecord([.. pass.Structural]) : null;
@@ -142,9 +142,10 @@ internal static class FieldRefresh
         return false;
     }
 
-    private static void Announce(WordDocument document, List<BlockChange> changes)
+    // Styles added by a pass change what the document says even when no block changed (a pass that failed after making them): the stamp moves for them too, so nothing keeps an answer read from the old style sheet.
+    private static void Announce(WordDocument document, List<BlockChange> changes, bool stylesAdded)
     {
-        if (changes.Count > 0)
+        if (changes.Count > 0 || stylesAdded)
         {
             document.Edits.RaiseDerived();
             document.Edits.AttributeDerived(changes);

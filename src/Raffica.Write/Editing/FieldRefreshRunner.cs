@@ -321,6 +321,8 @@ internal sealed class FieldRefreshRunner : IDisposable
         _all = false;
         _pending = false;
         var content = new List<BlockChange>();
+        // Entry styles a pass added, with or without a changed block: the layouts started over, and what shows the document is told as for a rewritten result.
+        var restyled = false;
         var layoutFailed = false;
         var reported = false;
         _running = true;
@@ -404,6 +406,7 @@ internal sealed class FieldRefreshRunner : IDisposable
                 {
                     // The walk wrote part of the results before it failed: the layout is told of them now (under the lease), then the failure is handled like any other and the refresh is tried again.
                     content.AddRange(partial.Content);
+                    restyled |= partial.StylesAdded;
                     layoutFailed = true;
                     ApplyToLayout(partial.Content, partial.StylesAdded, forSettle);
                     layoutFailed = false;
@@ -444,6 +447,7 @@ internal sealed class FieldRefreshRunner : IDisposable
                 if (last.Content.Count > 0 || last.StylesAdded)
                 {
                     content.AddRange(last.Content);
+                    restyled |= last.StylesAdded;
                     layoutFailed = true;
                     ApplyToLayout(last.Content, last.StylesAdded, forSettle);
                     layoutFailed = false;
@@ -554,7 +558,7 @@ internal sealed class FieldRefreshRunner : IDisposable
         }
 
         // What the owners of the document do with the news is theirs: a subscriber that throws is counted and does not stop the others, the save or the timer.
-        if (content.Count > 0 && !_disposed && !_tab.IsDisposed)
+        if ((content.Count > 0 || restyled) && !_disposed && !_tab.IsDisposed)
         {
             Guarded(() => _tab.Editor?.FollowDerivedContent(content));
             Guarded(_tab.NotifyFieldsRefreshed);

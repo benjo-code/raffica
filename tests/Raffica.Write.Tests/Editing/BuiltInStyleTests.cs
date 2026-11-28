@@ -1,6 +1,8 @@
 using System.Xml.Linq;
+using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Model;
+using Raffica.Write.Tests.Layout;
 using Raffica.Write.Tests.Support;
 using Xunit;
 using static Raffica.Write.Tests.Support.GermanDocuments;
@@ -194,6 +196,129 @@ public sealed class BuiltInStyleTests
 
         Assert.Equal(["TOC1"], Styles(document));
         Assert.Equal(count, document.Styles.Styles.Count);
+    }
+
+    // ---- an empty list, and what comes into it later ----------------------------------------------------------------------------------------
+
+    private static string OneHeadingStyles => Standard() + Headings(numbered: false) + Style("Beschriftung", "caption");
+
+    // Every paragraph of the saved file names a style the file defines, or none.
+    private static void AssertNoUndefinedStyle(WordDocument document) =>
+        Assert.All(ModelWalk.Blocks(document.Body.Blocks).OfType<Paragraph>().Select(p => p.Properties.StyleId).OfType<string>(), id => Assert.NotNull(document.Styles?.Find(id)));
+
+    private static async Task<DocxFile> SavedAndReadAgainAsync(DocxFile file, TempFolder folder, string name)
+    {
+        var path = folder.File(name);
+        await file.SaveAsync(path, TestContext.Current.CancellationToken);
+        return DocxFile.Open(path);
+    }
+
+    [Theory]
+    [InlineData("TOC \\o \"1-3\" \\h \\z", false)]
+    [InlineData("TOC \\h \\z \\c \"Figure\"", true)]
+    public async Task AListRefreshedWhileEmptyStillGetsItsEntryStyleLater(string instruction, bool figures)
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("empty.docx");
+        DocxBuilder.WithStyles(path, StaleToc(instruction) + Text("Alpha"), LayoutModel.StylesPart(OneHeadingStyles));
+        using var file = DocxFile.Open(path);
+        var editor = Editor(file.Model);
+
+        // Nothing to list: the sentence stands there, and it names no style the file lacks.
+        Refresh(editor, file.Model);
+
+        Assert.Equal(ReferenceToc.Sentence, TextOf(TocDocuments.Entries(file.Model)[0]));
+        using (var empty = await SavedAndReadAgainAsync(file, folder, "still-empty.docx"))
+        {
+            AssertNoUndefinedStyle(empty.Model);
+        }
+
+        var last = file.Model.Body.Blocks.Count - 1;
+        Assert.NotNull(figures
+            ? editor.InsertCaption(At(file.Model, last), "Figure", string.Empty, CaptionPlace.Below, false, "Figure")
+            : editor.ApplyParagraphStyle(new TextRange(At(file.Model, last), At(file.Model, last)), "berschrift1"));
+        Refresh(editor, file.Model);
+
+        using var again = await SavedAndReadAgainAsync(file, folder, "filled.docx");
+        AssertNoUndefinedStyle(again.Model);
+        var entry = Assert.Single(TocDocuments.Entries(again.Model));
+        var style = again.Model.Styles!.Find(entry.Properties.StyleId!)!;
+        Assert.Equal(figures ? "table of figures" : "toc 1", style.Name);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AListInsertedWhileEmptyGetsItsEntryStyle(bool figures)
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("insert.docx");
+        DocxBuilder.WithStyles(path, Text("here") + Text("Alpha"), LayoutModel.StylesPart(OneHeadingStyles));
+        using var file = DocxFile.Open(path);
+        var editor = Editor(file.Model);
+
+        Assert.NotNull(editor.InsertToc(At(file.Model, 0, 4), new TocOptions(1, 3, true, true, TocLeader.Dots, figures ? "Figure" : null), new FakeFieldHost(file.Model)));
+        var last = file.Model.Body.Blocks.Count - 1;
+        Assert.NotNull(figures
+            ? editor.InsertCaption(At(file.Model, last), "Figure", string.Empty, CaptionPlace.Below, false, "Figure")
+            : editor.ApplyParagraphStyle(new TextRange(At(file.Model, last), At(file.Model, last)), "berschrift1"));
+        Refresh(editor, file.Model);
+
+        using var again = await SavedAndReadAgainAsync(file, folder, "filled.docx");
+        AssertNoUndefinedStyle(again.Model);
+        var entry = Assert.Single(TocDocuments.Entries(again.Model));
+        Assert.Equal(figures ? "table of figures" : "toc 1", again.Model.Styles!.Find(entry.Properties.StyleId!)!.Name);
+    }
+
+    // Without a style sheet no style can be made: the sentence of an empty list then names none.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TheSentenceOfAListInADocumentWithoutStylesNamesNoStyle(bool figures)
+    {
+        var inserted = TocDocument.Document(TocDocument.Plain("here"));
+        Assert.NotNull(Editor(inserted).InsertToc(At(inserted, 0, 4), new TocOptions(1, 3, true, true, TocLeader.Dots, figures ? "Figure" : null), new FakeFieldHost(inserted)));
+        Assert.Null(TocDocuments.Entries(inserted)[0].Properties.StyleId);
+
+        var refreshed = LayoutModel.Document(StaleToc(figures ? "TOC \\h \\c \"Figure\"" : "TOC \\o \"1-3\" \\h") + Text("Alpha"));
+        Refresh(Editor(refreshed), refreshed);
+        Assert.Null(TocDocuments.Entries(refreshed)[0].Properties.StyleId);
+    }
+
+    // A pass that added a style and failed before it changed a block has changed the document all the same: whatever keys on the stamp must read again.
+    [Fact]
+    public void AFailedPassThatAddedAStyleMovesTheStamp()
+    {
+        var document = Document(
+            StaleToc("TOC \\o \"1-1\" \\h", "plain") + P("<w:bookmarkStart w:id=\"1\" w:name=\"_Toc1\"/>" + Run("Alpha") + "<w:bookmarkEnd w:id=\"1\"/>", "berschrift1"),
+            styles: OneHeadingStyles + Style("plain", "Plain"));
+        var before = document.Edits.Stamp;
+
+        var failure = Assert.Throws<FieldRefreshException>(() => Editor(document).RefreshFields(new NoPageHost(new FakeFieldHost(document)), RefreshScope.WithPages));
+
+        Assert.Empty(failure.Content);
+        Assert.True(failure.StylesAdded);
+        Assert.NotNull(document.Styles!.Find("TOC1"));
+        Assert.NotEqual(before, document.Edits.Stamp);
+        Assert.Equal(before.Revision, document.Edits.Revision);
+    }
+
+    // A host whose pages cannot be read: the entries of a list fail after its styles were added.
+    private sealed class NoPageHost(FakeFieldHost inner) : IFieldHost
+    {
+        public bool IsComplete => true;
+
+        public string? NumberLabel(Paragraph paragraph) => inner.NumberLabel(paragraph);
+
+        public string? ChapterNumber(Paragraph paragraph) => inner.ChapterNumber(paragraph);
+
+        public bool LabelEndsInTab(Paragraph paragraph) => inner.LabelEndsInTab(paragraph);
+
+        public LineGeometry MeasureLine(Paragraph paragraph, string text) => inner.MeasureLine(paragraph, text);
+
+        public (int PageIndex, string PageText)? PageOf(TextPosition position) => throw new InvalidOperationException("test");
+
+        public string? NoteMarkText(int noteId, NoteType type) => inner.NoteMarkText(noteId, type);
     }
 
     // ---- rule 1: which styles are heading styles --------------------------------------------------------------------------------------------

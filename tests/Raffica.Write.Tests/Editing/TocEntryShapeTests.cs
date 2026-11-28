@@ -725,6 +725,7 @@ public sealed class TocEntryShapeTests
         $"<w:p><w:pPr><w:pStyle w:val=\"TOC{entry.Level}\"/></w:pPr>{Start(instruction.Replace("\"&#10;\"", "\"&#10;\"", StringComparison.Ordinal))}<w:hyperlink w:anchor=\"{entry.Anchor}\">{Run(entry.Text)}</w:hyperlink></w:p>" + End();
 
     // Heading1 to Heading9, Normal (11 points, as in a document of Write) and Word's TOC2 and TOC3 indents; numbered documents give Heading1 to Heading3 the list "1.", "1.1." and "1.1.1.". <paramref name="tocStyles"/> replaces the indented TOC2 and TOC3.
+    // A TOC1 without properties of its own is added unless the styles given define one: the hand-written lists name it, as every list of Word names a style the file has.
     private static WordDocument Doc(string body, bool numbered = false, string extraStyles = "", string? tocStyles = null)
     {
         var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\"/><w:sz w:val=\"22\"/></w:rPr></w:style>"
@@ -735,6 +736,11 @@ public sealed class TocEntryShapeTests
         {
             var number = numbered && i <= 3 ? $"<w:numPr><w:ilvl w:val=\"{i - 1}\"/><w:numId w:val=\"1\"/></w:numPr>" : string.Empty;
             styles += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{number}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
+        }
+
+        if (!(styles + extraStyles).Contains("w:styleId=\"TOC1\"", StringComparison.Ordinal))
+        {
+            styles += "<w:style w:type=\"paragraph\" w:styleId=\"TOC1\"><w:name w:val=\"toc 1\"/><w:basedOn w:val=\"Normal\"/></w:style>";
         }
 
         var numbering = "<w:abstractNum w:abstractNumId=\"0\"><w:lvl w:ilvl=\"0\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.\"/></w:lvl>"

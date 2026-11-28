@@ -54,18 +54,15 @@ internal static class ReferenceStyles
     public static string? BuiltIn(WordDocument document, string name) =>
         document.Styles?.Styles.FirstOrDefault(s => s.Id.Length > 0 && IsBuiltIn(s) && string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase))?.Id;
 
-    /// <summary>The id the entries of that level, or of a list of figures, must have: the one of the built-in style, else the first id of Word's own name followed by nothing, 1, 2, ... that no style has.</summary>
-    public static string EntryStyle(WordDocument document, int level, bool figures)
-    {
-        var number = level.ToString(CultureInfo.InvariantCulture);
-        if (BuiltIn(document, figures ? "table of figures" : "toc " + number) is { } id)
-        {
-            return id;
-        }
+    /// <summary>The name of the built-in style of the entries of that level, or of a list of figures.</summary>
+    public static string EntryName(int level, bool figures) => figures ? "table of figures" : "toc " + level.ToString(CultureInfo.InvariantCulture);
 
-        var wanted = figures ? "TableofFigures" : "TOC" + number;
-        return Enumerable.Range(0, 100).Select(n => n == 0 ? wanted : wanted + n.ToString(CultureInfo.InvariantCulture)).First(free => First(document, free) is null);
-    }
+    /// <summary>
+    /// The id an entry of that level, or of a list of figures, must name: the one of the built-in style, which the document has to define (null when it does not, which no entry may name). A document without a style sheet can define
+    /// none; its entries name Word's own id.
+    /// </summary>
+    public static string? EntryStyle(WordDocument document, int level, bool figures) =>
+        document.Styles is null ? (figures ? "TableofFigures" : "TOC" + level.ToString(CultureInfo.InvariantCulture)) : BuiltIn(document, EntryName(level, figures));
 
     private static Style? First(WordDocument document, string id) => document.Styles?.Styles.FirstOrDefault(s => s.Id == id);
 

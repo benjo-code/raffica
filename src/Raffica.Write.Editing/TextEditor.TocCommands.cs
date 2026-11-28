@@ -39,12 +39,12 @@ public sealed partial class TextEditor
 
     /// <summary>
     /// Inserts a table of contents (or a list of figures or tables when <paramref name="options"/> names a label) as one history step: the field <c>TOC \o "a-b" \h \z \u</c> (<c>\n</c> without page numbers,
-    /// <c>\h \z \c "label"</c> for a list), its entries in the styles <c>toc 1</c> to <c>toc 9</c> (<c>table of figures</c>), found by name; made as companions of the step when the document lacks them, see <see cref="EditResult.Style"/>, one
-    /// paragraph each, the begin, the instruction and the separate in the first paragraph and the end in the last, or the sentence of an empty list when there is no entry. An empty paragraph at <paramref name="at"/> is replaced; otherwise the
-    /// paragraphs go above the paragraph when the position is its start and below it elsewhere. When no block would follow the field in its body, cell or content control, an empty paragraph goes after it (the edges of the
-    /// field take no text). Every heading (caption) an entry points at gets a hidden <c>_Toc</c> bookmark, a derived change of the step (the paragraphs it
-    /// changed swap with the step on undo and redo). The page numbers are those <paramref name="host"/> knows (<c>?</c> until the page results are refreshed). The caret ends at the end of the field. Returns null, and changes
-    /// nothing, when the options or the place are refused (<see cref="LastTocRefusal"/>). A stale position throws <see cref="StalePositionException"/> before anything changes.
+    /// <c>\h \z \c "label"</c> for a list) and its entries, one paragraph each, with the begin, the instruction and the separate in the first paragraph and the end in the last. A list with no entry holds the sentence of an empty
+    /// one. Each entry has the style of its level (the built-in <c>toc 1</c> to <c>toc 9</c>, or <c>table of figures</c> for a list), found by name; the styles of the list's levels that the document lacks are made as companions of the
+    /// step (see <see cref="EditResult.Style"/>). An empty paragraph at <paramref name="at"/> is replaced; otherwise the paragraphs go above the paragraph when the position is its start and below it elsewhere. When no block would
+    /// follow the field in its body, cell or content control, an empty paragraph goes after it (the edges of the field take no text). Every heading (caption) an entry points at gets a hidden <c>_Toc</c> bookmark, a derived change
+    /// of the step (the paragraphs it changed swap with the step on undo and redo). The page numbers are those <paramref name="host"/> knows (<c>?</c> until the page results are refreshed). The caret ends at the end of the field.
+    /// Returns null, and changes nothing, when the options or the place are refused (<see cref="LastTocRefusal"/>). A stale position throws <see cref="StalePositionException"/> before anything changes.
     /// </summary>
     public EditResult? InsertToc(TextPosition at, TocOptions options, IFieldHost host, bool prefixDocument = false)
     {

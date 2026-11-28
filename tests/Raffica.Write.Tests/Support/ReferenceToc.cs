@@ -13,8 +13,8 @@ namespace Raffica.Write.Tests.Support;
 /// </summary>
 internal sealed record ExpectedEntry(Paragraph Heading, int Level, string Line, bool Page, bool LabelTab = false);
 
-/// <summary>A table of contents of the body with the entries the oracle expects (the sentence of an empty one is <see cref="Sentence"/>) and what stands before their page numbers.</summary>
-internal sealed record ExpectedToc(IList<Block> Container, int First, int Last, bool TailOnly, bool Links, bool Figures, IReadOnlyList<ExpectedEntry> Entries, string Separator);
+/// <summary>A table of contents of the body with the entries the oracle expects (the sentence of an empty one is <see cref="Sentence"/>), what stands before their page numbers and the first level it asks for.</summary>
+internal sealed record ExpectedToc(IList<Block> Container, int First, int Last, bool TailOnly, bool Links, bool Figures, IReadOnlyList<ExpectedEntry> Entries, string Separator, int FirstLevel);
 
 /// <summary>
 /// The entries of the tables of contents of a document's body, counted from the model alone: its own walk over the headings (and captions), its own reading of the visible text and the outline levels, and its own check of what
@@ -196,7 +196,7 @@ internal static class ReferenceToc
             separator = value.Length == 0 ? " " : value[..(char.IsHighSurrogate(value[0]) && value.Length > 1 ? 2 : 1)];
         }
 
-        found.Add(new ExpectedToc(container, first, last, tailOnly, instruction.Has("h"), label is not null, entries, separator));
+        found.Add(new ExpectedToc(container, first, last, tailOnly, instruction.Has("h"), label is not null, entries, separator, label is null ? from : 1));
     }
 
     // A paragraph mark that is neither hidden nor a tracked deletion, and in the shown runs no page break and nothing but text, tabs, line and column breaks, references and field marks.
@@ -361,7 +361,11 @@ internal static class ReferenceToc
             Assert.True(count == wanted, $"{label}: a table of contents has {count} entry paragraphs, the headings give {wanted}");
             if (toc.Entries.Count == 0)
             {
-                Assert.Equal(german ? GermanSentence : Sentence, Stored((Paragraph)toc.Container[toc.First]));
+                var sentence = (Paragraph)toc.Container[toc.First];
+                Assert.Equal(german ? GermanSentence : Sentence, Stored(sentence));
+                // The sentence names the entry style of the first level when the document defines it, else none: never a style the document lacks.
+                var defined = ReferenceStyles.BuiltIn(document, ReferenceStyles.EntryName(toc.FirstLevel, toc.Figures));
+                Assert.True(sentence.Properties.StyleId == defined, $"{label}: the sentence of an empty table of contents has the style {sentence.Properties.StyleId ?? "(none)"}, not {defined ?? "(none)"}");
                 continue;
             }
 
@@ -375,12 +379,12 @@ internal static class ReferenceToc
                     entry.Page ? (page is null ? line.StartsWith(entry.Line + toc.Separator, StringComparison.Ordinal) && line.Length > entry.Line.Length + toc.Separator.Length : line == entry.Line + toc.Separator + page) : line == entry.Line,
                     $"{label}: entry {k} of a table of contents reads another line than the heading (expected length {entry.Line.Length}, stored length {line.Length}, page {entry.Page})");
                 var style = ReferenceStyles.EntryStyle(document, entry.Level, toc.Figures);
-                Assert.True(paragraph.Properties.StyleId == style, $"{label}: entry {k} of a table of contents has the style {paragraph.Properties.StyleId}, not {style}");
+                Assert.True(style is not null && paragraph.Properties.StyleId == style, $"{label}: entry {k} of a table of contents has the style {paragraph.Properties.StyleId}, not the entry style the document defines ({style ?? "none"})");
                 if (entry.LabelTab)
                 {
                     var own = StopKinds(paragraph.Properties.Get(W + "tabs"));
                     var inherited = new List<string>();
-                    var current = document.Styles?.Find(style);
+                    var current = document.Styles?.Find(style!);
                     for (var depth = 0; current is not null && depth < 32; depth++)
                     {
                         inherited.AddRange(StopKinds(current.ParagraphProperties.Get(W + "tabs")));

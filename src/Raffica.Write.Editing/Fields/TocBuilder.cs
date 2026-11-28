@@ -347,8 +347,10 @@ internal static class TocBuilder
         var paragraphs = new List<Paragraph>(Math.Max(1, entries.Count));
         if (entries.Count == 0)
         {
+            // The sentence names its entry style only when the document has it (Word writes it in the default style): a list refreshed while empty must not name a style that is not there, or the refresh that finds something
+            // to list would take that name for the file's own choice and never make the style (see TocRefresh).
             var sentence = new Paragraph();
-            sentence.Properties.StyleId = styles.EntryStyleId(spec.FirstLevel, spec.IsFigureList);
+            sentence.Properties.StyleId = styles.ExistingEntryStyleId(spec.FirstLevel, spec.IsFigureList);
             if (tabsOf(null, sentence) is { } own)
             {
                 sentence.Properties.Set(W + "tabs", own);
